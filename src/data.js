@@ -1,0 +1,203 @@
+/*
+ * vim: set tw=78 et ts=4 sw=4 si fileencoding=utf-8:
+ *
+ * WideSky API data type handler.
+ * (C) 2017 VRT Systems
+ */
+"use strict";
+
+var jsesc = require('jsesc');
+
+/**
+ * Project Haystack Ref data type.  A reference to another entity.
+ */
+var Ref = function(str) {
+    var space = str.indexOf(' ');
+
+    if (str instanceof Ref) {
+        /* Clone constructor */
+        this.id = str.id;
+        this.dis = str.dis;
+    } else if (str.startsWith('r:')) {
+        this.id = str.substring(2, space);
+        this.dis = str.substring(space+1);
+    } else if (str.startsWith('@')) {
+        this.id = str.substring(1, space);
+        this.dis = JSON.parse(str.substring(space+1));
+    } else {
+        this.id = str;
+        this.dis = '';
+    }
+};
+
+Ref.prototype.toHSJSON = function() {
+    var res = 'r:' + this.id;
+    if (this.dis) {
+        res += ' ' + this.dis;
+    }
+    return res;
+};
+
+Ref.prototype.toHSZINC = function() {
+    var res = '@' + this.id;
+    if (this.dis) {
+        res += ' ' + this.dis.toHSZINC();
+    }
+    return res;
+};
+
+/**
+ * Parsing of strings from JSON or ZINC.
+ */
+String.fromHS = function(str) {
+    if (str.startsWith('s:') || str.startsWith('u:')) {
+        return str.substring(2);    /* JSON */
+    } else if (str.startsWith('"') && str.endsWith('"')) {
+        return JSON.parse(str);     /* ZINC; close enough to normal JSON */
+    } else {
+        return str;
+    }
+};
+
+/**
+ * Augment the standard string type to support emitting Project Haystack JSON.
+ */
+String.prototype.toHSJSON = function() {
+    return 's:' + this;
+};
+
+/**
+ * Augment the standard string type to support emitting Project Haystack ZINC.
+ */
+String.prototype.toHSZINC = function() {
+    return jsesc(this, {quotes: 'double', wrap: true});
+};
+
+/**
+ * Parsing of dates from JSON or ZINC.
+ */
+Date.fromHS = function(str) {
+    var space = str.indexOf(' ');
+    if (space >= 0) {
+        str = str.substring(space);
+    }
+
+    if (str.startsWith('t:')) {
+        str = str.substring(2);    /* JSON */
+    }
+    return (new Date (Date.parse(str)));
+};
+
+/**
+ * Augment the standard date type to support emitting Project Haystack JSON.
+ */
+Date.prototype.toHSJSON = function() {
+    return 't:' + this.toJSON() + ' UTC';
+};
+
+/**
+ * Augment the standard date type to support emitting Project Haystack ZINC.
+ */
+Date.prototype.toHSZINC = function() {
+    return this.toJSON() + ' UTC';
+};
+
+/**
+ * Project Haystack ZINC number regular expression.  Not perfect, but it'll do
+ * for now.
+ */
+const HS_ZINC_NUM = /^(-?\d+|-?\d+\.\d+|-?\d+[eE]\d+|-?\d+\.\d+[eE]\d+|-?\d+[eE]\d+)(.*)/;
+
+/**
+ * Project Haystack Number data type
+ */
+var HSNumber = function(str) {
+    if (str instanceof HSNumber) {
+        /* Copy constructor */
+        this.value = str.value;
+        this.unit = str.unit;
+    } else if (typeof str === 'number') {
+        /* Cast constructor */
+        this.value = str;
+        this.unit = undefined;
+    } else if (str.startsWith('n:')) {
+        var space = str.indexOf(' ');
+        var strnum = null;
+        var unit = undefined;
+
+        if (space >= 0) {
+            strnum = str.substring(2,space);
+            unit = str.substring(space+1);
+        } else {
+            strnum = str.substring(2);
+        }
+
+        if (strnum.indexOf('.') >= 0) {
+            this.value = Number.parseFloat(strnum);
+            this.unit = unit;
+        } else {
+            this.value = Number.parseInt(strnum);
+            this.unit = unit;
+        }
+    } else {
+        var m = str.match(HS_ZINC_NUM);
+        if (m[1].indexOf('.') >= 0) {
+            this.value = Number.parseFloat(m[1]);
+        } else {
+            this.value = Number.parseInt(m[1]);
+        }
+        this.unit = (m[2] || undefined);
+    }
+};
+
+/**
+ * Emit Project Haystack JSON.
+ */
+HSNumber.prototype.toHSJSON = function() {
+    var res = 'n:' + this.value.toString();
+    if (this.unit !== undefined) {
+        res += ' ' + this.unit;
+    }
+    return res;
+};
+
+/**
+ * Emit Project Haystack ZINC.
+ */
+HSNumber.prototype.toHSZINC = function() {
+    var res = this.value.toString();
+    if (this.unit !== undefined) {
+        res += this.unit;
+    }
+    return res;
+};
+
+/**
+ * Parsing of numbers from JSON or ZINC
+ */
+Number.fromHS = function(str) {
+    return new HSNumber(str);
+};
+
+/**
+ * Augment the standard number type to support emitting Project Haystack JSON.
+ */
+Number.prototype.toHSJSON = function() {
+    return (new HSNumber(this)).toHSJSON();
+};
+
+/**
+ * Augment the standard number type to support emitting Project Haystack ZINC.
+ */
+Number.prototype.toHSZINC = function() {
+    return (new HSNumber(this)).toHSZINC();
+};
+
+/* Exported symbols */
+module.exports = {
+    Ref: Ref,
+    HSNumber: HSNumber,
+    String: String,
+    Number: Number,
+    Date: Date
+};
