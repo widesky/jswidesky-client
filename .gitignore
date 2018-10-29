@@ -1,0 +1,7 @@
+# Node modules
+node_modules/
+# vi swapfiles, various editors' back-up files
+.*.swp
+*.swp
+*~
+*.bkp
