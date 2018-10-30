@@ -225,17 +225,24 @@ Number.fromHS = function(str) {
 };
 
 /**
+ * Augment the standard number type to support conversion to a HSNumber.
+ */
+Number.prototype.toHSNumber = function(unit) {
+    return new HSNumber(this, unit);
+};
+
+/**
  * Augment the standard number type to support emitting Project Haystack JSON.
  */
 Number.prototype.toHSJSON = function() {
-    return (new HSNumber(this)).toHSJSON();
+    return this.toHSNumber().toHSJSON();
 };
 
 /**
  * Augment the standard number type to support emitting Project Haystack ZINC.
  */
 Number.prototype.toHSZINC = function() {
-    return (new HSNumber(this)).toHSZINC();
+    return this.toHSNumber().toHSZINC();
 };
 
 /* Exported symbols */
