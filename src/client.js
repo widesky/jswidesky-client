@@ -408,7 +408,7 @@ WideSkyClient.prototype.update = function (entities) {
  */
 WideSkyClient.prototype.deleteById = function(ids) {
     if (((typeof ids) === 'string') || (ids.length === 1)) {
-        if (!((typeof ids) === string)) {
+        if (!((typeof ids) === 'string')) {
             ids = ids[0];
         }
 
