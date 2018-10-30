@@ -5,3 +5,6 @@ node_modules/
 *.swp
 *~
 *.bkp
+# nyc (istanbul) output
+coverage/
+.nyc_output/
