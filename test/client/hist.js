@@ -218,23 +218,23 @@ describe('client', () => {
                         method: 'POST',
                         uri: '/api/hisWrite',
                         body: {
-                            meta: {ver: "2.0", id: "r:my.id"},
+                            meta: {ver: "2.0"},
                             cols: [
                                 {name: "ts"},
-                                {name: "val"}
+                                {name: "v0", id: "r:my.id"}
                             ],
                             rows: [
                                 {
                                     ts: "t:2016-01-01T00:00Z UTC",
-                                    val: "n:234.56"
+                                    v0: "n:234.56"
                                 },
                                 {
                                     ts: "t:2016-01-02T00:00Z UTC",
-                                    val: "n:123.45"
+                                    v0: "n:123.45"
                                 },
                                 {
                                     ts: "t:2016-02-01T00:00Z UTC",
-                                    val: "n:631.42"
+                                    v0: "n:631.42"
                                 }
                             ]
                         }
@@ -250,10 +250,104 @@ describe('client', () => {
             });
 
             return ws.hisWrite(
-                'my.id', {
-                    't:2016-01-02T00:00Z UTC': 'n:123.45',
-                    't:2016-01-01T00:00Z UTC': 'n:234.56',
-                    't:2016-02-01T00:00Z UTC': 'n:631.42'
+                {
+                    't:2016-01-02T00:00Z UTC': {
+                        'r:my.id': 'n:123.45'
+                    },
+                    't:2016-01-01T00:00Z UTC': {
+                        'r:my.id': 'n:234.56'
+                    },
+                    't:2016-02-01T00:00Z UTC': {
+                        'r:my.id': 'n:631.42'
+                    }
+                }
+            ).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+
+        it('should support multiple points', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            /* We expect the following requests */
+            let requestHandlers = [
+                /* First up, an authentication request */
+                stubs.authHandler(),
+                /* The read request is next */
+                (options) => {
+                    expect(options).to.eql({
+                        baseUrl: WS_URI,
+                        headers: {
+                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                            Accept: 'application/json'
+                        },
+                        json: true,
+                        method: 'POST',
+                        uri: '/api/hisWrite',
+                        body: {
+                            meta: {ver: "2.0"},
+                            cols: [
+                                {name: "ts"},
+                                {name: "v0", id: "r:my.pt.a"},
+                                {name: "v1", id: "r:my.pt.b"},
+                                {name: "v2", id: "r:my.pt.c"}
+                            ],
+                            rows: [
+                                {
+                                    ts: "t:2016-01-01T00:00Z UTC",
+                                    v0: "n:223466",
+                                    v1: "n:176485"
+                                },
+                                {
+                                    ts: "t:2016-01-02T00:00Z UTC",
+                                    v0: "n:347347",
+                                    v1: "n:123456",
+                                    v2: "n:175332"
+                                },
+                                {
+                                    ts: "t:2016-02-01T00:00Z UTC",
+                                    v0: "n:623672",
+                                    v2: "n:623457"
+                                },
+                                {
+                                    ts: "t:2016-02-02T00:00Z UTC",
+                                    v1: "n:612342",
+                                    v2: "n:873442"
+                                }
+                            ]
+                        }
+                    });
+
+                    return Promise.resolve('grid goes here');
+                }
+            ];
+
+            http.setHandler((options) => {
+                expect(requestHandlers).to.not.be.empty;
+                return requestHandlers.shift()(options);
+            });
+
+            return ws.hisWrite(
+                {
+                    't:2016-01-02T00:00Z UTC': {
+                        'r:my.pt.a': 'n:347347',
+                        'r:my.pt.b': 'n:123456',
+                        'r:my.pt.c': 'n:175332'
+                    },
+                    't:2016-01-01T00:00Z UTC': {
+                        'r:my.pt.a': 'n:223466',
+                        'r:my.pt.b': 'n:176485'
+                    },
+                    't:2016-02-01T00:00Z UTC': {
+                        'r:my.pt.a': 'n:623672',
+                        'r:my.pt.c': 'n:623457'
+                    },
+                    't:2016-02-02T00:00Z UTC': {
+                        'r:my.pt.b': 'n:612342',
+                        'r:my.pt.c': 'n:873442'
+                    }
                 }
             ).then((res) => {
                 expect(res).to.equal('grid goes here');
