@@ -475,15 +475,24 @@ WideSkyClient.prototype.deleteByFilter = function (filter, limit) {
  * Perform a history read request.
  *
  * @param   id          Entity to read (string)
- * @param   range       Desired read range, may be given as:
- *                          (string) Raw Project Haystack range string
- *                          (object) A range object given as
- *                                   {from: TIME, to: TIME}
+ * @param   from        (string)    Textual read range (e.g. "today")
+ *                      (Date)      Starting timestamp of read
+ * @param   to          (Date)      Ending timestamp of read
+ *
  * @returns Promise that resolves to the raw grid.
  */
-WideSkyClient.prototype.hisRead = function (id, range) {
-    if (typeof range === 'object') {
-        range = range.from + ',' + range.to;
+WideSkyClient.prototype.hisRead = function (id, from, to) {
+    var range;
+    if (to !== undefined) {
+        /* Full range given, both from and to *must* be Dates */
+        if (!(from instanceof Date))
+            throw new Error('`from` is not a Date');
+        if (!(to instanceof Date))
+            throw new Error('`to` is not a Date');
+
+        range = from.toHSZINC() + ',' + to.toHSZINC();
+    } else {
+        range = from;
     }
 
     return this._ws_hs_submit({
