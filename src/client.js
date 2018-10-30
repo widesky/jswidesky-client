@@ -58,6 +58,7 @@ var WideSkyClient = function(base_uri, username,
      * server or raises an error.
      */
     var doLogin = function() {
+        /* istanbul ignore next */
         if (self._log) self._log.trace('Performing login attempt');
         return self._ws_raw_submit({
             method: 'POST',
@@ -81,6 +82,7 @@ var WideSkyClient = function(base_uri, username,
      * raises an error.  Requires that _ws_token is not null.
      */
     var doRefresh = function() {
+        /* istanbul ignore next */
         if (self._log) self._log.trace('Performing token refresh attempt');
         return self._ws_raw_submit({
             method: 'POST',
@@ -109,6 +111,7 @@ var WideSkyClient = function(base_uri, username,
         /* Is a request in progress? */
         if (_ws_token_wait !== null) {
             /* Join the queue */
+            /* istanbul ignore next */
             if (self._log) self._log.trace('Waiting for token acquisition');
             return new Promise(function (resolve, reject) {
                 _ws_token_wait.push({
@@ -121,10 +124,12 @@ var WideSkyClient = function(base_uri, username,
         if (_ws_token === null) {
             /* No token, so acquire one */
             _ws_token_wait = [];
+            /* istanbul ignore next */
             if (self._log) self._log.trace('Begin token acquisition');
             firstStep = doLogin();
         } else if (_ws_token.expires_in < Date.now()) {
             /* Token is expired, so do a refresh */
+            /* istanbul ignore next */
             if (self._log) self._log.trace('Begin token refresh');
             _ws_token_wait = [];
             firstStep = doRefresh();
@@ -138,6 +143,7 @@ var WideSkyClient = function(base_uri, username,
 
         return new Promise(function (resolve, reject) {
             var success = function (token) {
+                /* istanbul ignore next */
                 if (self._log) self._log.info('Logged in to API server');
                 _ws_token = token;
 
@@ -151,6 +157,7 @@ var WideSkyClient = function(base_uri, username,
             };
 
             var fail = function (err) {
+                /* istanbul ignore next */
                 if (self._log) self._log.warn(err, 'Failed to log into API server');
                 _ws_token = null;
 
@@ -166,6 +173,7 @@ var WideSkyClient = function(base_uri, username,
             return firstStep.then(success).catch(function (err) {
                 /* If we're refreshing, try a full log-in */
                 if (refresh) {
+                    /* istanbul ignore next */
                     if (self._log) self._log.info(err,
                         'Refresh fails, trying log-in instead');
                     doLogin().then(success).catch(fail);
@@ -184,6 +192,7 @@ var WideSkyClient = function(base_uri, username,
     self._ws_raw_submit = function(options) {
         options = Object.assign({}, options);
         options.baseUrl = base_uri;
+        /* istanbul ignore next */
         if (self._log) self._log.trace(options, 'Raw request');
         return self._request(options);
     };
@@ -213,21 +222,26 @@ var WideSkyClient = function(base_uri, username,
             /* Expect JSON reply */
             options.json = true;
 
+            /* istanbul ignore next */
             if (self._log) self._log.trace('Sending request');
             return self._ws_raw_submit(options);
         };
 
+        /* istanbul ignore next */
         if (self._log) self._log.trace(options, 'Haystack request');
 
         return new Promise(function (resolve, reject) {
+            /* istanbul ignore next */
             if (self._log) self._log.trace('Need token');
             getToken().then(function (token) {
+                /* istanbul ignore next */
                 if (self._log) self._log.trace('Got token');
                 submit(token).then(resolve).catch(function (err) {
                     /* Did we get a 401? */
                     if (err instanceof self._rqerr.StatusCodeError) {
                         /* Invalidate our token then try again, *once* */
                         if (_ws_token_wait === null) {
+                            /* istanbul ignore next */
                             if (self._log) self._log.trace('Invalidated token');
                             _ws_token = null;
                         }
@@ -344,6 +358,7 @@ WideSkyClient.prototype._create_or_update = function (op, entities) {
 
     /* Ensure updateRec lists `id` */
     if ((!present.id) && (op === 'updateRec')) {
+        /* istanbul ignore next */
         if (this._log) this._log.trace(entities, 'Entities lacks id column');
         throw new Error('id is missing');
     }
