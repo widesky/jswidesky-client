@@ -311,6 +311,8 @@ WideSkyClient.prototype.find = function (filter, limit) {
     });
 };
 
+/** Special columns, these will be placed in the given order */
+const SPECIAL_COLS = ['id', 'name', 'dis'];
 
 /**
  * Create or Update one or more entities.
@@ -325,23 +327,31 @@ WideSkyClient.prototype._create_or_update = function (op, entities) {
     }
 
     /* Generate the columns */
-    var cols = {};
+    var cols = [], present = {};
     entities.forEach(function (entity) {
         Object.keys(entity).forEach(function (col) {
-            cols[col] = true;
+            present[col] = true;
         });
     });
 
-    /* Make sure we have an ID, we will put that value in first */
-    if (!cols.id) {
+    /* Ensure updateRec lists `id` */
+    if ((!present.id) && (op === 'updateRec')) {
         if (this._log) this._log.trace(entities, 'Entities lacks id column');
         throw new Error('id is missing');
     }
-    delete cols['id'];
 
-    /* Sort the columns alphabetically, then put 'id' at the start */
-    cols = Object.keys(cols).sort();
-    cols.unshift('id');
+    /* Generate the columns to be emitted, starting with the special ones */
+    SPECIAL_COLS.forEach((c) => {
+        if (present[c]) {
+            cols.push(c);
+            delete present[c];
+        }
+    });
+
+    /* Add the others in, in alphabetical order */
+    Object.keys(present).sort().forEach((c) => {
+        cols.push(c);
+    });
 
     return this._ws_hs_submit({
         method: 'POST',
