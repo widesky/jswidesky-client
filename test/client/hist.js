@@ -147,6 +147,53 @@ describe('client', () => {
                     throw err;
             }
         });
+
+        it('should support reading more than one point', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            /* We expect the following requests */
+            let requestHandlers = [
+                /* First up, an authentication request */
+                stubs.authHandler(),
+                /* The read request is next */
+                (options) => {
+                    expect(options).to.eql({
+                        baseUrl: WS_URI,
+                        headers: {
+                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                            Accept: 'application/json'
+                        },
+                        json: true,
+                        method: 'GET',
+                        uri: '/api/hisRead',
+                        qs: {
+                            'id0': '@my.pt.a',
+                            'id1': '@my.pt.b',
+                            'id2': '@my.pt.c',
+                            'range': '"2014-01-01T00:00:00.000Z UTC,'
+                                    + '2018-01-01T00:00:00.000Z UTC"'
+                        }
+                    });
+
+                    return Promise.resolve('grid goes here');
+                }
+            ];
+
+            http.setHandler((options) => {
+                expect(requestHandlers).to.not.be.empty;
+                return requestHandlers.shift()(options);
+            });
+
+            return ws.hisRead(
+                ['my.pt.a', 'my.pt.b', 'my.pt.c'],
+                new Date('2014-01-01T00:00Z'),
+                new Date('2018-01-01T00:00Z')
+            ).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
     });
 
     describe('hisWrite', () => {
