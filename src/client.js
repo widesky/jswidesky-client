@@ -286,6 +286,22 @@ WideSkyClient.prototype.read = function(ids) {
     }
 };
 
+/**
+ * Process a `filter` and `limit`; and use these to generate the query
+ * arguments.  Used by `find` and `deleteByFilter`.
+ */
+const _get_filter_limit_args = function (filter, limit) {
+    var args = {
+        filter: filter.toHSZINC()
+    };
+
+    if ((typeof limit) === 'number') {
+        args.limit = limit.toHSZINC();
+    }
+
+    return args;
+};
+
 
 /**
  * Perform a `read` request of the WideSky API server.  This function takes
@@ -296,18 +312,10 @@ WideSkyClient.prototype.read = function(ids) {
  * @returns Promise that resolves to the raw grid.
  */
 WideSkyClient.prototype.find = function (filter, limit) {
-    var args = {
-        filter: filter.toHSZINC()
-    };
-
-    if ((typeof limit) === 'number') {
-        args.limit = limit.toHSZINC();
-    }
-
     return this._ws_hs_submit({
         method: 'GET',
         uri: '/api/read',
-        qs: args
+        qs: _get_filter_limit_args(filter, limit)
     });
 };
 
@@ -435,15 +443,15 @@ WideSkyClient.prototype.deleteById = function(ids) {
  * Delete entities that match a given filter string.
  *
  * @param   filter      Filter expression (string)
+ * @param   limit       Optional limit on the number of entities to delete
+ *                      (integer)
  * @returns Promise that resolves to the raw grid.
  */
-WideSkyClient.prototype.deleteByFilter = function (filter) {
+WideSkyClient.prototype.deleteByFilter = function (filter, limit) {
     return this._ws_hs_submit({
         method: 'GET',
         uri: '/api/deleteRec',
-        qs: {
-            filter: '"' + filter + '"'
-        }
+        qs: _get_filter_limit_args(filter, limit)
     });
 };
 
