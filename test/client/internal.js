@@ -9,25 +9,18 @@
 const WideSkyClient = require('../../src/client'),
     stubs = require('../stubs'),
     sinon = require('sinon'),
-    expect = require('chai').expect;
+    expect = require('chai').expect,
+    WS_URI = stubs.WS_URI,
+    WS_USER = stubs.WS_USER,
+    WS_PASSWORD = stubs.WS_PASSWORD,
+    WS_CLIENT_ID = stubs.WS_CLIENT_ID,
+    WS_CLIENT_SECRET = stubs.WS_CLIENT_SECRET,
+    WS_ACCESS_TOKEN = stubs.WS_ACCESS_TOKEN,
+    WS_REFRESH_TOKEN = stubs.WS_REFRESH_TOKEN,
+    WS_ACCESS_TOKEN2 = stubs.WS_ACCESS_TOKEN2,
+    WS_REFRESH_TOKEN2 = stubs.WS_REFRESH_TOKEN2,
+    getInstance = stubs.getInstance;
 
-const WS_URI = 'http://localhost:3000',
-    WS_USER = 'user@example.com',
-    WS_PASSWORD = 'password',
-    WS_CLIENT_ID = 'client id string',
-    WS_CLIENT_SECRET = 'client secret',
-    WS_ACCESS_TOKEN = 'an access token',
-    WS_REFRESH_TOKEN = 'a refresh token',
-    WS_ACCESS_TOKEN2 = 'another access token',
-    WS_REFRESH_TOKEN2 = 'another refresh token';
-
-const getInstance = function(http, log) {
-    let c = new WideSkyClient(
-        WS_URI, WS_USER, WS_PASSWORD, WS_CLIENT_ID, WS_CLIENT_SECRET, log
-    );
-    http.stubClient(c);
-    return c;
-}
 
 describe('client', () => {
     describe('internals', () => {
@@ -77,30 +70,7 @@ describe('client', () => {
                 /* We expect the following requests */
                 let requestHandlers = [
                     /* First up, an authentication request */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 10
-                        });
-                    },
+                    stubs.authHandler(),
                     /* Then our actual request */
                     (options) => {
                         expect(options).to.eql({
@@ -136,30 +106,7 @@ describe('client', () => {
                 /* We expect the following requests */
                 let requestHandlers = [
                     /* First up, an authentication request */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 2000
-                        });
-                    },
+                    stubs.authHandler({expires_in: 2000}),
                     /* Then our actual requests */
                     (options) => {
                         expect(options).to.eql({
@@ -220,30 +167,7 @@ describe('client', () => {
                 /* We expect the following requests */
                 let requestHandlers = [
                     /* First up, an authentication request */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 10
-                        });
-                    },
+                    stubs.authHandler(),
                     /* Then our actual request */
                     (options) => {
                         expect(options).to.eql({
@@ -259,29 +183,11 @@ describe('client', () => {
                         return Promise.resolve('my response');
                     },
                     /* We should see this after expiry */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                refresh_token: WS_REFRESH_TOKEN,
-                                grant_type: 'refresh_token'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN2,
-                            refresh_token: WS_REFRESH_TOKEN2,
-                            expires_in: Date.now() + 10
-                        });
-                    },
+                    stubs.authHandler({
+                        refresh: true,
+                        send_access_token: WS_ACCESS_TOKEN2,
+                        send_refresh_token: WS_REFRESH_TOKEN2,
+                    }),
                     /* Now our final request */
                     (options) => {
                         expect(options).to.eql({
@@ -328,30 +234,7 @@ describe('client', () => {
                 /* We expect the following requests */
                 let requestHandlers = [
                     /* First up, an authentication request */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: 'wrong token',
-                            expires_in: Date.now() + 10
-                        });
-                    },
+                    stubs.authHandler({send_refresh_token: 'wrong token'}),
                     /* Then our actual request */
                     (options) => {
                         expect(options).to.eql({
@@ -367,49 +250,18 @@ describe('client', () => {
                         return Promise.resolve('my response');
                     },
                     /* We should see this after expiry */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                refresh_token: 'wrong token',
-                                grant_type: 'refresh_token'
-                            }
-                        });
-
-                        return Promise.reject(new Error('Refresh failed'));
-                    },
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN2,
-                            refresh_token: WS_REFRESH_TOKEN2,
-                            expires_in: Date.now() + 10
-                        });
-                    },
+                    stubs.authHandler({
+                        refresh: true,
+                        expect_refresh_token: 'wrong token',
+                        err: {
+                            message: 'Refresh failed'
+                        }
+                    }),
+                    /* The client should try logging in proper */
+                    stubs.authHandler({
+                        send_access_token: WS_ACCESS_TOKEN2,
+                        send_refresh_token: WS_REFRESH_TOKEN2
+                    }),
                     /* Now our final request */
                     (options) => {
                         expect(options).to.eql({
@@ -456,30 +308,7 @@ describe('client', () => {
                 /* We expect the following requests */
                 let requestHandlers = [
                     /* First up, an authentication request */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 10
-                        });
-                    },
+                    stubs.authHandler(),
                     /* Then our actual requests */
                     (options) => {
                         expect(options).to.eql({
@@ -535,30 +364,9 @@ describe('client', () => {
                 /* We expect the following requests */
                 let requestHandlers = [
                     /* First up, an authentication request */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 2000
-                        });
-                    },
+                    stubs.authHandler({
+                        expires_in: 2000
+                    }),
                     /* Then our actual request */
                     (options) => {
                         expect(options).to.eql({
@@ -590,30 +398,9 @@ describe('client', () => {
                         ));
                     },
                     /* We should see this */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN2,
-                            refresh_token: WS_REFRESH_TOKEN2,
-                            expires_in: Date.now() + 10
-                        });
-                    },
+                    stubs.authHandler({
+                        send_access_token: WS_ACCESS_TOKEN2
+                    }),
                     /* Now our final request */
                     (options) => {
                         expect(options).to.eql({
@@ -657,26 +444,11 @@ describe('client', () => {
                 let http = new stubs.StubHTTPClient(),
                     ws = getInstance(http);
 
-                http.setHandler((options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        method: 'POST',
-                        uri: '/oauth2/token',
-                        auth: {
-                            username: WS_CLIENT_ID,
-                            password: WS_CLIENT_SECRET,
-                            sendImmediately: true
-                        },
-                        json: true,
-                        body: {
-                            username: WS_USER,
-                            password: WS_PASSWORD,
-                            grant_type: 'password'
-                        }
-                    });
-
-                    return Promise.reject(new Error('Request failed'));
-                });
+                http.setHandler(stubs.authHandler({
+                    err: {
+                        message: 'Request failed'
+                    }
+                }));
 
                 let first = ws._ws_hs_submit({
                     arg: 'Request 1.'
@@ -703,30 +475,7 @@ describe('client', () => {
                 /* We expect the following requests */
                 let requestHandlers = [
                     /* First up, an authentication request */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            method: 'POST',
-                            uri: '/oauth2/token',
-                            auth: {
-                                username: WS_CLIENT_ID,
-                                password: WS_CLIENT_SECRET,
-                                sendImmediately: true
-                            },
-                            json: true,
-                            body: {
-                                username: WS_USER,
-                                password: WS_PASSWORD,
-                                grant_type: 'password'
-                            }
-                        });
-
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 2000
-                        });
-                    },
+                    stubs.authHandler({expires_in: 2000}),
                     /* Then our actual request */
                     (options) => {
                         expect(options).to.eql({
