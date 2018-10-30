@@ -483,7 +483,7 @@ WideSkyClient.prototype.deleteByFilter = function (filter, limit) {
  */
 WideSkyClient.prototype.hisRead = function (id, range) {
     if (typeof range === 'object') {
-        range = '"' + range.from + ',' + range.to + '"';
+        range = range.from + ',' + range.to;
     }
 
     return this._ws_hs_submit({
@@ -491,7 +491,7 @@ WideSkyClient.prototype.hisRead = function (id, range) {
         uri: '/api/hisRead',
         qs: {
             id: (new data.Ref(id)).toHSZINC(),
-            range: range
+            range: range.toHSZINC()
         }
     });
 };
