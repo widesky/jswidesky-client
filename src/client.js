@@ -528,16 +528,36 @@ WideSkyClient.prototype.hisRead = function (ids, from, to) {
     });
 };
 
+
 /**
  * Perform a history write request.
  *
- * @param   id          Entity to write (string)
  * @param   records     Records to be written keyed by timestamp (object)
+ *                      Each record value should map the point to its value
+ *                      for that time record.
  * @returns Promise that resolves to the raw grid.
  */
-WideSkyClient.prototype.hisWrite = function (id, records) {
+WideSkyClient.prototype.hisWrite = function (records) {
+    var cols = {}, outcols = [{name: 'ts'}];
+
     var rows = Object.keys(records).map(function (ts) {
-        return {ts: ts, val: records[ts]};
+        const rec = records[ts];
+        var row = {ts: ts};
+
+        Object.keys(rec).forEach((id) => {
+            /* Determine column */
+            let col = cols[id];
+            if (col === undefined) {
+                col = 'v' + (outcols.length - 1);
+                outcols.push({name: col, id: id});
+                cols[id] = col;
+            }
+
+            /* Insert */
+            row[col] = rec[id];
+        });
+
+        return row;
     }).sort((r1, r2) => {
         /*
          * This function is at the mercy of the sorting algorithm
@@ -556,11 +576,8 @@ WideSkyClient.prototype.hisWrite = function (id, records) {
         method: 'POST',
         uri: '/api/hisWrite',
         body: {
-            meta: {ver: '2.0', id: (new data.Ref(id)).toHSJSON()},
-            cols: [
-                {name: 'ts'},
-                {name: 'val'}
-            ],
+            meta: {ver: '2.0'},
+            cols: outcols,
             rows: rows
         }
     });
