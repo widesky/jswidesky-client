@@ -142,20 +142,29 @@ Date.prototype.toHSZINC = function() {
  * Project Haystack ZINC number regular expression.  Not perfect, but it'll do
  * for now.
  */
-const HS_ZINC_NUM = /^(-?\d+|-?\d+\.\d+|-?\d+[eE]\d+|-?\d+\.\d+[eE]\d+|-?\d+[eE]\d+)(.*)/;
+const HS_ZINC_NUM = /^(-?\d+|-?\d+\.\d+|-?\d+[eE]\d+|-?\d+\.\d+[eE]\d+|-?\d+[eE]\d+)([^\.]*)$/;
 
 /**
  * Project Haystack Number data type
  */
-var HSNumber = function(str) {
-    if (str instanceof HSNumber) {
+var HSNumber = function(str, unit) {
+    if ((typeof str) === 'object') {
         /* Copy constructor */
+        if ((typeof str.value) !== 'number')
+            throw new Error(
+                'clonee \'value\' property must be a number');
+
+        if (str.unit && ((typeof str.unit) !== 'string'))
+            throw new Error(
+                'clonee \'unit\' property must be a string or undefined'
+            );
+
         this.value = str.value;
         this.unit = str.unit;
     } else if (typeof str === 'number') {
         /* Cast constructor */
         this.value = str;
-        this.unit = undefined;
+        this.unit = unit || undefined;
     } else if (str.startsWith('n:')) {
         var space = str.indexOf(' ');
         var strnum = null;
