@@ -33,6 +33,12 @@ var WideSkyClient = function(base_uri, username,
     /* Self reference */
     var self = this;
 
+    /*
+     * HTTP library references, these may be replaced with stubs for testing.
+     */
+    self._request = request;
+    self._rqerr = rqerr;
+
     /* Logger instance */
     self._log = log;
 
@@ -179,7 +185,7 @@ var WideSkyClient = function(base_uri, username,
         options = Object.assign({}, options);
         options.baseUrl = base_uri;
         if (self._log) self._log.trace(options, 'Raw request');
-        return request(options);
+        return self._request(options);
     };
 
     /**
@@ -219,7 +225,7 @@ var WideSkyClient = function(base_uri, username,
                 if (self._log) self._log.trace('Got token');
                 submit(token).then(resolve).catch(function (err) {
                     /* Did we get a 401? */
-                    if (err instanceof rqerr.StatusCodeError) {
+                    if (err instanceof self._rqerr.StatusCodeError) {
                         /* Invalidate our token then try again, *once* */
                         if (_ws_token_wait === null) {
                             if (self._log) self._log.trace('Invalidated token');
