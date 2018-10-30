@@ -1,7 +1,7 @@
 /*
  * vim: set tw=78 et ts=4 sw=4 si fileencoding=utf-8:
  *
- * Unit tests for client read method
+ * Unit tests for client CRUD methods
  * (C) 2018 VRT Systems
  */
 "use strict";
@@ -226,6 +226,380 @@ describe('client', () => {
             return ws.find('myTag=="my value"', 30).then((res) => {
                 expect(res).to.equal('grid goes here');
             });
+        });
+    });
+
+    describe('_create_or_update', () => {
+        it('should automatically determine columns from entity data', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            json: true,
+                            method: 'POST',
+                            uri: '/api/CRUD_OP_HERE',
+                            body: {
+                                meta: {ver: "2.0"},
+                                cols: [
+                                    /*
+                                     * `id`, `name` and `dis` will be first.
+                                     */
+                                    {name: "id"},
+                                    {name: "name"},
+                                    {name: "dis"},
+                                    {name: "a"},
+                                    {name: "b"},
+                                    {name: "c"}
+                                ],
+                                rows: [
+                                    {
+                                        id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09",
+                                        a: "s:test", b:true, c:"n:1234",
+                                        dis: "s:My test entity", name: "s:testing"
+                                    }
+                                ]
+                            }
+                        });
+
+                        return Promise.resolve('grid goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws._create_or_update('CRUD_OP_HERE', {
+                /* Note the order isn't preserved by objects anyway */
+                name: "s:testing",
+                c: "n:1234",
+                dis: "s:My test entity",
+                b: true,
+                a: "s:test",
+                id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09"
+            }).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+
+        it('should include all columns seen in all entities', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            json: true,
+                            method: 'POST',
+                            uri: '/api/CRUD_OP_HERE',
+                            body: {
+                                meta: {ver: "2.0"},
+                                cols: [
+                                    /*
+                                     * `id`, `name` and `dis` will be first.
+                                     */
+                                    {name: "id"},
+                                    {name: "name"},
+                                    {name: "dis"},
+                                    {name: "a"},
+                                    {name: "b"},
+                                    {name: "c"},
+                                    {name: "d"},
+                                    {name: "e"},
+                                    {name: "f"},
+                                    {name: "g"}
+                                ],
+                                rows: [
+                                    {
+                                        dis: "s:Entity with dis and name",
+                                        e: "m:",
+                                        f: "t:2018-10-31T07:36+10:00 Brisbane",
+                                        name: "s:noid"
+                                    },
+                                    {
+                                        b: false,
+                                        g: "r:aref",
+                                        id: "r:364d7c7f-e227-40d6-a6aa-6e57d29ba311",
+                                        name: "s:nodis"
+                                    },
+                                    {
+                                        id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09",
+                                        a: "s:test", b:true, c:"n:1234", d: false,
+                                        dis: "s:Entity with id, dis and name",
+                                        name: "s:testing"
+                                    }
+                                ]
+                            }
+                        });
+
+                        return Promise.resolve('grid goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws._create_or_update('CRUD_OP_HERE', [
+                {
+                    name: "s:noid",
+                    f: "t:2018-10-31T07:36+10:00 Brisbane",
+                    dis: "s:Entity with dis and name",
+                    e: "m:"
+                },
+                {
+                    name: "s:nodis",
+                    id: "r:364d7c7f-e227-40d6-a6aa-6e57d29ba311",
+                    g: "r:aref",
+                    b: false
+                },
+                {
+                    name: "s:testing",
+                    c: "n:1234",
+                    dis: "s:Entity with id, dis and name",
+                    b: true,
+                    d: false,
+                    a: "s:test",
+                    id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09"
+                }
+            ]).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+    });
+
+    describe('create', () => {
+        it('should generate createRec request', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            json: true,
+                            method: 'POST',
+                            uri: '/api/createRec',
+                            body: {
+                                meta: {ver: "2.0"},
+                                cols: [
+                                    /*
+                                     * `id`, `name` and `dis` will be first.
+                                     */
+                                    {name: "id"},
+                                    {name: "name"},
+                                    {name: "dis"},
+                                    {name: "a"},
+                                    {name: "b"},
+                                    {name: "c"}
+                                ],
+                                rows: [
+                                    {
+                                        id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09",
+                                        a: "s:test", b:true, c:"n:1234",
+                                        dis: "s:My test entity", name: "s:testing"
+                                    }
+                                ]
+                            }
+                        });
+
+                        return Promise.resolve('grid goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws.create({
+                name: "s:testing",
+                c: "n:1234",
+                dis: "s:My test entity",
+                b: true,
+                a: "s:test",
+                id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09"
+            }).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+
+        it('should not require `id`', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            json: true,
+                            method: 'POST',
+                            uri: '/api/createRec',
+                            body: {
+                                meta: {ver: "2.0"},
+                                cols: [
+                                    {name: "name"},
+                                    {name: "dis"},
+                                    {name: "a"},
+                                    {name: "b"},
+                                    {name: "c"}
+                                ],
+                                rows: [
+                                    {
+                                        a: "s:test", b:true, c:"n:1234",
+                                        dis: "s:My test entity", name: "s:testing"
+                                    }
+                                ]
+                            }
+                        });
+
+                        return Promise.resolve('grid goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws.create({
+                name: "s:testing",
+                c: "n:1234",
+                dis: "s:My test entity",
+                b: true,
+                a: "s:test",
+            }).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+    });
+
+    describe('update', () => {
+        it('should generate updateRec request', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            json: true,
+                            method: 'POST',
+                            uri: '/api/updateRec',
+                            body: {
+                                meta: {ver: "2.0"},
+                                cols: [
+                                    /*
+                                     * `id`, `name` and `dis` will be first.
+                                     */
+                                    {name: "id"},
+                                    {name: "name"},
+                                    {name: "dis"},
+                                    {name: "a"},
+                                    {name: "b"},
+                                    {name: "c"}
+                                ],
+                                rows: [
+                                    {
+                                        id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09",
+                                        a: "s:test", b:true, c:"n:1234",
+                                        dis: "s:My test entity", name: "s:testing"
+                                    }
+                                ]
+                            }
+                        });
+
+                        return Promise.resolve('grid goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws.update({
+                name: "s:testing",
+                c: "n:1234",
+                dis: "s:My test entity",
+                b: true,
+                a: "s:test",
+                id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09"
+            }).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+
+        it('should require `id`', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                return ws.update({
+                    name: "s:testing",
+                    c: "n:1234",
+                    dis: "s:My test entity",
+                    b: true,
+                    a: "s:test",
+                }).then((res) => {
+                    throw new Error('This should not have worked');
+                });
+            } catch (err) {
+                if (err.message !== 'id is missing')
+                    throw err;
+            }
         });
     });
 });
