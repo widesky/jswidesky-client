@@ -240,11 +240,21 @@ var WideSkyClient = function(base_uri, username,
                     /* Did we get a 401? */
                     if (err instanceof self._rqerr.StatusCodeError) {
                         /* Invalidate our token then try again, *once* */
+
+                        /*
+                         * Ignore the else branch in code coverage, as
+                         * we should not ordinarily wind up here if the token
+                         * is invalid.  To test, we've got to trigger a tricky
+                         * race condition between `getToken` and `submit`.
+                         */
+
+                        /* istanbul ignore else */
                         if (_ws_token_wait === null) {
                             /* istanbul ignore next */
                             if (self._log) self._log.trace('Invalidated token');
                             _ws_token = null;
                         }
+
                         getToken().then(function (token) {
                             submit(token).then(resolve).catch(reject);
                         }).catch(reject);
