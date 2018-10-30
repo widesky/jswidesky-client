@@ -6,6 +6,18 @@
  */
 "use strict";
 
+const sinon = require('sinon');
+
+/**
+ * StubLogger is a logger object that spoofs a Bunyan-style logger.
+ */
+const StubLogger = function() {
+    const self = this;
+    ['fatal','error','warn','info','debug','trace'].forEach((l) => {
+        self[l] = sinon.stub();
+    });
+};
+
 /**
  * StubHTTPStatusCodeError is a class that mimics the `StatusCodeError`
  * in `request-promise`.
@@ -56,6 +68,7 @@ const StubHTTPClient = function() {
 
 /* Exported symbols */
 module.exports = {
+    StubLogger: StubLogger,
     StubHTTPClient: StubHTTPClient,
     StubHTTPStatusCodeError: StubHTTPStatusCodeError
 };
