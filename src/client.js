@@ -484,14 +484,15 @@ WideSkyClient.prototype.deleteByFilter = function (filter, limit) {
 /**
  * Perform a history read request.
  *
- * @param   id          Entity to read (string)
+ * @param   ids         (string)    Entity to read
+ *                      (array)     Entities to read (multi-point)
  * @param   from        (string)    Textual read range (e.g. "today")
  *                      (Date)      Starting timestamp of read
  * @param   to          (Date)      Ending timestamp of read
  *
  * @returns Promise that resolves to the raw grid.
  */
-WideSkyClient.prototype.hisRead = function (id, from, to) {
+WideSkyClient.prototype.hisRead = function (ids, from, to) {
     var range;
     if (to !== undefined) {
         /* Full range given, both from and to *must* be Dates */
@@ -505,13 +506,25 @@ WideSkyClient.prototype.hisRead = function (id, from, to) {
         range = from;
     }
 
+    if (!(ids instanceof Array))
+        ids = [ids];
+
+    var args = {
+        range: range.toHSZINC()
+    };
+
+    if (ids.length === 1) {
+        args.id = (new data.Ref(ids[0])).toHSZINC();
+    } else {
+        ids.forEach((id, idx) => {
+            args['id' + idx] = (new data.Ref(id)).toHSZINC();
+        });
+    }
+
     return this._ws_hs_submit({
         method: 'GET',
         uri: '/api/hisRead',
-        qs: {
-            id: (new data.Ref(id)).toHSZINC(),
-            range: range.toHSZINC()
-        }
+        qs: args
     });
 };
 
