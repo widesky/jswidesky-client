@@ -146,4 +146,86 @@ describe('client', () => {
             });
         });
     });
+
+    /* read-by-filter is handled by the `find` method */
+    describe('find', () => {
+        it('should generate GET read if given a filter and no limit', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            json: true,
+                            method: 'GET',
+                            uri: '/api/read',
+                            qs: {
+                                'filter': '"myTag==\\"my value\\""'
+                            }
+                        });
+
+                        return Promise.resolve('grid goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws.find('myTag=="my value"').then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+
+        it('should include the limit if given', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            json: true,
+                            method: 'GET',
+                            uri: '/api/read',
+                            qs: {
+                                'filter': '"myTag==\\"my value\\""',
+                                'limit': '30'
+                            }
+                        });
+
+                        return Promise.resolve('grid goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws.find('myTag=="my value"', 30).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+    });
 });
