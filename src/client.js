@@ -9,7 +9,6 @@
 var Promise = require('bluebird'),
     request = require('request-promise'),
     rqerr = require('request-promise/errors'),
-    url = require('url'),
     data = require('./data');
 
 /**
