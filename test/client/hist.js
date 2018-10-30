@@ -148,4 +148,69 @@ describe('client', () => {
             }
         });
     });
+
+    describe('hisWrite', () => {
+        it('should generate POST with records in timestamp order', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            /* We expect the following requests */
+            let requestHandlers = [
+                /* First up, an authentication request */
+                stubs.authHandler(),
+                /* The read request is next */
+                (options) => {
+                    expect(options).to.eql({
+                        baseUrl: WS_URI,
+                        headers: {
+                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                            Accept: 'application/json'
+                        },
+                        json: true,
+                        method: 'POST',
+                        uri: '/api/hisWrite',
+                        body: {
+                            meta: {ver: "2.0", id: "r:my.id"},
+                            cols: [
+                                {name: "ts"},
+                                {name: "val"}
+                            ],
+                            rows: [
+                                {
+                                    ts: "t:2016-01-01T00:00Z UTC",
+                                    val: "n:234.56"
+                                },
+                                {
+                                    ts: "t:2016-01-02T00:00Z UTC",
+                                    val: "n:123.45"
+                                },
+                                {
+                                    ts: "t:2016-02-01T00:00Z UTC",
+                                    val: "n:631.42"
+                                }
+                            ]
+                        }
+                    });
+
+                    return Promise.resolve('grid goes here');
+                }
+            ];
+
+            http.setHandler((options) => {
+                expect(requestHandlers).to.not.be.empty;
+                return requestHandlers.shift()(options);
+            });
+
+            return ws.hisWrite(
+                'my.id', {
+                    't:2016-01-02T00:00Z UTC': 'n:123.45',
+                    't:2016-01-01T00:00Z UTC': 'n:234.56',
+                    't:2016-02-01T00:00Z UTC': 'n:631.42'
+                }
+            ).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+    });
 });
