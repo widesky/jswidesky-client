@@ -89,6 +89,28 @@ describe('data', () => {
                 }
             });
 
+            it('should not parse non-string', () => {
+                try {
+                    let ref = new Ref(false);
+                    throw new Error('Constructor did not fail');
+                } catch (err) {
+                    if (err.message !== 'id is not a string') {
+                        throw err;
+                    }
+                }
+            });
+
+            it('should not accept spaces in id if dis is given', () => {
+                try {
+                    let ref = new Ref('id with spaces', 'display text');
+                    throw new Error('Constructor did not fail');
+                } catch (err) {
+                    if (err.message !== 'id may not contain spaces') {
+                        throw err;
+                    }
+                }
+            });
+
             it('should be able to parse a JSON-format ref '
                 + 'without display text', () => {
                     let ref = new Ref('r:myjsonref');
