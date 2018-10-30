@@ -11,22 +11,58 @@ var jsesc = require('jsesc');
 /**
  * Project Haystack Ref data type.  A reference to another entity.
  */
-var Ref = function(str) {
-    var space = str.indexOf(' ');
-
-    if (str instanceof Ref) {
+var Ref = function(id, dis) {
+    if ((typeof id) === 'object') {
         /* Clone constructor */
-        this.id = str.id;
-        this.dis = str.dis;
-    } else if (str.startsWith('r:')) {
-        this.id = str.substring(2, space);
-        this.dis = str.substring(space+1);
-    } else if (str.startsWith('@')) {
-        this.id = str.substring(1, space);
-        this.dis = JSON.parse(str.substring(space+1));
+        if (dis !== undefined)
+            throw new Error('clone constructor takes a Ref only');
+
+        if ((typeof id.id) !== 'string')
+            throw new Error(
+                'clonee object \'id\' property must be a string'
+            );
+
+        if (id.dis && ((typeof id.dis) !== 'string'))
+            throw new Error(
+                'clonee object \'dis\' property must be null or a string'
+            );
+
+        this.id = id.id;
+        this.dis = id.dis;
     } else {
-        this.id = str;
-        this.dis = '';
+        /* id must be a string */
+        if ((typeof id) !== 'string')
+            throw new Error('id is not a string');
+
+        var space = id.indexOf(' ');
+        if (space >= 0) {
+            if (dis !== undefined) {
+                throw new Error('id may not contain spaces');
+            }
+
+            /* Split on the space */
+            dis = id.substring(space+1);
+            id = id.substring(0, space);
+        }
+
+        if (id.startsWith('r:')) {
+            /* JSON Ref */
+            this.id = id.substring(2);
+        } else if (id.startsWith('@')) {
+            /* ZINC Ref */
+            this.id = id.substring(1);
+            if (dis) {
+                if (!(dis.startsWith('"') && dis.endsWith('"')))
+                    throw new Error('dis must be a valid ZINC string');
+                dis = JSON.parse(dis);
+            }
+        } else {
+            /* Raw ID */
+            this.id = id;
+        }
+
+        /* Descriptive text */
+        this.dis = dis || null;
     }
 };
 
