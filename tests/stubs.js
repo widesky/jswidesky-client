@@ -57,5 +57,5 @@ const StubHTTPClient = function() {
 /* Exported symbols */
 module.exports = {
     StubHTTPClient: StubHTTPClient,
-    StubHTTPStatusCodeError: StubHTTPSTatusCodeError
+    StubHTTPStatusCodeError: StubHTTPStatusCodeError
 };
