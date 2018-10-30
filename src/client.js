@@ -292,15 +292,22 @@ WideSkyClient.prototype.read = function(ids) {
  * a filter string which is used by the server to scan matching entities.
  *
  * @param   filter      Filter expression (string)
+ * @param   limit       Optional limit on the number of entities (integer)
  * @returns Promise that resolves to the raw grid.
  */
-WideSkyClient.prototype.find = function (filter) {
+WideSkyClient.prototype.find = function (filter, limit) {
+    var args = {
+        filter: filter.toHSZINC()
+    };
+
+    if ((typeof limit) === 'number') {
+        args.limit = limit.toHSZINC();
+    }
+
     return this._ws_hs_submit({
         method: 'GET',
         uri: '/api/read',
-        qs: {
-            filter: filter.toHSZINC()
-        }
+        qs: args
     });
 };
 
