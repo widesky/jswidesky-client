@@ -515,6 +515,18 @@ WideSkyClient.prototype.hisRead = function (id, from, to) {
 WideSkyClient.prototype.hisWrite = function (id, records) {
     var rows = Object.keys(records).map(function (ts) {
         return {ts: ts, val: records[ts]};
+    }).sort((r1, r2) => {
+        /*
+         * This function is at the mercy of the sorting algorithm
+         * so is not guaranteed to use all code paths.
+         */
+        if (r1.ts < r2.ts)
+            return -1;
+        /* istanbul ignore next */
+        if (r1.ts > r2.ts)
+            return 1;
+        /* istanbul ignore next */
+        return 0
     });
 
     return this._ws_hs_submit({
