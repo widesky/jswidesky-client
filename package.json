@@ -12,6 +12,7 @@
   "dependencies": {
     "bluebird": "^3.5.2",
     "jsesc": "^2.5.1",
+    "request": "^2.88.0",
     "request-promise": "^4.2.2"
   },
   "devDependencies": {
