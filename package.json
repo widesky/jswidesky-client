@@ -4,8 +4,8 @@
   "description": "VRT WideSky Client in JavaScript",
   "main": "index.js",
   "scripts": {
-    "test": "node node_modules/mocha/bin/mocha tests/*/**.js",
-    "coverage": "node node_modules/nyc/bin/nyc.js --reporter=html --reporter=text node_modules/mocha/bin/mocha tests/*/**.js"
+    "test": "node node_modules/mocha/bin/mocha test/*/**.js",
+    "coverage": "node node_modules/nyc/bin/nyc.js --reporter=html --reporter=text node_modules/mocha/bin/mocha test/*/**.js"
   },
   "author": "VRT Systems <support@vrt.com.au>",
   "license": "MIT",
