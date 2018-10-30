@@ -115,7 +115,7 @@ String.prototype.toHSZINC = function() {
 Date.fromHS = function(str) {
     var space = str.indexOf(' ');
     if (space >= 0) {
-        str = str.substring(space);
+        str = str.substring(0, space);
     }
 
     if (str.startsWith('t:')) {
