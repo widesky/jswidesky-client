@@ -544,7 +544,7 @@ WideSkyClient.prototype.hisWrite = function (records) {
         const rec = records[ts];
         var row = {ts: ts};
 
-        Object.keys(rec).forEach((id) => {
+        Object.keys(rec).sort().forEach((id) => {
             /* Determine column */
             let col = cols[id];
             if (col === undefined) {
