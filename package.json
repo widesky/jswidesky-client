@@ -12,5 +12,9 @@
     "bluebird": "^3.5.2",
     "jsesc": "^2.5.1",
     "request-promise": "^4.2.2"
+  },
+  "devDependencies": {
+    "istanbul": "^0.4.5",
+    "mocha": "^5.2.0"
   }
 }
