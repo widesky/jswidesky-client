@@ -168,7 +168,7 @@ var WideSkyClient = function(base_uri, username,
                 if (refresh) {
                     if (self._log) self._log.info(err,
                         'Refresh fails, trying log-in instead');
-                    doRefresh().then(success).catch(fail);
+                    doLogin().then(success).catch(fail);
                 } else {
                     fail(err);
                 }
