@@ -507,5 +507,19 @@ describe('client', () => {
                 });
             });
         });
+
+        describe('login', () => {
+            it('should obtain a token then return', () => {
+                let http = new stubs.StubHTTPClient(),
+                    ws = getInstance(http);
+
+                /* We should only see a log-in attempt */
+                http.setHandler(stubs.authHandler());
+
+                return ws.login().then((res) => {
+                    expect(res).to.be.undefined;
+                });
+            });
+        });
     });
 });

@@ -267,6 +267,16 @@ var WideSkyClient = function(base_uri, username,
             });
         });
     };
+
+    /**
+     * Perform a log-in, if not already done.  This does a `getToken` whilst
+     * performing no further operations.
+     */
+    self.login = () => {
+        return getToken().then(() => {
+            return undefined;
+        });
+    };
 };
 
 
