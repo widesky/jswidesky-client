@@ -295,6 +295,74 @@ describe('client', () => {
             });
         });
 
+        it('should automatically use Haystack 3.0 if needed', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            json: true,
+                            method: 'POST',
+                            uri: '/api/CRUD_OP_HERE',
+                            body: {
+                                meta: {ver: "3.0"},
+                                cols: [
+                                    /*
+                                     * `id`, `name` and `dis` will be first.
+                                     */
+                                    {name: "id"},
+                                    {name: "name"},
+                                    {name: "dis"},
+                                    {name: "a"},
+                                    {name: "b"},
+                                    {name: "c"}
+                                ],
+                                rows: [
+                                    {
+                                        id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09",
+                                        a: "s:test", b:true, c:[
+                                            "n:1234",
+                                            "n:2345",
+                                            "n:3456"
+                                        ], dis: "s:My test entity", name: "s:testing"
+                                    }
+                                ]
+                            }
+                        });
+
+                        return Promise.resolve('grid goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws._create_or_update('CRUD_OP_HERE', {
+                /* Note the order isn't preserved by objects anyway */
+                name: "s:testing",
+                c: ["n:1234", "n:2345", "n:3456"],
+                dis: "s:My test entity",
+                b: true,
+                a: "s:test",
+                id: "r:cf60bce8-da3b-4c96-a4f8-f7a6580ede09"
+            }).then((res) => {
+                expect(res).to.equal('grid goes here');
+            });
+        });
+
         it('should include all columns seen in all entities', () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
