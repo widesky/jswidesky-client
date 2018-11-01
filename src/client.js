@@ -368,11 +368,15 @@ WideSkyClient.prototype._create_or_update = function (op, entities) {
         entities = [entities];
     }
 
-    /* Generate the columns */
-    var cols = [], present = {};
+    /* Generate the columns, make a note of the haystack version needed */
+    var cols = [], present = {}, ver = '2.0';
     entities.forEach(function (entity) {
         Object.keys(entity).forEach(function (col) {
             present[col] = true;
+
+            /* Upgrade to Haystack 3.0 */
+            if (entity[col] instanceof Array)
+                ver = '3.0';
         });
     });
 
@@ -400,7 +404,7 @@ WideSkyClient.prototype._create_or_update = function (op, entities) {
         method: 'POST',
         uri: '/api/' + op,
         body: {
-            meta: {ver: '2.0'},
+            meta: {ver: ver},
             cols: cols.map(function (c) {
                 return {name: c};
             }),
