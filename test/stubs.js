@@ -24,9 +24,10 @@ const StubLogger = function() {
  * StubHTTPStatusCodeError is a class that mimics the `StatusCodeError`
  * in `request-promise`.
  */
-const StubHTTPStatusCodeError = function(message) {
+const StubHTTPStatusCodeError = function(message, statusCode) {
     Error.captureStackTrace(this, this.constructor);
     this.name = this.constructor.name;
+    this.statusCode = statusCode;
     this.message = message;
 };
 require('util').inherits(StubHTTPStatusCodeError, Error);

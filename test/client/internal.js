@@ -394,7 +394,7 @@ describe('client', () => {
                         });
 
                         return Promise.reject(new stubs.StubHTTPStatusCodeError(
-                            'Access token got deleted'
+                            'Access token got deleted', 401
                         ));
                     },
                     /* We should see this */

@@ -238,7 +238,9 @@ var WideSkyClient = function(base_uri, username,
                 if (self._log) self._log.trace('Got token');
                 submit(token).then(resolve).catch(function (err) {
                     /* Did we get a 401? */
-                    if (err instanceof self._rqerr.StatusCodeError) {
+                    if ((err instanceof self._rqerr.StatusCodeError)
+                            && (err.statusCode === 401))
+                    {
                         /* Invalidate our token then try again, *once* */
 
                         /*
