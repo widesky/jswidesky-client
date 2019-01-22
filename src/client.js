@@ -355,6 +355,18 @@ WideSkyClient.prototype.find = function (filter, limit) {
     });
 };
 
+
+/**
+ * Perform a cache reload request of the WideSky API server.
+ * @returns Promise that resolves to the raw grid.
+ */
+WideSkyClient.prototype.reloadCache = function () {
+    return this._ws_hs_submit({
+        method: 'GET',
+        uri: '/api/reloadAuthCache'
+    });
+};
+
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
 
