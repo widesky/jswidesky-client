@@ -184,7 +184,7 @@ describe('client', () => {
             });
         });
     });
-        
+
     /* read-by-filter is handled by the `find` method */
     describe('find', () => {
         it('should generate GET read if given a filter and no limit', () => {
@@ -879,35 +879,35 @@ describe('client', () => {
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
 
-                /* We expect the following requests */
-                let requestHandlers = [
-                    /* First up, an authentication request */
-                    stubs.authHandler(),
-                    /* The read request is next */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            headers: {
-                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                Accept: 'application/json'
-                            },
-                            json: true,
-                            method: 'GET',
-                            uri: '/api/deleteRec',
-                            qs: {
-                                'filter': '"myTag==\\"my value\\""',
-                                'limit': '30'
-                            }
-                        });
+            /* We expect the following requests */
+            let requestHandlers = [
+                /* First up, an authentication request */
+                stubs.authHandler(),
+                /* The read request is next */
+                (options) => {
+                    expect(options).to.eql({
+                        baseUrl: WS_URI,
+                        headers: {
+                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                            Accept: 'application/json'
+                        },
+                        json: true,
+                        method: 'GET',
+                        uri: '/api/deleteRec',
+                        qs: {
+                            'filter': '"myTag==\\"my value\\""',
+                            'limit': '30'
+                        }
+                    });
 
-                        return Promise.resolve('grid goes here');
-                    }
-                ];
+                    return Promise.resolve('grid goes here');
+                }
+            ];
 
-                http.setHandler((options) => {
-                    expect(requestHandlers).to.not.be.empty;
-                    return requestHandlers.shift()(options);
-                });
+            http.setHandler((options) => {
+                expect(requestHandlers).to.not.be.empty;
+                return requestHandlers.shift()(options);
+            });
 
             return ws.deleteByFilter('myTag=="my value"', 30).then((res) => {
                 expect(res).to.equal('grid goes here');

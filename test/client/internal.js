@@ -521,5 +521,83 @@ describe('client', () => {
                 });
             });
         });
+
+        describe('impersonate', () => {
+            let http;
+            let log;
+            let ws;
+            let targetUser = 'a_user_id';
+
+            beforeEach(() => {
+                http = new stubs.StubHTTPClient();
+                log = new stubs.StubLogger();
+                ws = getInstance(http, log);
+
+                ws.impersonateAs(targetUser);
+            });
+
+            describe('impersonateAs', () => {
+                it('should set the X-IMPERSONATE header', () => {
+                    ws.impersonateAs(targetUser);
+
+                    let requestHandlers = [
+                        /* First up, an authentication request */
+                        stubs.authHandler(),
+                        (options) => {
+                            return Promise.resolve(options);
+                        }
+                    ];
+
+                    http.setHandler((options) => {
+                        return requestHandlers.shift()(options);
+                    });
+
+                    return ws.deleteByFilter('myTag=="my value"', 30).then((options) => {
+                        expect(options.headers).to.have.property('X-IMPERSONATE');
+                        expect(options.headers['X-IMPERSONATE']).to.equal(targetUser);
+                    });
+                });
+            });
+
+            describe('unsetImpersonate', () => {
+                it('should omit the X-IMPERSONATE attribute in header', () => {
+                    ws.unsetImpersonate();
+
+                    let requestHandlers = [
+                        /* First up, an authentication request */
+                        stubs.authHandler(),
+                        (options) => {
+                            return Promise.resolve(options);
+                        }
+                    ];
+
+                    http.setHandler((options) => {
+                        return requestHandlers.shift()(options);
+                    });
+
+                    return ws.deleteByFilter('myTag=="my value"', 30).then((options) => {
+                        expect(options.headers).to.not.have.property('X-IMPERSONATE');
+                    });
+                });
+            });
+
+            describe('isImpersonating', () => {
+                describe('and impersonateAs() was called', () => {
+                    it('should return true', () => {
+                        expect(ws.isImpersonating()).to.equal(true);
+                    });
+                });
+
+                describe('and unsetImpersonate was called', () => {
+                    beforeEach(() => {
+                        ws.unsetImpersonate();
+                    });
+
+                    it('should return false', () => {
+                        expect(ws.isImpersonating()).to.equal(false);
+                    });
+                });
+            });
+        });
     });
 });
