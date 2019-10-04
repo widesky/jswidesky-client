@@ -184,7 +184,48 @@ describe('client', () => {
             });
         });
     });
-        
+
+    describe.only('updatePassword', () => {
+        it('should call up the updatePassword api', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The updatePassword request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            body: {
+                                "newPassword": "helloWorld!"
+                            },
+                            json: true,
+                            method: 'POST',
+                            uri: '/user/updatePassword'
+                        });
+
+                        return Promise.resolve('Password updated.');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws.updatePassword("helloWorld!").then((res) => {
+                expect(res).to.equal('Password updated.');
+            });
+        });
+    });
+
     /* read-by-filter is handled by the `find` method */
     describe('find', () => {
         it('should generate GET read if given a filter and no limit', () => {
