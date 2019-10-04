@@ -451,6 +451,29 @@ WideSkyClient.prototype.update = function (entities) {
     return this._create_or_update('updateRec', entities);
 };
 
+/**
+ * Change the current session user's password.
+ *
+ * @param   newPassword - A string
+ * @returns Promise that resolves to the raw grid.
+ */
+WideSkyClient.prototype.updatePassword = function (newPassword) {
+    if (this._log) {
+        this._log.trace('Updating password as: xxx');
+    }
+
+    if (!newPassword) {
+        throw new Error(`New password cannot be empty.`);
+    }
+
+    return this._ws_hs_submit({
+        method: 'POST',
+        uri: '/user/updatePassword',
+        body: {
+            "newPassword": newPassword
+        }
+    });
+};
 
 /**
  * Delete one or more entities given as IDs.
