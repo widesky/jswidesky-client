@@ -185,7 +185,7 @@ describe('client', () => {
         });
     });
 
-    describe.only('updatePassword', () => {
+    describe('updatePassword', () => {
         it('should call up the updatePassword api', () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
