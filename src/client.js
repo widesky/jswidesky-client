@@ -54,6 +54,11 @@ var WideSkyClient = function(base_uri, username,
     var _ws_token_wait = null;
 
     /**
+     * The user id which the original user is impersonating as.
+     */
+    var _impersonate = null;
+
+    /**
      * Private method: perform a new log-in.  Returns JSON response from
      * server or raises an error.
      */
@@ -204,7 +209,7 @@ var WideSkyClient = function(base_uri, username,
      * token.
      */
     self._ws_hs_submit = function(options) {
-        var submit = function(token) {
+        var submit = (token) => {
             /* Prepare request */
             options = Object.assign({}, options);
             if (options.headers === undefined) {
@@ -218,6 +223,10 @@ var WideSkyClient = function(base_uri, username,
             /* Set headers */
             options.headers['Authorization'] = 'Bearer ' + token;
             options.headers['Accept'] = 'application/json';
+
+            if (this.isImpersonating()) {
+                options.headers['X-IMPERSONATE'] = this._impersonate;
+            }
 
             /* Expect JSON reply */
             options.json = true;
@@ -279,6 +288,19 @@ var WideSkyClient = function(base_uri, username,
             return undefined;
         });
     };
+
+    self.impersonateAs = function(userId) {
+        this._impersonate = userId;
+    };
+
+    self.isImpersonating = function() {
+        return !!this._impersonate;
+    };
+
+    self.unsetImpersonate = function() {
+        this._impersonate = null;
+    };
+
 };
 
 
