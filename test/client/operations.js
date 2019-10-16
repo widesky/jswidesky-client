@@ -185,7 +185,6 @@ describe('client', () => {
         });
     });
 
-<<<<<<< HEAD:test/client/operations.js
     describe('updatePassword', () => {
         it('should call up the updatePassword api', () => {
             let http = new stubs.StubHTTPClient(),
