@@ -1,0 +1,25 @@
+{
+  "name": "jswidesky-client",
+  "version": "0.0.0",
+  "description": "WideSky Client in JavaScript",
+  "main": "index.js",
+  "scripts": {
+    "test": "JUNIT_REPORT_PATH=report.xml node node_modules/mocha/bin/mocha --colors --reporter mocha-jenkins-reporter test/*/**.js",
+    "coverage": "node node_modules/nyc/bin/nyc.js --reporter=html --reporter=text node_modules/mocha/bin/mocha test/*/**.js"
+  },
+  "author": "Widesky.cloud<support@widesky.com>",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.5.2",
+    "jsesc": "^2.5.1",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.2"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
+    "mocha-jenkins-reporter": "^0.4.1",
+    "nyc": "^13.1.0",
+    "sinon": "^7.1.0"
+  }
+}
