@@ -1,8 +1,5 @@
 /*
  * vim: set tw=78 et ts=4 sw=4 si fileencoding=utf-8:
- *
- * WideSky API Client entrypoint.
- * (C) 2018 VRT Systems
  */
 "use strict";
 

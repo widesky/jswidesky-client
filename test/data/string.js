@@ -2,7 +2,6 @@
  * vim: set tw=78 et ts=4 sw=4 si fileencoding=utf-8:
  *
  * Unit tests for String class
- * (C) 2018 VRT Systems
  */
 "use strict";
 

@@ -1,8 +1,5 @@
 /*
  * vim: set tw=78 et ts=4 sw=4 si fileencoding=utf-8:
- *
- * WideSky API data type handler.
- * (C) 2017 VRT Systems
  */
 "use strict";
 
