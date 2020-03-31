@@ -342,6 +342,24 @@ WideSkyClient.prototype.read = function(ids) {
 };
 
 /**
+ * Perform a graphql request to the WideSky API server.
+ * This function takes in a string which contains the
+ * graph query.
+ *
+ * @param   graphql The graph query
+ * @returns Promise that resolves to the graphql response.
+ */
+WideSkyClient.prototype.query = function(graphql) {
+    let body = { "query": graphql }
+
+    return this._ws_hs_submit({
+        method: 'POST',
+        uri: '/graphql',
+        body: body
+    });
+}
+
+/**
  * Process a `filter` and `limit`; and use these to generate the query
  * arguments.  Used by `find` and `deleteByFilter`.
  */
