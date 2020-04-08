@@ -364,12 +364,12 @@ function _parseGrid(grid) {
 function _dumpGrid(grid, version) {
     var dumped = {};
 
-    dumped.meta = _dumpDict(grid.meta, 'ver', version);
+    dumped.meta = _dumpDict(grid.meta, 'ver', grid.meta.ver);
     dumped.cols = grid.cols.map((col) => {
-        return _dumpDict(col, 'name', version);
+        return _dumpDict(col, 'name', grid.meta.ver);
     });
     dumped.rows = grid.rows.map((row) => {
-        return _dumpDict(row, undefined, version);
+        return _dumpDict(row, undefined, grid.meta.ver);
     });
 
     return dumped;
@@ -457,7 +457,10 @@ function dump(value, version) {
         return null;
     } else if (typeof(value.toHSJSON) === 'function') {
         return value.toHSJSON(version);
-    } else if (typeof(value) === 'object') {
+    } else
+    /* Unlikely that we'll strike anything else */
+    /* istanbul ignore else */
+    if (typeof(value) === 'object') {
         if (value instanceof Array) {
             /* Dump the elements */
             return _dumpList(value, version);
@@ -465,15 +468,12 @@ function dump(value, version) {
                     && value.hasOwnProperty('cols')
                     && value.hasOwnProperty('rows')) {
             /* This is a grid */
-            return _dumpGrid(value, version);
+            return _dumpGrid(value);
         } else {
             /* This is a dict */
             return _dumpDict(value, undefined, version);
         }
     }
-
-    /* If we're still here, then we don't handle it */
-    throw new Error('Unhandled input: ' + JSON.stringify(value));
 }
 
 /* Exported symbols */
