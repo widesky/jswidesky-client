@@ -91,10 +91,10 @@ var Ref = function(id, dis) {
             id = id.substring(0, space);
         }
 
-        if (id.startsWith('r:')) {
+        if (id.startsWith(this.HS_JSON_PREFIX)) {
             /* JSON Ref */
             this.id = id.substring(2);
-        } else if (id.startsWith('@')) {
+        } else if (id.startsWith(this.HS_ZINC_PREFIX)) {
             /* ZINC Ref */
             this.id = id.substring(1);
             if (dis) {
@@ -112,8 +112,11 @@ var Ref = function(id, dis) {
     }
 };
 
+Ref.prototype.HS_ZINC_PREFIX = '@';
+Ref.prototype.HS_JSON_PREFIX = 'r:';
+
 Ref.prototype.toHSJSON = function() {
-    var res = 'r:' + this.id;
+    var res = this.HS_JSON_PREFIX + this.id;
     if (this.dis) {
         res += ' ' + this.dis;
     }
@@ -121,7 +124,7 @@ Ref.prototype.toHSJSON = function() {
 };
 
 Ref.prototype.toHSZINC = function() {
-    var res = '@' + this.id;
+    var res = this.HS_ZINC_PREFIX + this.id;
     if (this.dis) {
         res += ' ' + this.dis.toHSZINC();
     }
