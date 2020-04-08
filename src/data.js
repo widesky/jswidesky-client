@@ -313,7 +313,7 @@ function _parseString(str) {
     if (prefix === 'n:')
         return Number.fromHS(str);
     if (prefix === 'r:')
-        return Ref.fromHS(str);
+        return new Ref(str);
     if (prefix === 's:')
         return String.fromHS(str);
     if (prefix === 't:')
@@ -426,7 +426,10 @@ function parse(value) {
         return null;
     } else if (typeof(value) === 'string') {
         return _parseString(value);
-    } else if (typeof(value) === 'object') {
+    } else
+    /* Not likely to be anything else */
+    /* istanbul ignore else */
+    if (typeof(value) === 'object') {
         if (value instanceof Array) {
             /* Parse the elements */
             return _parseList(value);
@@ -440,9 +443,6 @@ function parse(value) {
             return _parseDict(value);
         }
     }
-
-    /* If we're still here, then we don't handle it */
-    throw new Error('Unhandled input: ' + JSON.stringify(value));
 };
 
 /**
