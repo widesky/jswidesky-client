@@ -6,6 +6,55 @@
 var jsesc = require('jsesc');
 
 /**
+ * Marker data type, a singleton that indicates a tag exists.
+ */
+var MarkerType = function() {
+};
+MarkerType.prototype.HS_JSON_STR = 'm:';
+MarkerType.prototype.HS_ZINC_STR = 'M';
+MarkerType.prototype.toHSJSON = function() {
+    return this.HS_JSON_STR;
+};
+MarkerType.prototype.toHSZINC = function() {
+    return this.HS_ZINC_STR
+};
+var MARKER = new MarkerType();
+
+/**
+ * Remove data type, a singleton that indicates a tag is to be removed.
+ */
+var RemoveType = function() {
+};
+RemoveType.prototype.HS_JSON_V2_STR = 'x:';
+RemoveType.prototype.HS_JSON_V3_STR = '-:';
+RemoveType.prototype.HS_ZINC_STR = 'R';
+RemoveType.prototype.toHSJSON = function(version) {
+    if (version === VER_3)
+        return this.HS_JSON_V3_STR;
+    else
+        return this.HS_JSON_V2_STR;
+};
+RemoveType.prototype.toHSZINC = function() {
+    return this.HS_ZINC_STR;
+};
+var REMOVE = new RemoveType();
+
+/**
+ * NA data type, a singleton that indicates a tag's value is not available.
+ */
+var NAType = function() {
+};
+NAType.prototype.HS_JSON_STR = 'z:';
+NAType.prototype.HS_ZINC_STR = 'NA';
+NAType.prototype.toHSJSON = function() {
+    return this.HS_JSON_STR;
+};
+NAType.prototype.toHSZINC = function() {
+    return this.HS_ZINC_STR;
+};
+var NA = new NAType();
+
+/**
  * Project Haystack Ref data type.  A reference to another entity.
  */
 var Ref = function(id, dis) {
@@ -244,6 +293,9 @@ Number.prototype.toHSZINC = function() {
 
 /* Exported symbols */
 module.exports = {
+    MARKER: MARKER,
+    NA: NA,
+    REMOVE: REMOVE,
     Ref: Ref,
     HSNumber: HSNumber,
     String: String,
