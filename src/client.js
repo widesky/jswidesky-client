@@ -495,12 +495,13 @@ WideSkyClient.prototype.update = function (entities) {
  * @returns Promise that resolves to the raw grid.
  */
 WideSkyClient.prototype.updatePassword = function (newPassword) {
+    /* istanbul ignore next */
     if (this._log) {
-        this._log.trace('Updating password as: xxx');
+        this._log.trace('Updating password');
     }
 
     if (!newPassword) {
-        throw new Error(`New password cannot be empty.`);
+        throw new Error('New password cannot be empty.');
     }
 
     return this._ws_hs_submit({

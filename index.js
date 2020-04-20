@@ -10,10 +10,19 @@ var client = require('./src/client'),
 module.exports = {
     /* Client code */
     WideSkyClient: client,
+    /* Constants */
+    VER_2: VER_2,
+    VER_3: VER_3,
     /* Data types */
+    MARKER: MARKER,
+    NA: NA,
+    REMOVE: REMOVE,
     Ref: data.Ref,
     String: data.String,    // polyfilled
     Number: data.Number,    // polyfilled
     Date: data.Date,        // polyfilled
-    HSNumber: data.HSNumber
+    HSNumber: data.HSNumber,
+    /* Helper routines */
+    parse: data.parse,
+    dump: data.dump
 };
