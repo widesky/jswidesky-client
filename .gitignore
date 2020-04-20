@@ -1,0 +1,12 @@
+# Node modules
+node_modules/
+# vi swapfiles, various editors' back-up files
+.*.swp
+*.swp
+*~
+*.bkp
+# nyc (istanbul) output
+coverage/
+.nyc_output/
+# JUnit test result
+report.xml

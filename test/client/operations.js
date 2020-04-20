@@ -146,8 +146,49 @@ describe('client', () => {
         });
     });
 
+    describe('query', () => {
+        it('should wrap the GraphQL query and submit it', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+                /* We expect the following requests */
+                let requestHandlers = [
+                    /* First up, an authentication request */
+                    stubs.authHandler(),
+                    /* The read request is next */
+                    (options) => {
+                        expect(options).to.eql({
+                            baseUrl: WS_URI,
+                            headers: {
+                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                Accept: 'application/json'
+                            },
+                            body: {
+                                "query": "graphql query here"
+                            },
+                            json: true,
+                            method: 'POST',
+                            uri: '/graphql'
+                        });
+
+                        return Promise.resolve('response goes here');
+                    }
+                ];
+
+                http.setHandler((options) => {
+                    expect(requestHandlers).to.not.be.empty;
+                    return requestHandlers.shift()(options);
+                });
+
+            return ws.query('graphql query here').then((res) => {
+                expect(res).to.equal('response goes here');
+            });
+        });
+    });
+
     describe('reloadCache', () => {
-        it('should call up reload cache api', () => {
+        it('should call up reload cache API', () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
@@ -185,7 +226,7 @@ describe('client', () => {
     });
 
     describe('updatePassword', () => {
-        it('should call up the updatePassword api', () => {
+        it('should call up the updatePassword API', () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
@@ -222,6 +263,21 @@ describe('client', () => {
             return ws.updatePassword("helloWorld!").then((res) => {
                 expect(res).to.equal('Password updated.');
             });
+        });
+
+        it('should reject empty password', () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                return ws.updatePassword("").then(() => {
+                    throw new Error('Should not have succeeded');
+                });
+            } catch (err) {
+                if (err.message !== 'New password cannot be empty.')
+                    throw err;
+            }
         });
     });
 
