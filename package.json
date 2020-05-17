@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "JUNIT_REPORT_PATH=report.xml node node_modules/mocha/bin/mocha --colors --reporter mocha-jenkins-reporter test/*/**.js",
+    "build": "grunt build",
     "coverage": "node node_modules/nyc/bin/nyc.js --reporter=html --reporter=text node_modules/mocha/bin/mocha test/*/**.js"
   },
   "author": "Widesky.cloud<support@widesky.com>",
