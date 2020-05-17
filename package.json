@@ -16,7 +16,14 @@
     "request-promise": "^4.2.2"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.9.6",
     "chai": "^4.2.0",
+    "grunt": "^1.1.0",
+    "grunt-babel": "^8.0.0",
+    "grunt-contrib-clean": "^2.0.0",
+    "grunt-contrib-concat": "^1.0.1",
+    "grunt-contrib-copy": "^1.0.0",
+    "grunt-contrib-uglify": "^4.0.1",
     "mocha": "^5.2.0",
     "mocha-jenkins-reporter": "^0.4.1",
     "nyc": "^15.0.0",
