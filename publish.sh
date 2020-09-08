@@ -4,8 +4,12 @@
 #
 
 echo "Publishing to [npm.org] npm repository."
-npm publish --registry https://registry.npmjs.org
+npm publish \
+        --access public \
+        --registry https://registry.npmjs.org
 
 echo "Publishing to [github] npm repository."
-npm publish --registry https://npm.pkg.github.com
+npm publish \
+        --access public \
+        --registry https://npm.pkg.github.com
 
