@@ -1,6 +1,6 @@
 {
-  "name": "@wideskycloud/jswidesky-client",
-  "version": "0.1.0",
+  "name": "jswidesky-client",
+  "version": "0.1.1",
   "description": "WideSky Client in JavaScript",
   "main": "index.js",
   "scripts": {
@@ -26,7 +26,7 @@
     "grunt-contrib-copy": "^1.0.0",
     "grunt-contrib-uglify": "^4.0.1",
     "mocha": "^5.2.0",
-    "mocha-jenkins-reporter": "^0.4.1",
+    "mocha-jenkins-reporter": "^0.4.5",
     "nyc": "^15.0.0",
     "sinon": "^7.1.0"
   }
