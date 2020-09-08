@@ -1,10 +1,12 @@
 {
-  "name": "jswidesky-client",
-  "version": "0.1.1",
+  "name": "@widesky/jswidesky-client",
+  "version": "0.1.2",
   "description": "WideSky Client in JavaScript",
   "main": "index.js",
+  "private": false,
   "scripts": {
     "test": "JUNIT_REPORT_PATH=report.xml node node_modules/mocha/bin/mocha --colors --reporter mocha-jenkins-reporter test/*/**.js",
+    "publish": "npm publish --registry https://npm.pkg.github.com/ && npm publish --registry https://registry.npmjs.org",
     "build": "grunt build",
     "coverage": "node node_modules/nyc/bin/nyc.js --reporter=html --reporter=text node_modules/mocha/bin/mocha test/*/**.js"
   },
