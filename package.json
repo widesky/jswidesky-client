@@ -1,6 +1,6 @@
 {
-  "name": "jswidesky-client",
-  "version": "0.0.0",
+  "name": "@wideskycloud/jswidesky-client",
+  "version": "0.1.0",
   "description": "WideSky Client in JavaScript",
   "main": "index.js",
   "scripts": {
