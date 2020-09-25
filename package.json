@@ -15,8 +15,7 @@
     "bluebird": "^3.5.2",
     "jsesc": "^2.5.1",
     "request": "^2.88.0",
-    "request-promise": "^4.2.2",
-    "terser": "^3.14.1"
+    "request-promise": "^4.2.2"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.11.5",
@@ -29,6 +28,7 @@
     "mocha": "^5.2.0",
     "mocha-jenkins-reporter": "^0.4.5",
     "nyc": "^15.0.0",
-    "sinon": "^7.1.0"
+    "sinon": "^7.1.0",
+    "terser": "^3.14.1"
   }
 }
