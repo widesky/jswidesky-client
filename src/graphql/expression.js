@@ -3,19 +3,33 @@ const moment = require("moment-timezone");
 const WHITESPACE = " ";
 
 class Expression {
-    // Expression a pair of from/to expression
+    // Parse a pair of from and to datetime
+    // expression
     // into an ISO8601 datetime string,
     // based on the passed in timezone
+    //
+    // E.g. now() returns the current date and time
+    //
     //
     // Exception will be thrown if the expression
     // is not a valid moment datetime string and
     // if it is an invalid expression.
+
+
+    // This function takes in a datetime expression
+    // which can be either;
+    // 1) a valid datetime string which momentJS accepts
+    // or
+    // 2) a datetime expression such as now(), now - 2h
+    //
+    // It parses the expression and returns current epoch
+    // in ISO8601 date time format.
     static dtParse(
-        expr,
+        datetimeExpr,
         timezone) {
         moment.suppressDeprecationWarnings = true;
         let epoch;
-        let momentDate = moment(expr);
+        let momentDate = moment(datetimeExpr);
 
         if (momentDate.isValid()) {
             epoch = momentDate
@@ -24,7 +38,7 @@ class Expression {
         }
         else {
             epoch = Expression.asWideskyDT(
-                expr,
+                datetimeExpr,
                 timezone);
         }
 
