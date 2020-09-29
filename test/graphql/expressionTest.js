@@ -361,23 +361,16 @@ describe('Expression dateTime expression', () => {
             });
         });
 
-        // start of time unit tests
-
-        /*
-         * WC-2863: Doesn't seem to be implemented?  Presently reports
-         * the incoming time, ignoring the / suffix.
-         */
-        describe.skip('expr=now/d', () => {
+        describe('expr=now/d', () => {
             it('should return the start of the day', () => {
                 let epoch = Expression.asWideskyDT(
                     'now/d',
                     'Australia/Brisbane');
-                expect(epoch).to.be.equal("2010-02-13T14:00:00.000Z");
+                expect(epoch).to.be.equal("2010-02-14T14:00:00.000Z");
             });
         });
 
         // misc unhappy paths
-
         describe('expr=now % 2M', () => {
             it('should throw error', () => {
                 try {

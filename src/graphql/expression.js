@@ -87,7 +87,7 @@ class Expression {
 
             let momentDt = moment().tz(timezone);
 
-            if (Expression.hasChar(charArr, position)) {
+            while (Expression.hasChar(charArr, position)) {
                 if (Expression.isKeywordAdd(
                                     charArr,
                                     position)) {
@@ -214,15 +214,24 @@ Expecting a datetime unit after the '/' char.`);
                     Expression.consumeWhitespaces(
                                     charArr,
                                     position);
+                    let suffixUnit = Expression.consumeDatetimeUnit(
+                                charArr,
+                                position);
+
+                    Expression.consumeWhitespaces(
+                        charArr,
+                        position);
+
+                    let suffixMUnit = Expression.toMomentUnit(
+                        suffixUnit);
+
+                    momentDt.startOf(suffixMUnit);
                 }
                 else {
                     throw new Error(
 `Invalid datetime expression ${expr}.
 Expecting '+','-' or '/' sign after now.`);
                 }
-            }
-            else {
-                // Expr is only 'now'
             }
 
             return momentDt.toISOString();
