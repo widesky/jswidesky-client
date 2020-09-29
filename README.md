@@ -78,7 +78,7 @@ on the Widesky query language.
 
 ## Widesky query utilities
 
-# Dynamic query
+### Dynamic query
 This library also include some of the commonly used
 `widesky query` utilities that can used for helping
 you to construct dynamic queries through the use of
