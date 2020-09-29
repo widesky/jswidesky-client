@@ -13,7 +13,7 @@ module.exports = function(grunt) {
                     }
                 },
                 files: {
-                    "dist/wideskyClient.js": "wideskyClient-front.js"
+                    "dist/wideskyClient.js": "index.js"
                 }
             }
         },

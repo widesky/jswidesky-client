@@ -4,10 +4,12 @@
 "use strict";
 
 var client = require('./src/client'),
-    data = require('./src/data');
+    data = require('./src/data'),
+    replace = require('./src/graphql/replace'),
+    expression = require('./src/graphql/expression');
 
 /* Exported symbols */
-module.exports = {
+const jsWidesky = {
     /* Client code */
     WideSkyClient: client,
     /* Constants */
@@ -24,5 +26,18 @@ module.exports = {
     HSNumber: data.HSNumber,
     /* Helper routines */
     parse: data.parse,
-    dump: data.dump
+    dump: data.dump,
+    graphql: {
+        replace,
+        expression
+    }
 };
+
+if (typeof window === 'undefined') {
+    // NodeJs
+    module.exports = jsWidesky;
+}
+else {
+    // Browser
+    window.jsWidesky = jsWidesky;
+}
