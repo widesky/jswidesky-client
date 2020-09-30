@@ -7,6 +7,7 @@ var Promise = require('bluebird'),
     request = require('request-promise'),
     rqerr = require('request-promise/errors'),
     data = require('./data'),
+    replace = require('./graphql/replace'),
     _ = require('lodash');
 
 /**
@@ -370,6 +371,7 @@ WideSkyClient.prototype.read = function(ids) {
  * @returns Promise that resolves to the graphql response.
  */
 WideSkyClient.prototype.query = function(graphql) {
+    graphql = replace.outerBraces(graphql);
     let body = { "query": graphql }
 
     return this._ws_hs_submit({
