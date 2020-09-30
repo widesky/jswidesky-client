@@ -2,7 +2,7 @@ const _ = require("lodash");
 const moment = require("moment-timezone");
 const WHITESPACE = " ";
 
-class Expression {
+class ExprParser{
     // Parse a pair of from and to datetime
     // expression
     // into an ISO8601 datetime string,
@@ -24,7 +24,7 @@ class Expression {
     //
     // It parses the expression and returns current epoch
     // in ISO8601 date time format.
-    static dtParse(
+    static parseDt(
         datetimeExpr,
         timezone) {
         moment.suppressDeprecationWarnings = true;
@@ -37,7 +37,7 @@ class Expression {
                       .toISOString();
         }
         else {
-            epoch = Expression.asWideskyDT(
+            epoch = ExprParser.asWideskyDT(
                 datetimeExpr,
                 timezone);
         }
@@ -77,25 +77,25 @@ class Expression {
             current: 0
         };
 
-        if (Expression.isKeywordNow(charArr, position)) {
-            Expression.consumeChar(position); // n
-            Expression.consumeChar(position); // o
-            Expression.consumeChar(position); // w
-            Expression.consumeWhitespaces(
+        if (ExprParser.isKeywordNow(charArr, position)) {
+            ExprParser.consumeChar(position); // n
+            ExprParser.consumeChar(position); // o
+            ExprParser.consumeChar(position); // w
+            ExprParser.consumeWhitespaces(
                 charArr,
                 position);
 
             let momentDt = moment().tz(timezone);
 
-            while (Expression.hasChar(charArr, position)) {
-                if (Expression.isKeywordAdd(
+            while (ExprParser.hasChar(charArr, position)) {
+                if (ExprParser.isKeywordAdd(
                                     charArr,
                                     position)) {
-                    Expression.consumeChar(position); // +
-                    Expression.consumeWhitespaces(
+                    ExprParser.consumeChar(position); // +
+                    ExprParser.consumeWhitespaces(
                                     charArr,
                                     position);
-                    let numberStr = Expression.consumeNumbers(
+                    let numberStr = ExprParser.consumeNumbers(
                         charArr, position);
 
                     if (!numberStr) {
@@ -104,11 +104,11 @@ class Expression {
 Expecting numbers followed by the + sign.`);
                     }
 
-                    Expression.consumeWhitespaces(
+                    ExprParser.consumeWhitespaces(
                                     charArr,
                                     position);
 
-                    let unit = Expression.consumeDatetimeUnit(
+                    let unit = ExprParser.consumeDatetimeUnit(
                         charArr, position);
 
                     if (!unit) {
@@ -117,25 +117,25 @@ Expecting numbers followed by the + sign.`);
 Missing unit after '+${numberStr}'`);
                     }
 
-                    let momentUnit = Expression.toMomentUnit(unit);
+                    let momentUnit = ExprParser.toMomentUnit(unit);
                     momentDt.add(
                         Number.parseInt(numberStr), momentUnit);
 
-                    if (Expression.hasChar(charArr, position)) {
-                        if (Expression.isKeywordSuffixInd(charArr, position)) {
-                            Expression.consumeChar(position); // the / char
-                            Expression.consumeWhitespaces(charArr, position);
-                            let suffixUnit = Expression.consumeDatetimeUnit(
+                    if (ExprParser.hasChar(charArr, position)) {
+                        if (ExprParser.isKeywordSuffixInd(charArr, position)) {
+                            ExprParser.consumeChar(position); // the / char
+                            ExprParser.consumeWhitespaces(charArr, position);
+                            let suffixUnit = ExprParser.consumeDatetimeUnit(
                                 charArr,
                                 position);
 
-                            if (Expression.hasChar(charArr, position)) {
+                            if (ExprParser.hasChar(charArr, position)) {
                                 throw new Error(
 `Invalid datetime expression ${expr}.
 Unexpected value found after /${suffixUnit}.`);
                             }
 
-                            let suffixMUnit = Expression.toMomentUnit(
+                            let suffixMUnit = ExprParser.toMomentUnit(
                                 suffixUnit);
 
                             momentDt.startOf(suffixMUnit);
@@ -147,15 +147,15 @@ Expecting a datetime unit after the '/' char.`);
                         }
                     }
                 }
-                else if (Expression.isKeywordSub(
+                else if (ExprParser.isKeywordSub(
                                     charArr,
                                     position)) {
-                    Expression.consumeChar(position); // -
-                    Expression.consumeWhitespaces(
+                    ExprParser.consumeChar(position); // -
+                    ExprParser.consumeWhitespaces(
                                     charArr,
                                     position);
 
-                    let numberStr = Expression.consumeNumbers(
+                    let numberStr = ExprParser.consumeNumbers(
                         charArr, position);
 
                     if (!numberStr) {
@@ -164,11 +164,11 @@ Expecting a datetime unit after the '/' char.`);
 Expecting numbers followed by the - sign.`);
                     }
 
-                    Expression.consumeWhitespaces(
+                    ExprParser.consumeWhitespaces(
                                     charArr,
                                     position);
 
-                    let unit = Expression.consumeDatetimeUnit(
+                    let unit = ExprParser.consumeDatetimeUnit(
                         charArr, position);
 
                     if (!unit) {
@@ -177,25 +177,25 @@ Expecting numbers followed by the - sign.`);
 Missing unit after '-${numberStr}'`);
                     }
 
-                    let momentUnit = Expression.toMomentUnit(unit);
+                    let momentUnit = ExprParser.toMomentUnit(unit);
                     momentDt.subtract(
                         Number.parseInt(numberStr), momentUnit);
 
-                    if (Expression.hasChar(charArr, position)) {
-                        if (Expression.isKeywordSuffixInd(charArr, position)) {
-                            Expression.consumeChar(position); // the / char
-                            Expression.consumeWhitespaces(charArr, position);
-                            let suffixUnit = Expression.consumeDatetimeUnit(
+                    if (ExprParser.hasChar(charArr, position)) {
+                        if (ExprParser.isKeywordSuffixInd(charArr, position)) {
+                            ExprParser.consumeChar(position); // the / char
+                            ExprParser.consumeWhitespaces(charArr, position);
+                            let suffixUnit = ExprParser.consumeDatetimeUnit(
                                 charArr,
                                 position);
 
-                            if (Expression.hasChar(charArr, position)) {
+                            if (ExprParser.hasChar(charArr, position)) {
                                 throw new Error(
 `Invalid datetime expression ${expr}.
 Unexpected value found after /${suffixUnit}.`);
                             }
 
-                            let suffixMUnit = Expression.toMomentUnit(
+                            let suffixMUnit = ExprParser.toMomentUnit(
                                 suffixUnit);
 
                             momentDt.startOf(suffixMUnit);
@@ -207,22 +207,22 @@ Expecting a datetime unit after the '/' char.`);
                         }
                     }
                 }
-                else if (Expression.isKeywordSuffixInd(
+                else if (ExprParser.isKeywordSuffixInd(
                                     charArr,
                                     position)) {
-                    Expression.consumeChar(position); // /
-                    Expression.consumeWhitespaces(
+                    ExprParser.consumeChar(position); // /
+                    ExprParser.consumeWhitespaces(
                                     charArr,
                                     position);
-                    let suffixUnit = Expression.consumeDatetimeUnit(
+                    let suffixUnit = ExprParser.consumeDatetimeUnit(
                                 charArr,
                                 position);
 
-                    Expression.consumeWhitespaces(
+                    ExprParser.consumeWhitespaces(
                         charArr,
                         position);
 
-                    let suffixMUnit = Expression.toMomentUnit(
+                    let suffixMUnit = ExprParser.toMomentUnit(
                         suffixUnit);
 
                     momentDt.startOf(suffixMUnit);
@@ -280,19 +280,19 @@ Expecting '+','-' or '/' sign after now.`);
 
         let currChar = charArr[pos.current];
 
-        if (Expression.isKeywordSec(currChar)) {
+        if (ExprParser.isKeywordSec(currChar)) {
             unit = 's';
         }
-        else if (Expression.isKeywordMin(currChar)) {
+        else if (ExprParser.isKeywordMin(currChar)) {
             unit = 'm';
         }
-        else if (Expression.isKeywordHour(currChar)) {
+        else if (ExprParser.isKeywordHour(currChar)) {
             unit = 'h';
         }
-        else if (Expression.isKeywordDay(currChar)) {
+        else if (ExprParser.isKeywordDay(currChar)) {
             unit = 'd';
         }
-        else if (Expression.isKeywordMonth(currChar)) {
+        else if (ExprParser.isKeywordMonth(currChar)) {
             unit = 'M';
         }
         else {
@@ -300,7 +300,7 @@ Expecting '+','-' or '/' sign after now.`);
             return unit;
         }
 
-        Expression.consumeChar(pos);
+        ExprParser.consumeChar(pos);
         return unit;
     }
 
@@ -419,4 +419,5 @@ Expecting '+','-' or '/' sign after now.`);
     }
 }
 
-module.exports = Expression;
+module.exports = ExprParser;
+

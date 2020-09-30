@@ -124,11 +124,11 @@ let templateQuery = `{
 }`;
 
 let myFrom = lib.graphql
-                .expression
+                .exprParser
                 .dtParse('now-1h');
 
 let myTo = lib.graphql
-              .expression
+              .exprParser
               .dtParse('now');
 
 let query = lib.graphql
