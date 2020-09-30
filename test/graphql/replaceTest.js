@@ -18,6 +18,18 @@ const TEST_QUERY =
   }
 }`;
 
+const TEST_QUERY_2 =
+    `{
+  haystack {
+    search(filter: "point and water and spaceRef==@$\{spaceId\}", limit: 1) {
+      waterPoint: entity {
+        id
+      }
+    }
+  }
+}
+`;
+
 describe('Replace', () => {
     describe('outerBraces', () => {
         it('should wrap query in braces if not present', () => {
@@ -50,6 +62,43 @@ describe('Replace', () => {
             );
         });
     });
+
+    describe('filterVar', () => {
+        describe('varname=spaceId', () => {
+            it ('should replace the variable', () => {
+                expect(Replace.filterVar(TEST_QUERY_2, "spaceId", "12345"))
+                    .to.equal(
+`{
+  haystack {
+    search(filter: "point and water and spaceRef==@12345", limit: 1) {
+      waterPoint: entity {
+        id
+      }
+    }
+  }
+}
+`
+                );
+            });
+        });
+
+        describe('varname=${spaceId}', () => {
+            it ('should replace the variable', () => {
+                expect(Replace.filterVar(TEST_QUERY_2, "spaceId", "12345"))
+                    .to.equal(
+`{
+  haystack {
+    search(filter: "point and water and spaceRef==@12345", limit: 1) {
+      waterPoint: entity {
+        id
+      }
+    }
+  }
+}
+`);
+            });
+        });
+    })
 
     describe('time variables', () => {
         describe("rangeFrom=12345", () => {

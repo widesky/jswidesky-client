@@ -3,6 +3,7 @@
  */
 const _ = require("lodash");
 const FIND_HISTORY_INPUT = /history(.*){/g;
+const FIND_FILTER_INPUT = /filter:\s?"(.*)"/g;
 
 /**
  * An utility for replacing placeholder
@@ -22,6 +23,27 @@ class Replace {
         return query;
     }
 
+    static filterVar(
+        query,
+        varname,
+        varval) {
+        varname = _.trimStart(varname);
+        if (!_.startsWith(varname, '$')) {
+            varname = `\${${varname}}`;
+        }
+
+        return _.replace(query,
+            FIND_FILTER_INPUT,
+            (filterInput) => {
+                filterInput = _.replace(
+                    filterInput,
+                    varname,
+                    varval);
+
+                return filterInput;
+            });
+    }
+
     /**
      * Substitute time variables
      * $from and $to
@@ -33,7 +55,7 @@ class Replace {
         return _.replace(query,
             FIND_HISTORY_INPUT,
             (histInput) => {
-                if(from) {
+                if (from) {
                     histInput = _.replace(
                         histInput,
                         "$from",
