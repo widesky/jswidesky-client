@@ -165,7 +165,7 @@ describe('client', () => {
                                 Accept: 'application/json'
                             },
                             body: {
-                                "query": "graphql query here"
+                                "query": "{ graphql query here }"
                             },
                             json: true,
                             method: 'POST',
