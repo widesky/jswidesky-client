@@ -6,7 +6,8 @@
 var client = require('./src/client'),
     data = require('./src/data'),
     replace = require('./src/graphql/replace'),
-    exprParser = require('./src/graphql/exprParser');
+    exprParser = require('./src/graphql/exprParser'),
+    find = require('./src/graphql/find');
 
 /* Exported symbols */
 const jsWidesky = {
@@ -29,7 +30,8 @@ const jsWidesky = {
     dump: data.dump,
     graphql: {
         replace,
-        exprParser
+        exprParser,
+        find
     }
 };
 

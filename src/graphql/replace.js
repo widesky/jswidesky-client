@@ -29,7 +29,7 @@ class Replace {
         varval) {
         varname = _.trimStart(varname);
         if (!_.startsWith(varname, '$')) {
-            varname = `\${${varname}}`;
+            varname = `\$${varname}`;
         }
 
         return _.replace(query,

@@ -21,7 +21,7 @@ const TEST_QUERY =
 const TEST_QUERY_2 =
     `{
   haystack {
-    search(filter: "point and water and spaceRef==@$\{spaceId\}", limit: 1) {
+    search(filter: "point and water and spaceRef==@$spaceId", limit: 1) {
       waterPoint: entity {
         id
       }
