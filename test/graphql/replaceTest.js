@@ -30,6 +30,25 @@ const TEST_QUERY_2 =
 }
 `;
 
+const TEST_QUERY_3_MULTIPLE_SEARCH =
+    `{
+  haystack {
+    search(filter: "point and water and spaceRef==@$spaceId", limit: 1) {
+      waterPoint: entity {
+        id
+      }
+    }
+    search(filter: "gas and water and spaceRef==@$spaceId", limit: 1) {
+      gasPoint: entity {
+        id
+      }
+    }
+  }
+}
+`;
+
+const TEST_QUERY_4_MINIFIED_QUERY = `{haystack{search(filter:"point and water and spaceRef==@$spaceId",limit:1){waterPoint:entity{id}}search(filter:"gas and water and spaceRef==@$spaceId",limit:1){gasPoint:entity{id}}}}`;
+
 describe('Replace', () => {
     describe('outerBraces', () => {
         it('should wrap query in braces if not present', () => {
@@ -80,9 +99,39 @@ describe('Replace', () => {
 `
                 );
             });
+
+            it('should replace all of the variables', () => {
+                expect(Replace.filterVar(
+                  TEST_QUERY_3_MULTIPLE_SEARCH, "spaceId", "12345"))
+                    .to.equal(
+`{
+  haystack {
+    search(filter: "point and water and spaceRef==@12345", limit: 1) {
+      waterPoint: entity {
+        id
+      }
+    }
+    search(filter: "gas and water and spaceRef==@12345", limit: 1) {
+      gasPoint: entity {
+        id
+      }
+    }
+  }
+}
+`
+                );
+            });
+
+            it('should replace the variables in minified query', () => {
+                expect(Replace.filterVar(
+                  TEST_QUERY_4_MINIFIED_QUERY, "spaceId", "12345"))
+                    .to.equal(
+`{haystack{search(filter:"point and water and spaceRef==@12345",limit:1){waterPoint:entity{id}}search(filter:"gas and water and spaceRef==@12345",limit:1){gasPoint:entity{id}}}}`
+                );
+            });
         });
 
-        describe('varname=${spaceId}', () => {
+        describe('varname=$spaceId', () => {
             it ('should replace the variable', () => {
                 expect(Replace.filterVar(TEST_QUERY_2, "spaceId", "12345"))
                     .to.equal(

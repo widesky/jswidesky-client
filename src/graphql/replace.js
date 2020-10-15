@@ -32,16 +32,11 @@ class Replace {
             varname = `\$${varname}`;
         }
 
-        return _.replace(query,
-            FIND_FILTER_INPUT,
-            (filterInput) => {
-                filterInput = _.replace(
-                    filterInput,
-                    varname,
-                    varval);
+        // Forward slash the $ character for regexpr,
+        varname = "\\" + varname;
+        const pattern = new RegExp(varname, 'g');
 
-                return filterInput;
-            });
+        return query.replace(pattern, varval);
     }
 
     /**
