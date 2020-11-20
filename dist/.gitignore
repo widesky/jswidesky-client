@@ -1,5 +1,5 @@
 # Ignore everything
-*
+#* # <- This is so that we can commit releasable for temp release
 
 # But not 
 !.gitignore

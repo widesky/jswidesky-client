@@ -76,6 +76,68 @@ let response = await myClient.query(myQuery);
 See our [documentation](https://widesky.cloud/docs/reference/apis/cloud/graphql/) for more information
 on the Widesky query language.
 
+## Widesky query utilities
+
+### Dynamic query
+This library also include some of the commonly used
+`widesky query` utilities that can used for helping
+you to construct dynamic queries through the use of
+`placeholder variables`.
+
+One typical use-case for it is for example,
+having a `widesky query` that dynamically always
+look back 1 hour in time for data on a regular
+basis.
+
+In such scenario, the `$from` and `$to` variables
+can be defined in the `history` node's `range` filter.
+
+Example:
+
+```
+let templateQuery = `{
+  haystack {
+    search(filter: "site", limit: 1) {
+      entity {
+        id
+        search(filter: "equip", whereTag: "spaceRef", limit: 1) {
+          entity {
+            id
+            findElec: search(filter: "point and elec", whereTag: "equipRef", limit: 2) {
+              entity {
+                id
+                history(rangeAbsolute: {start: "${from}", end: "${to}"}) {
+                  timeSeries {
+                    dataPoints {
+                      time
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+let myFrom = lib.graphql
+                .exprParser
+                .parseDt('now-1h');
+
+let myTo = lib.graphql
+              .exprParser
+              .parseDt('now');
+
+let query = lib.graphql
+               .replace
+               .timeVars(templateQuery, myFrom, myTo);
+
+let resp = await myClient.graphql(query);
+```
+
 ## Building the library
 To build a release of the project, run;
 
