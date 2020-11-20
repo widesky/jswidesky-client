@@ -1,7 +1,10 @@
 #
-# This is a script for publishing a release to both
-# npm.org and github's npm
+# Run this to publish an official release to both of the
+# npm.org and github npm repository.
 #
+
+echo "Building project..."
+npm run build
 
 echo "Publishing to [npm.org] npm repository."
 npm publish \
