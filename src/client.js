@@ -6,7 +6,9 @@
 var Promise = require('bluebird'),
     request = require('request-promise'),
     rqerr = require('request-promise/errors'),
-    data = require('./data');
+    data = require('./data'),
+    replace = require('./graphql/replace'),
+    _ = require('lodash');
 
 /**
  * WideSky Client: This is a simplified HTTP-based client for communicating
@@ -24,9 +26,19 @@ var Promise = require('bluebird'),
  *                      given client ID (string)
  *
  * @param   log         Optional bunyan instance for logging
+ * @param   access_token
+ *                      Optional widesky access token.
+ *                      For application whom would like to seed the client
+ *                      with a known access token to avoid having to perform
+ *                      the login operation again.
  */
-var WideSkyClient = function(base_uri, username,
-        password, client_id, client_secret, log) {
+var WideSkyClient = function(base_uri,
+                             username,
+                             password,
+                             client_id,
+                             client_secret,
+                             log,
+                             access_token) {
     /* Self reference */
     var self = this;
 
@@ -39,11 +51,20 @@ var WideSkyClient = function(base_uri, username,
     /* Logger instance */
     self._log = log;
 
+    if (access_token) {
+        if (!_.has(access_token, "refresh_token") ||
+            !_.has(access_token, "expires_in") ||
+            !_.has(access_token, "token_type") ||
+            !_.has(access_token, "access_token")) {
+            throw new Error("Parameter 'access_token' is not a valid Widesky token.");
+        }
+    }
+
     /*
      * The authentication response, used for storing the access token and
      * refresh token.
      */
-    var _ws_token = null;
+    var _ws_token = access_token || null;
     /*
      * Refresh token retrieval.  The list of waiters for a refresh token
      * add themselves here.  If `null`, then no refresh is in progress.
@@ -350,6 +371,7 @@ WideSkyClient.prototype.read = function(ids) {
  * @returns Promise that resolves to the graphql response.
  */
 WideSkyClient.prototype.query = function(graphql) {
+    graphql = replace.outerBraces(graphql);
     let body = { "query": graphql }
 
     return this._ws_hs_submit({

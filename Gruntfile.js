@@ -4,76 +4,37 @@ module.exports = function(grunt) {
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
         /* Step definition */
-        babel: {
-            options: {
-                sourceMap: false,
-                presets: ["@babel/preset-env"]
-            },
+        browserify: {
             dist: {
+                options: {
+                    transform: [["babelify", { "presets": ['@babel/preset-env'] }]],
+                    browserifyOptions: {
+                        debug: true
+                    }
+                },
                 files: {
-                    'dist/wsClient.babel.js':
-                        'dist/wsClient.concat.js'
+                    "dist/wideskyClient.js": "index.js"
                 }
             }
         },
-        copy: {
-            // Move all source to dist
-            files: {
-                cwd: '.',
-                src: [
-                    './src/*'
-                ],
-                dest:'./dist/',
-                expand: true
-            }
-        },
-        concat: {
-            // combine all source files into a js file
+        terser: {
             dist: {
-                src: ['dist/src/*.js'],
-                dest: 'dist/wsClient.concat.js'
-            }
-        },
-        clean: {
-            build: {
-                src: [
-                    'dist/src/*.js',
-                    'dist/src',
-                    'dist/wsClient.babel.js',
-                    'dist/wsClient.concat.js',
-                ]
-            }
-        },
-        uglify: {
-            options: {
-                // Uglify variable and function names
-                mangle: true
-            },
-            build: {
                 files: {
-                    'dist/wsClient.js': [
-                        'dist/wsClient.babel.js'
-                    ]
-                }
+                    "dist/wideskyClient.min.js": ["dist/wideskyClient.js"]
+                },
             }
-        }
+        },
     });
 
     // These plugins provide necessary tasks.
-    grunt.loadNpmTasks('grunt-contrib-copy');
-    grunt.loadNpmTasks('grunt-contrib-clean');
-    grunt.loadNpmTasks('grunt-contrib-concat');
-    grunt.loadNpmTasks('grunt-contrib-uglify');
-    grunt.loadNpmTasks('grunt-babel');
+    grunt.loadNpmTasks("grunt-browserify");
+    grunt.loadNpmTasks("grunt-terser");
 
     // Tasks and their steps
     grunt.registerTask('default', ['build']);
     grunt.registerTask('build',
         [
-            'copy',
-            'concat',
-            'babel',
-            'uglify',
-            'clean'
+            'browserify:dist',
+            'terser:dist'
         ]);
 };
