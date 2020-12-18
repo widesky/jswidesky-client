@@ -78,7 +78,7 @@ var WideSkyClient = function(base_uri,
 
     /**
      * If this is true (default) then all http requests made by the client
-     * will have the 'Accept-Encoding' header with value of 'gzip, compress, br'
+     * will have the 'Accept-Encoding' header with value of 'gzip, deflate'
      * append to it.
      *
      * @type {boolean}
@@ -252,9 +252,8 @@ var WideSkyClient = function(base_uri,
             options.headers['Authorization'] = 'Bearer ' + token;
             options.headers['Accept'] = 'application/json';
 
-            if (this.isAcceptingGzip() &&
-                !options.headers.hasOwnProperty("Accept-Encoding")) {
-                options.headers["Accept-Encoding"] = "gzip, compress, br";
+            if (this.isAcceptingGzip()) {
+                options.gzip = true;
             }
 
             if (this.isImpersonating()) {

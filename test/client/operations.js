@@ -36,9 +36,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -76,9 +76,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -116,9 +116,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -163,9 +163,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             body: {
@@ -205,9 +205,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -244,9 +244,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             body: {
@@ -302,9 +302,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -342,9 +342,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -385,9 +385,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -451,9 +451,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -520,9 +520,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -619,9 +619,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -684,9 +684,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -745,9 +745,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -833,9 +833,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -873,9 +873,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -913,9 +913,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -961,9 +961,9 @@ describe('client', () => {
                     (options) => {
                         expect(options).to.eql({
                             baseUrl: WS_URI,
+                            gzip: true,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -1001,9 +1001,9 @@ describe('client', () => {
                 (options) => {
                     expect(options).to.eql({
                         baseUrl: WS_URI,
+                        gzip: true,
                         headers: {
                             Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            "Accept-Encoding": "gzip, compress, br",
                             Accept: 'application/json'
                         },
                         json: true,
