@@ -76,6 +76,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -112,6 +113,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -126,6 +128,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -173,6 +176,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -193,6 +197,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN2,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -240,6 +245,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -267,6 +273,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN2,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -314,6 +321,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -327,6 +335,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -372,6 +381,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -386,6 +396,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -406,6 +417,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN2,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -481,6 +493,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -517,6 +530,61 @@ describe('client', () => {
 
                 return ws.login().then((res) => {
                     expect(res).to.be.undefined;
+                });
+            });
+        });
+
+        describe('acceptEncoding', () => {
+            let http;
+            let log;
+            let ws;
+
+            beforeEach(() => {
+                http = new stubs.StubHTTPClient();
+                log = new stubs.StubLogger();
+                ws = getInstance(http, log);
+            });
+
+            describe('isAcceptingGzip=true', () => {
+                it('should set the Accept-Encoding header', () => {
+                    let requestHandlers = [
+                        /* First up, an authentication request */
+                        stubs.authHandler(),
+                        (options) => {
+                            return Promise.resolve(options);
+                        }
+                    ];
+
+                    http.setHandler((options) => {
+                        return requestHandlers.shift()(options);
+                    });
+
+                    return ws.deleteByFilter('myTag=="my value"', 0).then((options) => {
+                        expect(options.headers).to.have.property('Accept-Encoding');
+                        expect(options.headers['Accept-Encoding']).to.equal("gzip, compress, br");
+                    });
+                });
+            });
+
+            describe('isAcceptingGzip=false', () => {
+                it('should not set the Accept-Encoding header', () => {
+                    ws.setAcceptGzip(false);
+
+                    let requestHandlers = [
+                        /* First up, an authentication request */
+                        stubs.authHandler(),
+                        (options) => {
+                            return Promise.resolve(options);
+                        }
+                    ];
+
+                    http.setHandler((options) => {
+                        return requestHandlers.shift()(options);
+                    });
+
+                    return ws.deleteByFilter('myTag=="my value"', 0).then((options) => {
+                        expect(options.headers).to.not.have.property('Accept-Encoding');
+                    });
                 });
             });
         });
