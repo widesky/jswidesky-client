@@ -77,6 +77,16 @@ var WideSkyClient = function(base_uri,
     var _impersonate = null;
 
     /**
+     * If this is true (default) then all http requests made by the client
+     * will have the 'Accept-Encoding' header with value of 'gzip, compress, br'
+     * append to it.
+     *
+     * @type {boolean}
+     * @private
+     */
+    var _acceptGzipEncoding = true;
+
+    /**
      * Private method: perform a new log-in.  Returns JSON response from
      * server or raises an error.
      */
@@ -242,6 +252,11 @@ var WideSkyClient = function(base_uri,
             options.headers['Authorization'] = 'Bearer ' + token;
             options.headers['Accept'] = 'application/json';
 
+            if (this.isAcceptingGzip() &&
+                !options.headers.hasOwnProperty("Accept-Encoding")) {
+                options.headers["Accept-Encoding"] = "gzip, compress, br";
+            }
+
             if (this.isImpersonating()) {
                 options.headers['X-IMPERSONATE'] = this._impersonate;
             }
@@ -319,6 +334,13 @@ var WideSkyClient = function(base_uri,
         this._impersonate = null;
     };
 
+    self.setAcceptGzip = function(acceptGzip) {
+        _acceptGzipEncoding = Boolean(acceptGzip);
+    }
+
+    self.isAcceptingGzip = function() {
+        return _acceptGzipEncoding;
+    }
 };
 
 

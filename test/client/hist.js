@@ -39,6 +39,7 @@ describe('client', () => {
                             baseUrl: WS_URI,
                             headers: {
                                 Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                                "Accept-Encoding": "gzip, compress, br",
                                 Accept: 'application/json'
                             },
                             json: true,
@@ -79,6 +80,7 @@ describe('client', () => {
                         baseUrl: WS_URI,
                         headers: {
                             Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                            "Accept-Encoding": "gzip, compress, br",
                             Accept: 'application/json'
                         },
                         json: true,
@@ -162,6 +164,7 @@ describe('client', () => {
                         baseUrl: WS_URI,
                         headers: {
                             Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                            "Accept-Encoding": "gzip, compress, br",
                             Accept: 'application/json'
                         },
                         json: true,
@@ -211,6 +214,7 @@ describe('client', () => {
                         baseUrl: WS_URI,
                         headers: {
                             Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                            "Accept-Encoding": "gzip, compress, br",
                             Accept: 'application/json'
                         },
                         json: true,
@@ -280,6 +284,7 @@ describe('client', () => {
                         baseUrl: WS_URI,
                         headers: {
                             Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
+                            "Accept-Encoding": "gzip, compress, br",
                             Accept: 'application/json'
                         },
                         json: true,
