@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.1.1] - 2020-11-23
+### CHANGED
+- The http header `Accept-Content` is now included as part of the http requests
+  made by the client. Benefit of it is that the payload of a http response (generally
+  received from the Widesky api server will be significantly smaller.
+
+  This default behaviour may be switched off via the api `setAcceptGzip(false)`.
+
 ## [1.1.0] - 2020-11-23
 ### ADDED
 - The main documentation has been enhanced to explain how the client can be used.
