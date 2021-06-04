@@ -622,10 +622,23 @@ WideSkyClient.prototype.deleteByFilter = function (filter, limit) {
  *                      (Date)      Starting timestamp of read
  * @param   to          (Date)      Ending timestamp of read
  *
+ * @param   batch_sz    (Number)    Optional batch size when reading multiple
+ *                                  points.  WideSky has problems reading more
+ *                                  than a few dozen points at a time, so
+ *                                  bigger reads will be broken up into
+ *                                  50-point groups.  The size can be tuned
+ *                                  here.
+ *
  * @returns Promise that resolves to the raw grid.
  */
-WideSkyClient.prototype.hisRead = function (ids, from, to) {
+WideSkyClient.prototype.hisRead = function (ids, from, to, batch_sz) {
+    var self = this;
     var range;
+
+    if (batch_sz == undefined) {
+        batch_sz = 50;
+    }
+
     if (to !== undefined) {
         /* Full range given, both from and to *must* be Dates */
         if (!(from instanceof Date))
@@ -641,7 +654,159 @@ WideSkyClient.prototype.hisRead = function (ids, from, to) {
     if (!(ids instanceof Array))
         ids = [ids];
 
-    return this._hisRead(ids, range.toHSZINC());
+    /* Format the range */
+    range = range.toHSZINC();
+
+    /* Normalise the IDs into standard form */
+    ids = ids.map(function (id) {
+        return (new data.Ref(id)).toHSJSON();
+    });
+
+    if (ids.length < batch_sz) {
+        /* Small hisRead, handle as normal */
+        return this._hisRead(ids, range);
+    }
+
+    /* Group the IDs into blocks */
+    var reads = [];
+    var offset = 0;
+    while (offset < ids.length) {
+        var block = ids.slice(offset, offset + batch_sz);
+        reads.push(block);
+        offset += block.length;
+    }
+
+    /* Assemble the overall result */
+    var result = {
+        meta: {
+            ver: '2.0',
+            hisStart: null,
+            hisEnd: null
+        },
+        cols: [
+            {name: "ts"}
+        ],
+        rows: []
+    };
+
+    var status = {
+        his_start: null,
+        his_end: null,
+        row_ts: {},
+        col_id: {}
+    };
+
+    /* Enumerate the columns */
+    for (var i = 0; i < ids.length; i++) {
+        status.col_id[ids[i]] = i;
+        result.cols.push({
+            name: "v" + i,
+            id: ids[i]
+        });
+    }
+
+    /* Execute the reads */
+    return Promise.all(
+        reads.map(function(block_ids) {
+            return self._hisRead(block_ids, range).then(function (block_res) {
+                self._mergeHisReadRes(result, status, block_ids, block_res);
+            });
+        })
+    ).then(function () {
+        /* Assemble all the rows */
+        var times = Object.keys(status.row_ts).map(function (ts) {
+            return parseInt(ts);
+        });
+        times.sort();
+
+        result.rows = times.map(function (ts) {
+            return status.row_ts[ts];
+        });
+
+        /* Return the merged result */
+        return result;
+    });
+};
+
+WideSkyClient.prototype._mergeHisReadRes = function(
+    result, status, block_ids, block_res
+) {
+    /* Merge the header */
+
+    var this_start = data.parse(block_res.meta.hisStart);
+    var this_end = data.parse(block_res.meta.hisEnd);
+
+    /*
+     * Defensive programming: docs say hisStart/hisEnd can be 'm:'
+     * and we really shouldn't "trust" the inputs in something
+     * that comes from "outside" anyway.
+     */
+
+    if ((this_start != null) && (this_start instanceof Date)) {
+        /* Is this_start earlier than status.his_start? */
+        this_start = this_start.valueOf();
+        if ((status.his_start == null) || (status.his_start > this_start)) {
+            status.his_start = this_start;
+            result.meta.hisStart = block_res.meta.hisStart;
+        }
+    }
+
+    if ((this_end != null) && (this_end instanceof Date)) {
+        /* Is this_end later than status.his_start? */
+        this_end = this_end.valueOf();
+        if ((status.his_end == null) || (status.his_end < this_end)) {
+            status.his_end = this_end;
+            result.meta.hisEnd = block_res.meta.hisEnd;
+        }
+    }
+
+    /* Are there other fields to merge?  (for future expansion) */
+
+    for (var field in block_res.meta) {
+        if (!result.meta.hasOwnProperty(field)) {
+            result.meta[field] = block_res.meta[field];
+        }
+    }
+
+    /* Now, merge the data */
+
+    for (var r = 0; r < block_res.rows.length; r++) {
+        var in_row = block_res.rows[r];
+        var ts = data.parse(in_row.ts);
+
+        /* Sanity check, `ts` must be a Date */
+        if ((ts == null) || !(ts instanceof Date)) {
+            throw new Error(
+                'Expected date/time for ts column, got: ' + in_row.ts
+            );
+        }
+
+        /* Extract msec time */
+        ts = ts.valueOf();
+        var out_row;
+        if (status.row_ts.hasOwnProperty(ts)) {
+            out_row = status.row_ts[ts];
+        } else {
+            out_row = {ts: in_row.ts};
+            status.row_ts[ts] = out_row;
+        }
+
+        /* Copy the columns in */
+        for (var c = 0; c < block_ids.length; c++) {
+            var val = in_row['v' + c];
+
+            if (val != null) {
+                var id = block_ids[c];
+                var col = status.col_id[id];
+
+                if (col == null) {
+                    throw new Error('Unexpected ID ' + id);
+                }
+
+                out_row['v' + col] = val;
+            }
+        }
+    }
 };
 
 WideSkyClient.prototype._hisRead = function(ids, range) {
