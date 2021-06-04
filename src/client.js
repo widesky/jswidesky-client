@@ -641,8 +641,12 @@ WideSkyClient.prototype.hisRead = function (ids, from, to) {
     if (!(ids instanceof Array))
         ids = [ids];
 
+    return this._hisRead(ids, range.toHSZINC());
+};
+
+WideSkyClient.prototype._hisRead = function(ids, range) {
     var args = {
-        range: range.toHSZINC()
+        range: range
     };
 
     if (ids.length === 1) {
