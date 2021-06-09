@@ -623,11 +623,12 @@ WideSkyClient.prototype.deleteByFilter = function (filter, limit) {
  * @param   to          (Date)      Ending timestamp of read
  *
  * @param   batch_sz    (Number)    Optional batch size when reading multiple
- *                                  points.  WideSky has problems reading more
- *                                  than a few dozen points at a time, so
- *                                  bigger reads will be broken up into
- *                                  50-point groups.  The size can be tuned
- *                                  here.
+ *                                  points.  Some environments may experience
+ *                                  issues reading more than a few dozen points
+ *                                  at a time due to HTTP request payload
+ *                                  restrictions, so bigger reads will be
+ *                                  broken up into 50-point groups.
+ *                                  The size can be tuned here.
  *
  * @returns Promise that resolves to the raw grid.
  */
