@@ -19,14 +19,29 @@ npm install @widesky/jswidesky-client --save
 ```
 
 ## Importing it
-For browser based application, you can import the library by using the `<script>` tag.
+The simplest way to incorporate the library into your browser is by using the `<script>` tag.
 
 Example:
 ```
 <script src="node_modules/@widesky/jswidesky-client/dist/wideskyClient.min.js"></script>
 ```
 
-For your debugging convenience, there is also a non minified version of the library, `wideskyClient.js`.
+If this is for a sophisticated web application that is build on top of a framework that supports `es6`
+then it can be added by using the `import` statement.
+
+Example:
+```
+import jsWidesky from '@widesky/jswidesky-client/dist/wideskyClient.min.js';
+
+const myClient = new jsWidesky.WideSkyClient(
+        "https://instanceName.on.widesky.cloud",
+        "hello@widesky.cloud",
+        "abcdefg",
+        "client_id",
+        "client_secret);
+```
+
+> For your debugging convenience, there is also a non minified version of the library, `wideskyClient.js`.
 
 If this is for a NodeJS project then the following code may be used to import it.
 ```

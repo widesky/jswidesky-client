@@ -35,11 +35,5 @@ const jsWidesky = {
     }
 };
 
-if (typeof window === 'undefined') {
-    // NodeJs
-    module.exports = jsWidesky;
-}
-else {
-    // Browser
-    window.jsWidesky = jsWidesky;
-}
+module.exports = jsWidesky;
+

@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+### ADDED
+- Updated docs to include examples on how to include the library using es6 `import` statement.
+
+### CHANGED
+- Updated the build system to use webpack instead of grunt-browserify.
+
 ## [1.1.2] - 2020-11-23
 ### FIXED
 - Fixed a bug whereby the client will does not decompress the response payload for its user.
