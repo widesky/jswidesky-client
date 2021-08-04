@@ -12,7 +12,7 @@
   "author": "Widesky.cloud<support@widesky.com>",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.5.2",
+    "bluebird": "^3.7.2",
     "jsesc": "^2.5.1",
     "moment-timezone": "^0.5.31",
     "request": "^2.88.0",
