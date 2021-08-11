@@ -317,7 +317,7 @@ var WideSkyClient = function(base_uri,
      */
     self.login = () => {
         return getToken().then(() => {
-            return undefined;
+            return _ws_token;
         });
     };
 

@@ -529,7 +529,9 @@ describe('client', () => {
                 http.setHandler(stubs.authHandler());
 
                 return ws.login().then((res) => {
-                    expect(res).to.be.undefined;
+                    expect(res.access_token).to.equal(stubs.WS_ACCESS_TOKEN);
+                    expect(res.refresh_token).to.equal(stubs.WS_REFRESH_TOKEN);
+                    expect(res.expires_in).to.above(0);
                 });
             });
         });
