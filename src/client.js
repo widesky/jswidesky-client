@@ -311,6 +311,55 @@ var WideSkyClient = function(base_uri,
         });
     };
 
+    self._ws_submit = function (options) {
+        const submit = (token) => {
+            if (!options.headers) {
+                options.headers = {};
+            }
+            else {
+                options.headers = Object.assign({}, options.headers);
+            }
+
+            options.headers["Authorization"] = `Bearer ${token}`;
+            options.headers["Accept"] = "application/json";
+
+            if (this.isImpersonating()) {
+                options.headers['X-IMPERSONATE'] = this._impersonate;
+            }
+
+            options.json = true;
+
+            if (self._log) self._log.trace("Sending request");
+
+            options.baseUrl = base_uri;
+            if (self._log) self._log.trace(options, "Raw request");
+            return self._request(options);
+        };
+
+        if (self._log) self._log.trace(options, "WideSky operation request");
+
+        return new Promise((resolve, reject) => {
+            if (self._log) self._log.trace('Need token');
+            getToken().then((token) => {
+                if (self._log) self._log.trace("Got token");
+                submit(token).then(resolve).catch((err) => {
+                    if ((err instanceof self._rqerr.StatusCodeError && err.statusCode === 401)) {
+                        if (_ws_token_wait === null) {
+                            if (self._log) self._log.trace('Invalidated token');
+                            _ws_token = null;
+                        }
+
+                        getToken().then((token) => {
+                            submit(token).then(resolve).catch(reject);
+                        }).catch(reject);
+                    }
+                });
+            }).catch((err) => {
+                reject(err);
+            });
+        });
+    };
+
     /**
      * Perform a log-in, if not already done.  This does a `getToken` whilst
      * performing no further operations.
@@ -884,6 +933,17 @@ WideSkyClient.prototype.hisWrite = function (records) {
         }
     });
 };
+
+WideSkyClient.prototype.objectStorageUpload = function (form) {
+    return this._ws_submit({
+        method: "PUT",
+        uri: "/api/file/storage",
+        form: form,
+        headers: {
+            "content-type": "multipart/form-data"
+        }
+    });
+}
 
 /* Exported symbols */
 module.exports = WideSkyClient;
