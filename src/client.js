@@ -8,7 +8,8 @@ var Promise = require('bluebird'),
     rqerr = require('request-promise/errors'),
     data = require('./data'),
     replace = require('./graphql/replace'),
-    _ = require('lodash');
+    _ = require('lodash'),
+    fs = require("fs");
 
 /**
  * WideSky Client: This is a simplified HTTP-based client for communicating
@@ -352,6 +353,9 @@ var WideSkyClient = function(base_uri,
                         getToken().then((token) => {
                             submit(token).then(resolve).catch(reject);
                         }).catch(reject);
+                    }
+                    else {
+                        reject(err);
                     }
                 });
             }).catch((err) => {
@@ -935,10 +939,16 @@ WideSkyClient.prototype.hisWrite = function (records) {
 };
 
 WideSkyClient.prototype.objectStorageUpload = function (form) {
+    // create file stream and append to form
+    const fileStream = fs.createReadStream(form.data.filepath);
+    const formClone = Object.assign({}, form);
+    delete formClone.data.filepath;
+    formClone.data.value = fileStream;
+
     return this._ws_submit({
         method: "PUT",
         uri: "/api/file/storage",
-        form: form,
+        formData: formClone,
         headers: {
             "content-type": "multipart/form-data"
         }
