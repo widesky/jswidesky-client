@@ -9,7 +9,7 @@ var Promise = require('bluebird'),
     data = require('./data'),
     replace = require('./graphql/replace'),
     _ = require('lodash'),
-    fs = require("fs");
+    fs = require('fs');
 
 /**
  * WideSky Client: This is a simplified HTTP-based client for communicating
@@ -938,22 +938,109 @@ WideSkyClient.prototype.hisWrite = function (records) {
     });
 };
 
-WideSkyClient.prototype.objectStorageUpload = function (form) {
-    // create file stream and append to form
-    const fileStream = fs.createReadStream(form.data.filepath);
-    const formClone = Object.assign({}, form);
-    delete formClone.data.filepath;
-    formClone.data.value = fileStream;
+// create file stream and append to form
+const fileStream = fs.createReadStream(form.data.filepath);
+const formClone = Object.assign({}, form);
+delete formClone.data.filepath;
+formClone.data.value = fileStream;
+
+return this._ws_submit({
+    method: "PUT",
+    uri: "/api/file/storage",
+    formData: formClone,
+    headers: {
+        "content-type": "multipart/form-data"
+    }
+});
+
+/**
+ *
+ * @param id (string) Identifier of the object point.
+ * @param ts (string) Timestamp which the upload will perform against the object point.
+ * @param file (string|buffer) Either the absolute filepath to the upload target or the binary buffer of it.
+ * @param mediaType (string) Media type of the upload, when this is not set then the library will attempt to its mime.
+ *                          This field is optional. (e.g. pdf = application/pdf)
+ * @param inlineRetrival (boolean) When true, client that supports the HTTP header contentDisposition will
+ *                                 attend to render the uploaded file on the screen instead of presenting the
+ *                                 'Save as' dialog. If nothing is set then true is assumed.
+ * @param cacheMaxAge (number) The number of seconds a client, that supports the HTTP header CacheMaxAge,
+ *                             should store the retrieved file (stored in this op)
+ *                             in cache before re-downloading it again.
+ * @param force (boolean) When true, the server will forcefully overwrite a previously stored file that shares
+ *                        the same given ts. Default is false.
+ * @param tags (object) An object consisting of additional file tags that will go with the upload.
+ *                      Key of the object is the tagname while value is its tagvalue.
+ *                      E.g. { 'UploadedBy': 'AuthorABC'}
+ *                      This field is optional.
+ */
+WideSkyClient.prototype.objectStorageUpload = function (id,
+                                                        ts,
+                                                        file,
+                                                        mediaType,
+                                                        inlineRetrival,
+                                                        cacheMaxAge,
+                                                        force,
+                                                        tags) {
+
+    if (typeof file === 'string') {
+        // Assume an absolute file path
+        file = fs.createReadStream(file);
+    }
+    else if (Buffer.isBuffer(file)) {
+        // buffer is ok
+    }
+    else {
+        throw new Error('File can only be either a buffer or the absolute file path (string).');
+    }
+
+    if (typeof force !== 'boolean') {
+        force = false;
+    }
+
+    if (typeof inlineRetrival !== 'boolean') {
+        inlineRetrival = true;
+    }
+
+    var tagKeys = Object.keys(tags);
+    var filename = null;
+    for (let index = 0; index < tagKeys.length; index++) {
+        var tagkey = tagKeys[index];
+        var tagval = tags[tagkey];
+
+        if (typeof tags[tagval] !== 'string') {
+            throw new Error('Tag value for key ' + tagkey + ' must be string.');
+        }
+
+        if (tagkey.toLowerCase() === 'filename') {
+            filename = tagval;
+        }
+    }
+
+    var contentDisposition = inlineRetrival ? 'inline': 'attachment';
+    if (!inlineRetrival && filename) {
+        // e.g. attachment; filename="myPDF.pdf"
+        contentDisposition += '; filename="' + filename + "'";
+    }
 
     return this._ws_submit({
-        method: "PUT",
-        uri: "/api/file/storage",
-        formData: formClone,
+        method: 'PUT',
+        uri: '/api/file/storage',
+        formData: {
+            'id': id,
+            'ts': ts,
+            'data': file,
+            'mime': mediaType,
+            'force': force,
+            'cacheMaxAge': cacheMaxAge,
+            'contentDisposition': contentDisposition
+        },
         headers: {
-            "content-type": "multipart/form-data"
+            'content-type': 'multipart/form-data'
         }
     });
+
 }
+
 
 /* Exported symbols */
 module.exports = WideSkyClient;
