@@ -9,6 +9,7 @@ var Promise = require('bluebird'),
     data = require('./data'),
     replace = require('./graphql/replace'),
     _ = require('lodash'),
+    moment = require("moment-timezone"),
     fs = require("fs");
 
 /**
@@ -1035,6 +1036,7 @@ WideSkyClient.prototype.fileUpload = function (id,
             'force': force.toString(),
             'inlineRetrival': inlineRetrival.toString(),
             'cacheMaxAge': cacheMaxAge.toString(),
+            'contentDisposition': contentDisposition,
             'tags': JSON.stringify(requestTags)
         },
         headers: {
@@ -1043,6 +1045,88 @@ WideSkyClient.prototype.fileUpload = function (id,
     });
 }
 
+/**
+ * Retrieve a previously stored file the configured WideSky server.
+ * This API will return an object keyed by the requested point ids,
+ * where the value is an array of file URLs which can be used to retrieve
+ * the file data via the HTTP GET method.
+ *
+ * Date inputs for this function is the standard ISO8601 dates.
+ * Examples:
+ * 2022-03-30T11:30:00Z
+ * 2022-07-26T11:00:00+02:00
+ *
+ * @param   pointIds      (string)    The file point identifier, one with kind=File
+ *                        (array)     An array of file point identifiers in string.
+ * @param   from          (date)      Starting ISO8601 timestamp of the retrieve.
+ * @param   to            (date)      Ending ISO8601 timestamp of the retrieve.
+ * @param   presigned     (boolean)   Flag for indicating if the returned URL should be presigned.
+ * @param   presignExpiry (number)    Duration in seconds where the presigned link will expire.
+ *
+ *
+ * @returns Promise that resolves to the following format.
+ * [
+ *     {
+ *         pointId: c7bd64d9-0a72-4584-945a-c667081c97f6,
+ *         urls: [
+ *             time: 2087911800,
+ *             value: https://abc.on.widesky.cloud/api/file/storage/2087911800_zxcvbn...
+ *         ]
+ *     }
+ * ]
+ */
+WideSkyClient.prototype.fileRetrieve = function (pointIds, from, to, presigned=true, presignExpiry=1800) {
+
+    if (!(pointIds instanceof Array)) {
+        pointIds = [pointIds];
+    }
+    else {
+        for (let index = 0; index < pointIds.length; index++) {
+            if (typeof pointIds[index] !== 'string') {
+                throw new Error('Point id ' + pointIds[index] + ' must be string.');
+            }
+        }
+    }
+
+    const mFrom = moment(from);
+    if (mFrom.isValid() !== true) {
+        throw new Error('From date ' + from + ' is not a valid date.');
+    }
+
+    const mTo = moment(to);
+    if (mTo.isValid() !== true) {
+        throw new Error('To date ' + from + ' is not a valid date.');
+    }
+
+    if (mFrom.valueOf() === mTo.valueOf()) {
+        // User probably meant at the point in time.
+        // Push the 'to' datetime by 1 ms later so WideSky will match something, otherwise
+        // such query is going to return nothing.
+        mTo.add(1, 'ms');
+    }
+
+    if (typeof presigned !== 'boolean') {
+        throw new Error('Presigned flag must be a boolean value.');
+    }
+    else if (presigned === true) {
+        if (typeof presignExpiry !== 'number') {
+            throw new Error('PresignExpiry value ' + presignExpiry + ' must be a number');
+        }
+        else if (presignExpiry < 0) {
+            throw new Error('PresignExpiry value ' + presignExpiry + ' must be greater than zero.');
+        }
+    }
+
+    return this._ws_submit({
+        method: 'GET',
+        uri: '/api/file/storage?' +
+            'pointIds=' + JSON.stringify(pointIds) +
+            '&from=' + mFrom.utc().format() +
+            '&to=' + mTo.utc().format() +
+            '&presigned=' + presigned.toString() +
+            '&presignExpiry=' + presignExpiry.toString()
+    });
+}
 
 /* Exported symbols */
 module.exports = WideSkyClient;
