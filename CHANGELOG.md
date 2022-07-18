@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.2.0] - 2022-07-18
+### ADDED
+- Updated docs to include examples on how to include the library using es6 `import` statement.
+- Added file storage APIs for storing a file and retrieval of it.
+
+### CHANGED
+- Updated the build system to use webpack instead of grunt-browserify.
+
 ## [1.1.2] - 2020-11-23
 ### FIXED
 - Fixed a bug whereby the client will does not decompress the response payload for its user.
@@ -29,9 +37,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...develop
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...1.2.0
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
 [1.1.2]: https://github.com/widesky/jswidesky-client/compare/1.1.2...1.1.1
+[1.2.0]: https://github.com/widesky/jswidesky-client/compare/1.2.0...1.1.2
 

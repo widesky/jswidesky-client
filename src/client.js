@@ -8,7 +8,9 @@ var Promise = require('bluebird'),
     rqerr = require('request-promise/errors'),
     data = require('./data'),
     replace = require('./graphql/replace'),
-    _ = require('lodash');
+    _ = require('lodash'),
+    moment = require("moment-timezone"),
+    fs = require("fs");
 
 /**
  * WideSky Client: This is a simplified HTTP-based client for communicating
@@ -311,13 +313,65 @@ var WideSkyClient = function(base_uri,
         });
     };
 
+    self._ws_submit = function (options) {
+        const submit = (token) => {
+            if (!options.headers) {
+                options.headers = {};
+            }
+            else {
+                options.headers = Object.assign({}, options.headers);
+            }
+
+            options.headers["Authorization"] = `Bearer ${token}`;
+            options.headers["Accept"] = "application/json";
+
+            if (this.isImpersonating()) {
+                options.headers['X-IMPERSONATE'] = this._impersonate;
+            }
+
+            options.json = true;
+
+            if (self._log) self._log.trace("Sending request");
+
+            options.baseUrl = base_uri;
+            if (self._log) self._log.trace(options, "Raw request");
+            return self._request(options);
+        };
+
+        if (self._log) self._log.trace(options, "WideSky operation request");
+
+        return new Promise((resolve, reject) => {
+            if (self._log) self._log.trace('Need token');
+            getToken().then((token) => {
+                if (self._log) self._log.trace("Got token");
+                submit(token).then(resolve).catch((err) => {
+                    if ((err instanceof self._rqerr.StatusCodeError && err.statusCode === 401)) {
+                        if (_ws_token_wait === null) {
+                            if (self._log) self._log.trace('Invalidated token');
+                            _ws_token = null;
+                        }
+
+                        getToken().then((token) => {
+                            submit(token).then(resolve).catch(reject);
+                        }).catch(reject);
+                    }
+                    else {
+                        reject(err);
+                    }
+                });
+            }).catch((err) => {
+                reject(err);
+            });
+        });
+    };
+
     /**
      * Perform a log-in, if not already done.  This does a `getToken` whilst
      * performing no further operations.
      */
     self.login = () => {
         return getToken().then(() => {
-            return undefined;
+            return _ws_token;
         });
     };
 
@@ -622,10 +676,24 @@ WideSkyClient.prototype.deleteByFilter = function (filter, limit) {
  *                      (Date)      Starting timestamp of read
  * @param   to          (Date)      Ending timestamp of read
  *
+ * @param   batch_sz    (Number)    Optional batch size when reading multiple
+ *                                  points.  Some environments may experience
+ *                                  issues reading more than a few dozen points
+ *                                  at a time due to HTTP request payload
+ *                                  restrictions, so bigger reads will be
+ *                                  broken up into 50-point groups.
+ *                                  The size can be tuned here.
+ *
  * @returns Promise that resolves to the raw grid.
  */
-WideSkyClient.prototype.hisRead = function (ids, from, to) {
+WideSkyClient.prototype.hisRead = function (ids, from, to, batch_sz) {
+    var self = this;
     var range;
+
+    if (batch_sz == undefined) {
+        batch_sz = 50;
+    }
+
     if (to !== undefined) {
         /* Full range given, both from and to *must* be Dates */
         if (!(from instanceof Date))
@@ -641,8 +709,164 @@ WideSkyClient.prototype.hisRead = function (ids, from, to) {
     if (!(ids instanceof Array))
         ids = [ids];
 
+    /* Format the range */
+    range = range.toHSZINC();
+
+    /* Normalise the IDs into standard form */
+    ids = ids.map(function (id) {
+        return (new data.Ref(id)).toHSJSON();
+    });
+
+    if (ids.length < batch_sz) {
+        /* Small hisRead, handle as normal */
+        return this._hisRead(ids, range);
+    }
+
+    /* Group the IDs into blocks */
+    var reads = [];
+    var offset = 0;
+    while (offset < ids.length) {
+        var block = ids.slice(offset, offset + batch_sz);
+        reads.push(block);
+        offset += block.length;
+    }
+
+    /* Assemble the overall result */
+    var result = {
+        meta: {
+            ver: '2.0',
+            hisStart: null,
+            hisEnd: null
+        },
+        cols: [
+            {name: "ts"}
+        ],
+        rows: []
+    };
+
+    var status = {
+        his_start: null,
+        his_end: null,
+        row_ts: {},
+        col_id: {}
+    };
+
+    /* Enumerate the columns */
+    for (var i = 0; i < ids.length; i++) {
+        status.col_id[ids[i]] = i;
+        result.cols.push({
+            name: "v" + i,
+            id: ids[i]
+        });
+    }
+
+    /* Execute the reads */
+    return Promise.all(
+        reads.map(function(block_ids) {
+            return self._hisRead(block_ids, range).then(function (block_res) {
+                self._mergeHisReadRes(result, status, block_ids, block_res);
+            });
+        })
+    ).then(function () {
+        /* Assemble all the rows */
+        var times = Object.keys(status.row_ts).map(function (ts) {
+            return parseInt(ts);
+        });
+        times.sort();
+
+        result.rows = times.map(function (ts) {
+            return status.row_ts[ts];
+        });
+
+        /* Return the merged result */
+        return result;
+    });
+};
+
+WideSkyClient.prototype._mergeHisReadRes = function(
+    result, status, block_ids, block_res
+) {
+    /* Merge the header */
+
+    var this_start = data.parse(block_res.meta.hisStart);
+    var this_end = data.parse(block_res.meta.hisEnd);
+
+    /*
+     * Defensive programming: docs say hisStart/hisEnd can be 'm:'
+     * and we really shouldn't "trust" the inputs in something
+     * that comes from "outside" anyway.
+     */
+
+    if ((this_start != null) && (this_start instanceof Date)) {
+        /* Is this_start earlier than status.his_start? */
+        this_start = this_start.valueOf();
+        if ((status.his_start == null) || (status.his_start > this_start)) {
+            status.his_start = this_start;
+            result.meta.hisStart = block_res.meta.hisStart;
+        }
+    }
+
+    if ((this_end != null) && (this_end instanceof Date)) {
+        /* Is this_end later than status.his_start? */
+        this_end = this_end.valueOf();
+        if ((status.his_end == null) || (status.his_end < this_end)) {
+            status.his_end = this_end;
+            result.meta.hisEnd = block_res.meta.hisEnd;
+        }
+    }
+
+    /* Are there other fields to merge?  (for future expansion) */
+
+    for (var field in block_res.meta) {
+        if (!result.meta.hasOwnProperty(field)) {
+            result.meta[field] = block_res.meta[field];
+        }
+    }
+
+    /* Now, merge the data */
+
+    for (var r = 0; r < block_res.rows.length; r++) {
+        var in_row = block_res.rows[r];
+        var ts = data.parse(in_row.ts);
+
+        /* Sanity check, `ts` must be a Date */
+        if ((ts == null) || !(ts instanceof Date)) {
+            throw new Error(
+                'Expected date/time for ts column, got: ' + in_row.ts
+            );
+        }
+
+        /* Extract msec time */
+        ts = ts.valueOf();
+        var out_row;
+        if (status.row_ts.hasOwnProperty(ts)) {
+            out_row = status.row_ts[ts];
+        } else {
+            out_row = {ts: in_row.ts};
+            status.row_ts[ts] = out_row;
+        }
+
+        /* Copy the columns in */
+        for (var c = 0; c < block_ids.length; c++) {
+            var val = in_row['v' + c];
+
+            if (val != null) {
+                var id = block_ids[c];
+                var col = status.col_id[id];
+
+                if (col == null) {
+                    throw new Error('Unexpected ID ' + id);
+                }
+
+                out_row['v' + col] = val;
+            }
+        }
+    }
+};
+
+WideSkyClient.prototype._hisRead = function(ids, range) {
     var args = {
-        range: range.toHSZINC()
+        range: range
     };
 
     if (ids.length === 1) {
@@ -714,6 +938,194 @@ WideSkyClient.prototype.hisWrite = function (records) {
         }
     });
 };
+
+
+/**
+ *
+ * @param id (string) Identifier of the object point.
+ * @param ts (string) Timestamp which the upload will perform against the object point.
+ * @param file (string|buffer) The upload target, this can either be an absolute file path or a buffer.
+ * @param filename (string) Name of the upload.
+ * @param mediaType (string) Media type of the upload. (e.g. pdf = application/pdf)
+ * @param inlineRetrival (boolean) Optional. When true, client that supports the HTTP header contentDisposition will
+ *                                 render the uploaded file on the screen instead of presenting the
+ *                                 'Save as' dialog. If nothing is set then true is assumed.
+ * @param cacheMaxAge (number) Optional. The number of seconds a client, that supports the HTTP header CacheMaxAge,
+ *                             should store the retrieved file (stored in this op)
+ *                             in cache before re-downloading it again.
+ * @param force (boolean) Optional. When true, the server will forcefully overwrite a previously stored file that shares
+ *                        the same given ts. Default is false.
+ * @param tags (object) Optional. An object consisting of additional file tags that will go with the upload.
+ *                      Key of the object is the tagname while value is its tagvalue.
+ *                      E.g. { 'UploadedBy': 'AuthorABC'}
+ */
+WideSkyClient.prototype.fileUpload = function (id,
+                                               ts,
+                                               file,
+                                               filename,
+                                               mediaType,
+                                               inlineRetrival,
+                                               cacheMaxAge,
+                                               force,
+                                               tags) {
+
+    if (typeof file === 'string') {
+        // Assume an absolute file path
+        file = fs.createReadStream(file);
+    }
+    else if (Buffer.isBuffer(file)) {
+        // buffer is ok
+    }
+    else {
+        throw new Error('File can only be a buffer or an absolute file path (string).');
+    }
+
+    if (typeof filename !== 'string') {
+        throw new Error('File name must be a string.');
+    }
+
+    if (typeof force !== 'boolean') {
+        force = false;
+    }
+
+    if (typeof inlineRetrival !== 'boolean') {
+        inlineRetrival = true;
+    }
+
+    if (typeof cacheMaxAge !== 'number') {
+        cacheMaxAge = 1800;  // 30 minutes
+    }
+    else {
+        if (cacheMaxAge < 0) {
+	        throw new Error('CacheMaxAge must be more than or equals to 0.');
+	    }
+    }
+
+    var requestTags = [];
+    var tagKeys = Object.keys(tags);
+    for (let index = 0; index < tagKeys.length; index++) {
+        var tagkey = tagKeys[index];
+        var tagval = tags[tagkey];
+
+        if (typeof tagval !== 'string') {
+            throw new Error('Tag value for key ' + tagkey + ' must be string.');
+        }
+
+        requestTags.push(`${tagkey}=${tagval}`);
+    }
+
+    var contentDisposition = inlineRetrival ? 'inline': 'attachment';
+    if (!inlineRetrival && filename) {
+        // e.g. attachment; filename="myPDF.pdf"
+        contentDisposition += '; filename="' + filename + "'";
+    }
+
+    return this._ws_submit({
+        method: 'PUT',
+        uri: '/api/file/storage',
+        formData: {
+            'id': id,
+            'ts': ts,
+            'data': {
+                'options': {
+                    'contentType': mediaType,
+                    'filename': filename
+                },
+                'value': file
+            },
+            'force': force.toString(),
+            'cacheMaxAge': cacheMaxAge.toString(),
+            'contentDisposition': contentDisposition,
+            'tags': JSON.stringify(requestTags)
+        },
+        headers: {
+            'content-type': 'multipart/form-data'
+        }
+    });
+}
+
+/**
+ * Retrieve a previously stored file the configured WideSky server.
+ * This API will return an object keyed by the requested point ids,
+ * where the value is an array of file URLs which can be used to retrieve
+ * the file data via the HTTP GET method.
+ *
+ * Date inputs for this function is the standard ISO8601 dates.
+ * Examples:
+ * 2022-03-30T11:30:00Z
+ * 2022-07-26T11:00:00+02:00
+ *
+ * @param   pointIds      (string)    The file point identifier, one with kind=File
+ *                        (array)     An array of file point identifiers in string.
+ * @param   from          (date)      Starting ISO8601 timestamp of the retrieve.
+ * @param   to            (date)      Ending ISO8601 timestamp of the retrieve.
+ * @param   presigned     (boolean)   Flag for indicating if the returned URL should be presigned.
+ * @param   presignExpiry (number)    Duration in seconds where the presigned link will expire.
+ *
+ *
+ * @returns Promise that resolves to the following format.
+ * [
+ *     {
+ *         pointId: c7bd64d9-0a72-4584-945a-c667081c97f6,
+ *         urls: [
+ *             time: 2087911800,
+ *             value: https://abc.on.widesky.cloud/api/file/storage/2087911800_zxcvbn...
+ *         ]
+ *     }
+ * ]
+ */
+WideSkyClient.prototype.fileRetrieve = function (pointIds, from, to, presigned=true, presignExpiry=1800) {
+
+    if (!(pointIds instanceof Array)) {
+        pointIds = [pointIds];
+    }
+    else {
+        for (let index = 0; index < pointIds.length; index++) {
+            if (typeof pointIds[index] !== 'string') {
+                throw new Error('Point id ' + pointIds[index] + ' must be string.');
+            }
+        }
+    }
+
+    const mFrom = moment(from);
+    if (mFrom.isValid() !== true) {
+        throw new Error('From date ' + from + ' is not a valid date.');
+    }
+
+    const mTo = moment(to);
+    if (mTo.isValid() !== true) {
+        throw new Error('To date ' + from + ' is not a valid date.');
+    }
+
+    if (mFrom.valueOf() === mTo.valueOf()) {
+        // User probably meant at the point in time.
+        // Push the 'to' datetime by 1 ms later so WideSky will match something, otherwise
+        // such query is going to return nothing.
+        mTo.add(1, 'ms');
+    }
+
+    if (typeof presigned !== 'boolean') {
+        throw new Error('Presigned flag must be a boolean value.');
+    }
+    else if (presigned === true) {
+        if (typeof presignExpiry !== 'number') {
+            throw new Error('PresignExpiry value ' + presignExpiry + ' must be a number');
+        }
+        else if (presignExpiry < 0) {
+            throw new Error('PresignExpiry value ' + presignExpiry + ' must be greater than zero.');
+        }
+    }
+
+    return this._ws_submit({
+        method: 'GET',
+        uri: '/api/file/storage?' +
+            'pointIds=' + JSON.stringify(pointIds) +
+            '&from=' + mFrom.utc().format() +
+            '&to=' + mTo.utc().format() +
+            '&presigned=' + presigned.toString() +
+            '&presignExpiry=' + presignExpiry.toString()
+    });
+}
 
 /* Exported symbols */
 module.exports = WideSkyClient;
