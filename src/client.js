@@ -1034,7 +1034,6 @@ WideSkyClient.prototype.fileUpload = function (id,
                 'value': file
             },
             'force': force.toString(),
-            'inlineRetrival': inlineRetrival.toString(),
             'cacheMaxAge': cacheMaxAge.toString(),
             'contentDisposition': contentDisposition,
             'tags': JSON.stringify(requestTags)
