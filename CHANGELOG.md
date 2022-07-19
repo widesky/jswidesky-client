@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.2.1] - 2022-07-19
+### FIXED
+- FileUpload API - supplying null to the `tag` argument no longer cause error.
+
 ## [1.2.0] - 2022-07-18
 ### ADDED
 - Updated docs to include examples on how to include the library using es6 `import` statement.
