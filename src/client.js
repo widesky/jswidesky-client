@@ -997,11 +997,20 @@ WideSkyClient.prototype.fileUpload = function (id,
     }
     else {
         if (cacheMaxAge < 0) {
-	        throw new Error('CacheMaxAge must be more than or equals to 0.');
-	    }
+            throw new Error('CacheMaxAge must be more than or equals to 0.');
+        }
+    }
+
+    if (!tags) {
+        tags = {};
+    }
+
+    if (typeof tags !== 'object') {
+        throw new Error(`Tags must be an object not ${typeof tags}.`);
     }
 
     var requestTags = [];
+
     var tagKeys = Object.keys(tags);
     for (let index = 0; index < tagKeys.length; index++) {
         var tagkey = tagKeys[index];
