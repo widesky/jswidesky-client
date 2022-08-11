@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.2.2] - 2022-08-11
+### CHANGED
+- Updated the versions of dependencies used to fix security issues found in
+  underlying libraries.
+
 ## [1.2.1] - 2022-07-19
 ### FIXED
 - FileUpload API - supplying null to the `tag` argument no longer cause error.
@@ -41,10 +46,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...1.2.0
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...1.2.2
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
 [1.1.2]: https://github.com/widesky/jswidesky-client/compare/1.1.2...1.1.1
 [1.2.0]: https://github.com/widesky/jswidesky-client/compare/1.2.0...1.1.2
-
+[1.2.1]: https://github.com/widesky/jswidesky-client/compare/1.2.1...1.2.0
+[1.2.1]: https://github.com/widesky/jswidesky-client/compare/1.2.2...1.2.1
