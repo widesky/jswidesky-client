@@ -512,7 +512,7 @@ const SPECIAL_COLS = ['id', 'name', 'dis'];
  * @returns Promise that resolves to the raw grid.
  */
 WideSkyClient.prototype._create_or_update = function (op, entities) {
-    if (!(entities instanceof Array)) {
+    if (!Array.isArray(entities)) {
         entities = [entities];
     }
 
@@ -523,8 +523,9 @@ WideSkyClient.prototype._create_or_update = function (op, entities) {
             present[col] = true;
 
             /* Upgrade to Haystack 3.0 */
-            if (entity[col] instanceof Array)
+            if (Array.isArray(entity[col])) {
                 ver = '3.0';
+            }
         });
     });
 
@@ -706,7 +707,7 @@ WideSkyClient.prototype.hisRead = function (ids, from, to, batch_sz) {
         range = from;
     }
 
-    if (!(ids instanceof Array))
+    if (!Array.isArray(ids))
         ids = [ids];
 
     /* Format the range */
@@ -1085,7 +1086,7 @@ WideSkyClient.prototype.fileUpload = function (id,
  */
 WideSkyClient.prototype.fileRetrieve = function (pointIds, from, to, presigned=true, presignExpiry=1800) {
 
-    if (!(pointIds instanceof Array)) {
+    if (!Array.isArray(pointIds)) {
         pointIds = [pointIds];
     }
     else {
