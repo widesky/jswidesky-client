@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### FIXED
+- Replaced `x instanceof Array` with `Array.isArray(x)` to resolve
+  perculiar issues with passing arrays in NodeRED function nodes.
+
 ## [1.2.2] - 2022-08-11
 ### CHANGED
 - Updated the versions of dependencies used to fix security issues found in

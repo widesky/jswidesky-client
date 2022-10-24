@@ -430,7 +430,7 @@ function parse(value) {
     /* Not likely to be anything else */
     /* istanbul ignore else */
     if (typeof(value) === 'object') {
-        if (value instanceof Array) {
+        if (Array.isArray(value)) {
             /* Parse the elements */
             return _parseList(value);
         } else if (value.hasOwnProperty('meta')
@@ -461,7 +461,7 @@ function dump(value, version) {
     /* Unlikely that we'll strike anything else */
     /* istanbul ignore else */
     if (typeof(value) === 'object') {
-        if (value instanceof Array) {
+        if (Array.isArray(value)) {
             /* Dump the elements */
             return _dumpList(value, version);
         } else if (value.hasOwnProperty('meta')
