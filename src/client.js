@@ -551,12 +551,18 @@ class WideSkyClient {
      * @param   limit       Optional limit on the number of entities (integer)
      * @returns Promise that resolves to the raw grid.
      */
-    find(filter, limit) {
-        return this._ws_hs_submit({
-            method: 'GET',
-            uri: '/api/read',
-            qs: this._get_filter_limit_args(filter, limit)
-        });
+    find(filter, limit=0) {
+        return this.submitRequest(
+            "GET",
+            "/api/read",
+            {},
+            {
+                params: {
+                    filter,
+                    limit
+                }
+            }
+        );
     };
 
 
