@@ -175,7 +175,7 @@ class WideSkyClient {
         return config;
     }
 
-    async submitRequest(method, uri, body, config) {
+    async submitRequest(method, uri, body={}, config={}) {
         config = await this.attachReqConfig(config);
         return this._ws_raw_submit(method, uri, body, config);
     }
@@ -571,10 +571,10 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     reloadCache() {
-        return this._ws_hs_submit({
-            method: 'GET',
-            uri: '/api/reloadAuthCache'
-        });
+        return this.submitRequest(
+            "GET",
+            "/api/reloadAuthCache"
+        );
     };
 
     /**
