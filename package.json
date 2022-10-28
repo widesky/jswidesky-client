@@ -14,7 +14,7 @@
   "author": "WideSky.cloud <support@widesky.com>",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.5.2",
+    "bunyan": "^1.8.15",
     "jsesc": "^2.5.1",
     "moment-timezone": "^0.5.31",
     "request": "^2.88.0",

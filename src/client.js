@@ -3,8 +3,7 @@
  */
 "use strict";
 
-const Promise = require('bluebird'),
-    request = require('request-promise'),
+const request = require('request-promise'),
     rqerr = require('request-promise/errors'),
     data = require('./data'),
     replace = require('./graphql/replace'),
@@ -82,6 +81,52 @@ class WideSkyClient {
          */
         this._acceptGzipEncoding = true;
     }
+
+    /**
+     * Perform a log-in, if not already done.  This does a `getToken` whilst
+     * performing no further operations.
+     */
+    login() {
+        return this.getToken().then(() => {
+            return this._ws_token;
+        });
+    };
+
+    impersonateAs(userId) {
+        this._impersonate = userId;
+    };
+
+    isImpersonating() {
+        return !!this._impersonate;
+    };
+
+    unsetImpersonate() {
+        this._impersonate = null;
+    };
+
+    setAcceptGzip(acceptGzip) {
+        this._acceptGzipEncoding = Boolean(acceptGzip);
+    }
+
+    isAcceptingGzip() {
+        return this._acceptGzipEncoding;
+    }
+
+    /**
+     * Protected method for submitting requests against the API server.
+     * This takes an options object for `request-bluebird` and injects
+     * the base URI for submitting requests.
+     */
+    _ws_raw_submit(options) {
+        options = Object.assign({}, options);
+        options.baseUrl = this.base_uri;
+        /* istanbul ignore next */
+        if (this._log) {
+            this._log.trace(options, 'Raw request');
+        }
+
+        return this._request(options);
+    };
 
     /**
      * Private method: perform a new log-in.  Returns JSON response from
@@ -233,22 +278,6 @@ class WideSkyClient {
         });
     };
 
-    /**
-     * Protected method for submitting requests against the API server.
-     * This takes an options object for `request-bluebird` and injects
-     * the base URI for submitting requests.
-     */
-    _ws_raw_submit(options) {
-        options = Object.assign({}, options);
-        options.baseUrl = this.base_uri;
-        /* istanbul ignore next */
-        if (this._log) {
-            this._log.trace(options, 'Raw request');
-        }
-
-        return this._request(options);
-    };
-
     submitHs(options, token) {
         /* Prepare request */
         options = Object.assign({}, options);
@@ -381,36 +410,6 @@ class WideSkyClient {
             });
         });
     };
-
-    /**
-     * Perform a log-in, if not already done.  This does a `getToken` whilst
-     * performing no further operations.
-     */
-    login() {
-        return this.getToken().then(() => {
-            return this._ws_token;
-        });
-    };
-
-    impersonateAs(userId) {
-        this._impersonate = userId;
-    };
-
-    isImpersonating() {
-        return !!this._impersonate;
-    };
-
-    unsetImpersonate() {
-        this._impersonate = null;
-    };
-
-    setAcceptGzip(acceptGzip) {
-        this._acceptGzipEncoding = Boolean(acceptGzip);
-    }
-
-    isAcceptingGzip() {
-        return this._acceptGzipEncoding;
-    }
 
     /**
      * Perform a `read` request of the WideSky API server.  This function takes
