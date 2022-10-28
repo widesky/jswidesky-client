@@ -21,7 +21,6 @@ class WideSkyClient {
     #password
     #clientId
     #clientSecret
-    log
     #accessToken
 
     constructor(base_uri,
@@ -520,11 +519,11 @@ class WideSkyClient {
         graphql = replace.outerBraces(graphql);
         let body = { "query": graphql }
 
-        return this._ws_hs_submit({
-            method: 'POST',
-            uri: '/graphql',
-            body: body
-        });
+        return this.submitRequest(
+            "POST",
+            "/graphql",
+            body
+        );
     }
 
     /**
