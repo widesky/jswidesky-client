@@ -9,7 +9,8 @@ const request = require('request-promise'),
     replace = require('./graphql/replace'),
     _ = require('lodash'),
     moment = require("moment-timezone"),
-    fs = require("fs");
+    fs = require("fs"),
+    axios = require("axios");
 
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
@@ -80,6 +81,14 @@ class WideSkyClient {
          * @private
          */
         this._acceptGzipEncoding = true;
+
+        this.initAxios(base_uri);
+    }
+
+    initAxios(baseUri) {
+        this.axios = axios.create({
+            baseURL: baseUri
+        });
     }
 
     /**
@@ -117,15 +126,24 @@ class WideSkyClient {
      * This takes an options object for `request-bluebird` and injects
      * the base URI for submitting requests.
      */
-    _ws_raw_submit(options) {
-        options = Object.assign({}, options);
-        options.baseUrl = this.base_uri;
+    _ws_raw_submit(method, uri, body, config) {
+        // options = Object.assign({}, options);
+        // options.baseUrl = this.base_uri;
         /* istanbul ignore next */
         if (this._log) {
-            this._log.trace(options, 'Raw request');
+            this._log.trace(config, 'Raw request');
         }
 
-        return this._request(options);
+        switch (method) {
+            case "GET":
+                return this.axios.get(uri, config);
+            case "POST":
+                return this.axios.post(uri, body, config);
+            case "PATCH":
+                return this.axios.patch(uri, body, config);
+            case "PUT":
+                return this.axios.put(uri, body, config);
+        }
     };
 
     /**
@@ -135,21 +153,22 @@ class WideSkyClient {
     doLogin() {
         /* istanbul ignore next */
         if (this._log) this._log.trace('Performing login attempt');
-        return this._ws_raw_submit({
-            method: 'POST',
-            uri: '/oauth2/token',
-            auth: {
-                username: this.#clientId,
-                password: this.#clientSecret,
-                sendImmediately: true
-            },
-            json: true,
-            body: {
+
+        return this._ws_raw_submit(
+            "POST",
+            "/oauth2/token",
+            {
                 username: this.#username,
                 password: this.#password,
-                grant_type: 'password'
+                grant_type: "password"
+            },
+            {
+                auth: {
+                    username: this.#clientId,
+                    password: this.#clientSecret
+                }
             }
-        });
+        );
     };
 
     /**
@@ -159,20 +178,21 @@ class WideSkyClient {
     doRefresh() {
         /* istanbul ignore next */
         if (this._log) this._log.trace('Performing token refresh attempt');
-        return this._ws_raw_submit({
-            method: 'POST',
-            uri: '/oauth2/token',
-            auth: {
-                username: this.#clientId,
-                password: this.#clientSecret,
-                sendImmediately: true
-            },
-            json: true,
-            body: {
+
+        return this._ws_raw_submit(
+            "POST",
+            "/oauth2/token",
+            {
                 refresh_token: this._ws_token.refresh_token,
                 grant_type: 'refresh_token'
+            },
+            {
+                auth: {
+                    username: this.#clientId,
+                    password: this.#clientSecret
+                }
             }
-        });
+        );
     };
 
     getTokenSuccess(token, resolve) {
