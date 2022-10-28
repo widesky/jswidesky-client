@@ -96,9 +96,7 @@ class WideSkyClient {
      * performing no further operations.
      */
     login() {
-        return this.getToken().then(() => {
-            return this._ws_token;
-        });
+        return this.getToken();
     };
 
     impersonateAs(userId) {
@@ -127,24 +125,61 @@ class WideSkyClient {
      * the base URI for submitting requests.
      */
     _ws_raw_submit(method, uri, body, config) {
-        // options = Object.assign({}, options);
-        // options.baseUrl = this.base_uri;
         /* istanbul ignore next */
         if (this._log) {
             this._log.trace(config, 'Raw request');
         }
 
+        let res;
         switch (method) {
             case "GET":
-                return this.axios.get(uri, config);
+                res = this.axios.get(uri, config);
+                break;
             case "POST":
-                return this.axios.post(uri, body, config);
+                res = this.axios.post(uri, body, config);
+                break;
             case "PATCH":
-                return this.axios.patch(uri, body, config);
+                res = this.axios.patch(uri, body, config);
+                break;
             case "PUT":
-                return this.axios.put(uri, body, config);
+                res = this.axios.put(uri, body, config);
+                break;
+            default:
+                throw new Error(`Not configured for method ${method}.`);
         }
+
+        return res.then((res) => {
+                return res.data
+            }
+        )
     };
+
+    async attachReqConfig(config) {
+        const token = await this.getToken();
+        config = Object.assign({}, config);       // make a copy
+
+        if (config.headers === undefined) {
+            config.headers = {};
+        }
+
+        config.headers['Authorization'] = 'Bearer ' + token;
+        config.headers['Accept'] = 'application/json';
+
+        if (this.isAcceptingGzip()) {
+            config.gzip = true;
+        }
+
+        if (this.isImpersonating()) {
+            config.headers['X-IMPERSONATE'] = this._impersonate;
+        }
+
+        return config;
+    }
+
+    async submitRequest(method, uri, body, config) {
+        config = await this.attachReqConfig(config);
+        return this._ws_raw_submit(method, uri, body, config);
+    }
 
     /**
      * Private method: perform a new log-in.  Returns JSON response from
@@ -268,11 +303,7 @@ class WideSkyClient {
             firstStep = this.doRefresh();
             refresh = true;
         } else {
-            console.log("return dummy promise");
-            /* We have a token, dummy promise */
-            return new Promise( (resolve, reject) => {
-                resolve(this._ws_token.access_token);
-            });
+            return this._ws_token.access_token;
         }
 
         return new Promise( async (resolve, reject) => {
@@ -440,23 +471,25 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     read(ids) {
-        if (((typeof ids) === 'string') || (ids.length === 1)) {
-            if (!((typeof ids) === 'string')) {
-                ids = ids[0];
-            }
+        if (typeof ids === "string" || (Array.isArray(ids) && ids.length === 1)) {
+            const id = Array.isArray(ids) ? ids[0] : ids;
 
-            return this._ws_hs_submit({
-                method: 'GET',
-                uri: '/api/read',
-                qs: {
-                    id: (new data.Ref(ids)).toHSZINC()
+            return this.submitRequest(
+                "GET",
+                "/api/read",
+                {},
+                {
+                    params: {
+                        id: (new data.Ref(id)).toHSZINC()
+                    }
                 }
-            });
-        } else {
-            return this._ws_hs_submit({
-                method: 'POST',
-                uri: '/api/read',
-                body: {
+            );
+        } else if (Array.isArray(ids)) {
+            if (ids.length > 1) {
+                return this.submitRequest(
+                    "POST",
+                    "/api/read",
+                    {
                     meta: {
                         ver: '2.0',
                     },
@@ -466,8 +499,12 @@ class WideSkyClient {
                     rows: ids.map(function (id) {
                         return {id: (new data.Ref(id)).toHSJSON()};
                     })
-                }
-            });
+                });
+            } else {
+                throw new Error("An empty array of id's was given.");
+            }
+        } else {
+            throw new Error(`Parameter 'ids' is neither a single id or an array of id's.`);
         }
     };
 
