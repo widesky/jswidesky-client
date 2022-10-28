@@ -565,7 +565,6 @@ class WideSkyClient {
         );
     };
 
-
     /**
      * Perform a cache reload request of the WideSky API server.
      * @returns Promise that resolves to the raw grid.
@@ -621,17 +620,17 @@ class WideSkyClient {
             cols.push(c);
         });
 
-        return this._ws_hs_submit({
-            method: 'POST',
-            uri: '/api/' + op,
-            body: {
+        return this.submitRequest(
+            "POST",
+            `/api/${op}`,
+            {
                 meta: {ver: ver},
                 cols: cols.map(function (c) {
                     return {name: c};
                 }),
                 rows: entities
             }
-        });
+        );
     };
 
 
