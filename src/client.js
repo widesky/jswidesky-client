@@ -712,13 +712,18 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     deleteByFilter(filter, limit) {
-        return this._ws_hs_submit({
-            method: 'GET',
-            uri: '/api/deleteRec',
-            qs: this._get_filter_limit_args(filter, limit)
-        });
+        return this.submitRequest(
+            "GET",
+            "/api/deleteRec",
+            {},
+            {
+                params: {
+                    filter,
+                    limit
+                }
+            }
+        );
     };
-
 
     /**
      * Perform a history read request.
