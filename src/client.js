@@ -584,7 +584,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     _create_or_update(op, entities) {
-        if (!(entities instanceof Array)) {
+        if (!(Array.isArray(entities))) {
             entities = [entities];
         }
 
@@ -592,11 +592,14 @@ class WideSkyClient {
         let cols = [], present = {}, ver = '2.0';
         entities.forEach(function (entity) {
             Object.keys(entity).forEach(function (col) {
-                present[col] = true;
+                if (!present[col]) {
+                    present[col] = true;
+                }
 
                 /* Upgrade to Haystack 3.0 */
-                if (entity[col] instanceof Array)
+                if (Array.isArray(entity[col])) {
                     ver = '3.0';
+                }
             });
         });
 
@@ -616,9 +619,7 @@ class WideSkyClient {
         });
 
         /* Add the others in, in alphabetical order */
-        Object.keys(present).sort().forEach((c) => {
-            cols.push(c);
-        });
+        cols = [...cols, ...(Object.keys(present).sort())];
 
         return this.submitRequest(
             "POST",
