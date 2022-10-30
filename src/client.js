@@ -634,7 +634,6 @@ class WideSkyClient {
         );
     };
 
-
     /**
      * Create one or more entities.  This takes an array of objects and attempts
      * to create those entities in WideSky.
@@ -645,7 +644,6 @@ class WideSkyClient {
     create(entities) {
         return this._create_or_update('createRec', entities);
     };
-
 
     /**
      * Update one or more entities.  This takes an array of objects and attempts
@@ -674,13 +672,13 @@ class WideSkyClient {
             throw new Error('New password cannot be empty.');
         }
 
-        return this._ws_hs_submit({
-            method: 'POST',
-            uri: '/user/updatePassword',
-            body: {
-                "newPassword": newPassword
+        return this.submitRequest(
+            "POST",
+            "/user/updatePassword",
+            {
+                newPassword
             }
-        });
+        );
     };
 
     /**
