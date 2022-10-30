@@ -462,20 +462,18 @@ class WideSkyClient {
     };
 
     /**
-     * Perform a `read` request of the WideSky API server.  This function takes
-     * one or more IDs expressed as a list.
-     *
-     * @param   ids     Entity IDs, either a single ID or an array.  (string or
-     *                  array of strings)
-     * @returns Promise that resolves to the raw grid.
+     * Perform an operation given by the uri with argument ids. Ids can either be a String or an array of String's.
+     * @param ids Entity id/s for the operation to be performed on.
+     * @param uri API endpoint to perform the operation.
+     * @returns {Promise<*>}
      */
-    read(ids) {
+    opByIds(ids, uri) {
         if (typeof ids === "string" || (Array.isArray(ids) && ids.length === 1)) {
             const id = Array.isArray(ids) ? ids[0] : ids;
 
             return this.submitRequest(
                 "GET",
-                "/api/read",
+                uri,
                 {},
                 {
                     params: {
@@ -487,24 +485,36 @@ class WideSkyClient {
             if (ids.length > 1) {
                 return this.submitRequest(
                     "POST",
-                    "/api/read",
+                    uri,
                     {
-                    meta: {
-                        ver: '2.0',
-                    },
-                    cols: [
-                        {name: 'id'}
-                    ],
-                    rows: ids.map(function (id) {
-                        return {id: (new data.Ref(id)).toHSJSON()};
-                    })
-                });
+                        meta: {
+                            ver: '2.0',
+                        },
+                        cols: [
+                            {name: 'id'}
+                        ],
+                        rows: ids.map(function (id) {
+                            return {id: (new data.Ref(id)).toHSJSON()};
+                        })
+                    });
             } else {
                 throw new Error("An empty array of id's was given.");
             }
         } else {
             throw new Error(`Parameter 'ids' is neither a single id or an array of id's.`);
         }
+    }
+
+    /**
+     * Perform a `read` request of the WideSky API server.  This function takes
+     * one or more IDs expressed as a list.
+     *
+     * @param   ids     Entity IDs, either a single ID or an array.  (string or
+     *                  array of strings)
+     * @returns Promise that resolves to the raw grid.
+     */
+    read(ids) {
+        return this.opByIds(ids, "/api/read");
     };
 
     /**
@@ -689,35 +699,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     deleteById(ids) {
-        if (((typeof ids) === 'string') || (ids.length === 1)) {
-            if (!((typeof ids) === 'string')) {
-                ids = ids[0];
-            }
-
-            return this._ws_hs_submit({
-                method: 'GET',
-                uri: '/api/deleteRec',
-                qs: {
-                    id: (new data.Ref(ids)).toHSZINC()
-                }
-            });
-        } else {
-            return this._ws_hs_submit({
-                method: 'POST',
-                uri: '/api/deleteRec',
-                body: {
-                    meta: {
-                        ver: '2.0',
-                    },
-                    cols: [
-                        {name: 'id'}
-                    ],
-                    rows: ids.map(function (id) {
-                        return {id: (new data.Ref(id)).toHSJSON()}
-                    })
-                }
-            });
-        }
+        return this.opByIds(ids, "/api/deleteRec");
     };
 
 
