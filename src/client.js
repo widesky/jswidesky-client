@@ -113,9 +113,14 @@ class WideSkyClient {
     }
 
     /**
-     * Protected method for submitting requests against the API server.
-     * This takes an options object for `request-bluebird` and injects
-     * the base URI for submitting requests.
+     * Protected method for submitting requests against the API server with Axios.
+     * @param method Request method to be performed. Not case-sensitive.
+     * @param uri Endpoint to for request to be sent, relative to the base URI given to the client.
+     * @param body Body of the request. Ignored if given method is "GET".
+     * @param config Request config to be applied. Refer to https://www.npmjs.com/package/axios#request-config for
+     * more info.
+     * @returns Data from response of request.
+     * @private
      */
     _ws_raw_submit(method, uri, body, config) {
         /* istanbul ignore next */
@@ -124,7 +129,7 @@ class WideSkyClient {
         }
 
         let res;
-        switch (method) {
+        switch (method.toUpperCase()) {
             case "GET":
                 res = this.axios.get(uri, config);
                 break;
@@ -147,6 +152,11 @@ class WideSkyClient {
         )
     };
 
+    /**
+     * Attach necessary headers to request config.
+     * @param config Existing config to add to.
+     * @returns Modified config.
+     */
     async attachReqConfig(config) {
         const token = await this.getToken();
         config = Object.assign({}, config);       // make a copy
@@ -200,8 +210,8 @@ class WideSkyClient {
     };
 
     /**
-     * Private method: refresh a token.  Returns JSON response from server or
-     * raises an error.  Requires that _ws_token is not null.
+     * Private method: refresh a token. Returns JSON response from server or
+     * raises an error. Requires that _ws_token is not null.
      */
     doRefresh() {
         /* istanbul ignore next */
@@ -396,23 +406,6 @@ class WideSkyClient {
             body
         );
     }
-
-    /**
-     * Process a `filter` and `limit`; and use these to generate the query
-     * arguments.  Used by `find` and `deleteByFilter`.
-     */
-    _get_filter_limit_args(filter, limit) {
-        const args = {
-            filter: filter.toHSZINC()
-        };
-
-        if ((typeof limit) === 'number') {
-            args.limit = limit.toHSZINC();
-        }
-
-        return args;
-    };
-
 
     /**
      * Perform a `read` request of the WideSky API server.  This function takes
@@ -861,7 +854,6 @@ class WideSkyClient {
             }
         );
     };
-
 
     /**
      *
