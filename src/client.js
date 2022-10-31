@@ -15,6 +15,7 @@ const request = require('request-promise'),
 
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
+const MOMENT_FORMAT_MS_PRECISION = 'YYYY-MM-DDTHH:mm:ss.SSS\\Z';
 
 class WideSkyClient {
     base_uri
@@ -176,7 +177,7 @@ class WideSkyClient {
         return config;
     }
 
-    async submitRequest(method, uri, body={}, config={}) {
+    async _submitRequest(method, uri, body={}, config={}) {
         config = await this.attachReqConfig(config);
         return this._ws_raw_submit(method, uri, body, config);
     }
@@ -329,139 +330,6 @@ class WideSkyClient {
         });
     };
 
-    submitHs(options, token) {
-        /* Prepare request */
-        options = Object.assign({}, options);
-        if (options.headers === undefined) {
-            /* Initialise new headers */
-            options.headers = {};
-        } else {
-            /* Copy existing settings */
-            options.headers = Object.assign({}, options.headers);
-        }
-
-        /* Set headers */
-        options.headers['Authorization'] = 'Bearer ' + token;
-        options.headers['Accept'] = 'application/json';
-
-        if (this.isAcceptingGzip()) {
-            options.gzip = true;
-        }
-
-        if (this.isImpersonating()) {
-            options.headers['X-IMPERSONATE'] = this._impersonate;
-        }
-
-        /* Expect JSON reply */
-        options.json = true;
-
-        /* istanbul ignore next */
-        if (this._log) this._log.trace('Sending request');
-        return this._ws_raw_submit(options);
-    };
-
-    /**
-     * Protected method for submitting a Project Haystack request.  This
-     * retrieves the access token then injects it into the request and submits
-     * it.  It also handles the case where a request fails due to an invalid
-     * token.
-     */
-    _ws_hs_submit(options) {
-        /* istanbul ignore next */
-        if (this._log) this._log.trace(options, 'Haystack request');
-
-        return new Promise( (resolve, reject) => {
-            /* istanbul ignore next */
-            if (this._log) this._log.trace('Need token');
-            this.getToken().then( (token) => {
-                /* istanbul ignore next */
-                if (this._log) this._log.trace('Got token');
-                this.submitHs(options, token).then(resolve).catch((err) => {
-                    /* Did we get a 401? */
-                    if ((err instanceof this._rqerr.StatusCodeError)
-                        && (err.statusCode === 401))
-                    {
-                        /* Invalidate our token then try again, *once* */
-
-                        /*
-                         * Ignore the else branch in code coverage, as
-                         * we should not ordinarily wind up here if the token
-                         * is invalid.  To test, we've got to trigger a tricky
-                         * race condition between `getToken` and `submit`.
-                         */
-
-                        /* istanbul ignore else */
-                        if (this._ws_token_wait === null) {
-                            /* istanbul ignore next */
-                            if (this._log) this._log.trace('Invalidated token');
-                            this._ws_token = null;
-                        }
-
-                        this.getToken().then((token) => {
-                            this.submitHs(options, token).then(resolve).catch(reject);
-                        }).catch(reject);
-                    } else {
-                        reject(err);
-                    }
-                });
-            }).catch(function (err) {
-                reject(err);
-            });
-        });
-    };
-
-    submitWs(options, token) {
-        if (!options.headers) {
-            options.headers = {};
-        }
-        else {
-            options.headers = Object.assign({}, options.headers);
-        }
-
-        options.headers["Authorization"] = `Bearer ${token}`;
-        options.headers["Accept"] = "application/json";
-
-        if (this.isImpersonating()) {
-            options.headers['X-IMPERSONATE'] = this._impersonate;
-        }
-
-        options.json = true;
-
-        if (this._log) this._log.trace("Sending request");
-
-        options.baseUrl = this.base_uri;
-        if (this._log) this._log.trace(options, "Raw request");
-        return this._request(options);
-    };
-
-    _ws_submit(options) {
-        if (this._log) this._log.trace(options, "WideSky operation request");
-
-        return new Promise((resolve, reject) => {
-            if (this._log) this._log.trace('Need token');
-            this.getToken().then((token) => {
-                if (this._log) this._log.trace("Got token");
-                this.submitWs(options, token).then(resolve).catch((err) => {
-                    if ((err instanceof this._rqerr.StatusCodeError && err.statusCode === 401)) {
-                        if (this._ws_token_wait === null) {
-                            if (this._log) this._log.trace('Invalidated token');
-                            this._ws_token = null;
-                        }
-
-                        this.getToken().then((token) => {
-                            this.submitWs(options, token).then(resolve).catch(reject);
-                        }).catch(reject);
-                    }
-                    else {
-                        reject(err);
-                    }
-                });
-            }).catch((err) => {
-                reject(err);
-            });
-        });
-    };
-
     /**
      * Perform an operation given by the uri with argument ids. Ids can either be a String or an array of String's.
      * @param ids Entity id/s for the operation to be performed on.
@@ -472,7 +340,7 @@ class WideSkyClient {
         if (typeof ids === "string" || (Array.isArray(ids) && ids.length === 1)) {
             const id = Array.isArray(ids) ? ids[0] : ids;
 
-            return this.submitRequest(
+            return this._submitRequest(
                 "GET",
                 uri,
                 {},
@@ -484,7 +352,7 @@ class WideSkyClient {
             );
         } else if (Array.isArray(ids)) {
             if (ids.length > 1) {
-                return this.submitRequest(
+                return this._submitRequest(
                     "POST",
                     uri,
                     {
@@ -530,7 +398,7 @@ class WideSkyClient {
         graphql = replace.outerBraces(graphql);
         let body = { "query": graphql }
 
-        return this.submitRequest(
+        return this._submitRequest(
             "POST",
             "/graphql",
             body
@@ -563,7 +431,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     find(filter, limit=0) {
-        return this.submitRequest(
+        return this._submitRequest(
             "GET",
             "/api/read",
             {},
@@ -581,7 +449,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     reloadCache() {
-        return this.submitRequest(
+        return this._submitRequest(
             "GET",
             "/api/reloadAuthCache"
         );
@@ -632,7 +500,7 @@ class WideSkyClient {
         /* Add the others in, in alphabetical order */
         cols = [...cols, ...(Object.keys(present).sort())];
 
-        return this.submitRequest(
+        return this._submitRequest(
             "POST",
             `/api/${op}`,
             {
@@ -683,7 +551,7 @@ class WideSkyClient {
             throw new Error('New password cannot be empty.');
         }
 
-        return this.submitRequest(
+        return this._submitRequest(
             "POST",
             "/user/updatePassword",
             {
@@ -713,7 +581,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     deleteByFilter(filter, limit) {
-        return this.submitRequest(
+        return this._submitRequest(
             "GET",
             "/api/deleteRec",
             {},
@@ -932,7 +800,7 @@ class WideSkyClient {
             });
         }
 
-        return this.submitRequest(
+        return this._submitRequest(
             "GET",
             "/api/hisRead",
             {},
@@ -991,7 +859,7 @@ class WideSkyClient {
             return 0
         });
 
-        return this.submitRequest(
+        return this._submitRequest(
             "POST",
             "/api/hisWrite",
             {
@@ -1103,7 +971,7 @@ class WideSkyClient {
             formData.append(key, value);
         }
 
-        return this.submitRequest(
+        return this._submitRequest(
             "PUT",
             "/api/file/storage",
             formData,
@@ -1146,9 +1014,12 @@ class WideSkyClient {
      * ]
      */
     fileRetrieve(pointIds, from, to, presigned=true, presignExpiry=1800) {
-
-        if (!(pointIds instanceof Array)) {
-            pointIds = [pointIds];
+        if (!(Array.isArray(pointIds))) {
+            if (typeof pointIds !== "string") {
+                throw new Error(`Point id ${pointIds} must be a string.`);
+            } else {
+                pointIds = [pointIds];
+            }
         }
         else {
             for (let index = 0; index < pointIds.length; index++) {
@@ -1187,15 +1058,20 @@ class WideSkyClient {
             }
         }
 
-        return this._ws_submit({
-            method: 'GET',
-            uri: '/api/file/storage?' +
-                'pointIds=' + JSON.stringify(pointIds) +
-                '&from=' + mFrom.utc().format() +
-                '&to=' + mTo.utc().format() +
-                '&presigned=' + presigned.toString() +
-                '&presignExpiry=' + presignExpiry.toString()
-        });
+        return this._submitRequest(
+            "GET",
+            "/api/file/storage",
+            {},
+            {
+                params: {
+                    pointIds: JSON.stringify(pointIds),
+                    from: mFrom.utc().format(MOMENT_FORMAT_MS_PRECISION),
+                    to: mTo.utc().format(MOMENT_FORMAT_MS_PRECISION),
+                    presigned: presigned.toString(),
+                    presignExpiry: presignExpiry.toString()
+                }
+            }
+        );
     }
 }
 
