@@ -5,11 +5,9 @@
  */
 "use strict";
 
-const WideSkyClient = require('../../src/client'),
-    stubs = require('../stubs'),
+const stubs = require('../stubs'),
     sinon = require('sinon'),
     expect = require('chai').expect,
-    WS_URI = stubs.WS_URI,
     WS_USER = stubs.WS_USER,
     WS_PASSWORD = stubs.WS_PASSWORD,
     WS_CLIENT_ID = stubs.WS_CLIENT_ID,
@@ -20,16 +18,11 @@ const WideSkyClient = require('../../src/client'),
     WS_REFRESH_TOKEN2 = stubs.WS_REFRESH_TOKEN2,
     getInstance = stubs.getInstance;
 
-const { verifyTokenCall, verifyRequestCall } = require("./utils");
-
-
-function sleep(ms) {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            return resolve()
-        }, ms);
-    })
-}
+const {
+    verifyTokenCall,
+    verifyRequestCall,
+    sleep
+} = require("./utils");
 
 describe('client', () => {
     describe('internals', () => {
@@ -498,8 +491,18 @@ describe('client', () => {
                 let http = new stubs.StubHTTPClient(),
                     ws = getInstance(http);
 
-                /* We should only see a log-in attempt */
-                http.setHandler(stubs.authHandler());
+                // overwrite spy function
+                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                    if (uri === "/oauth2/token") {
+                        return Promise.resolve({
+                            access_token: WS_ACCESS_TOKEN,
+                            refresh_token: WS_REFRESH_TOKEN,
+                            expires_in: Date.now() + 2000
+                        });
+                    } else {
+                        return Promise.resolve("default response");
+                    }
+                });
 
                 return ws.login().then((res) => {
                     expect(res.access_token).to.equal(stubs.WS_ACCESS_TOKEN);
@@ -518,47 +521,71 @@ describe('client', () => {
                 http = new stubs.StubHTTPClient();
                 log = new stubs.StubLogger();
                 ws = getInstance(http, log);
+                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                    if (uri === "/oauth2/token") {
+                        return Promise.resolve({
+                            access_token: WS_ACCESS_TOKEN,
+                            refresh_token: WS_REFRESH_TOKEN,
+                            expires_in: Date.now() + 2000
+                        });
+                    } else {
+                        return Promise.resolve("default response");
+                    }
+                });
             });
 
+            afterEach(() => {
+                ws._wsRawSubmit.reset();
+            })
+
             describe('isAcceptingGzip=true', () => {
-                it('should set the Accept-Encoding header', () => {
-                    let requestHandlers = [
-                        /* First up, an authentication request */
-                        stubs.authHandler(),
-                        (options) => {
-                            return Promise.resolve(options);
+                it('should set the Accept-Encoding header', async () => {
+                    const res = await ws.deleteByFilter('myTag=="my value"');
+                    expect(res).to.equal("default response");
+                    expect(ws._wsRawSubmit.callCount).to.equal(2);
+                    verifyRequestCall(
+                        ws._wsRawSubmit.secondCall.args,
+                        "GET",
+                        "/api/deleteRec",
+                        {},
+                        {
+                            headers: {
+                                "Accept": "application/json",
+                                "Authorization": "Bearer an access token"
+                            },
+                            params: {
+                                filter: 'myTag=="my value"',
+                                limit: 0
+                            },
+                            decompress: true
                         }
-                    ];
-
-                    http.setHandler((options) => {
-                        return requestHandlers.shift()(options);
-                    });
-
-                    return ws.deleteByFilter('myTag=="my value"', 0).then((options) => {
-                        expect(options.gzip).to.equal(true);
-                    });
+                    );
                 });
             });
 
             describe('isAcceptingGzip=false', () => {
-                it('should not set the Accept-Encoding header', () => {
+                it('should not set the Accept-Encoding header', async () => {
                     ws.setAcceptGzip(false);
 
-                    let requestHandlers = [
-                        /* First up, an authentication request */
-                        stubs.authHandler(),
-                        (options) => {
-                            return Promise.resolve(options);
+                    const res = await ws.deleteByFilter('myTag=="my value"');
+                    expect(res).to.equal("default response");
+                    expect(ws._wsRawSubmit.callCount).to.equal(2);
+                    verifyRequestCall(
+                        ws._wsRawSubmit.secondCall.args,
+                        "GET",
+                        "/api/deleteRec",
+                        {},
+                        {
+                            headers: {
+                                "Accept": "application/json",
+                                "Authorization": "Bearer an access token"
+                            },
+                            params: {
+                                filter: 'myTag=="my value"',
+                                limit: 0
+                            }
                         }
-                    ];
-
-                    http.setHandler((options) => {
-                        return requestHandlers.shift()(options);
-                    });
-
-                    return ws.deleteByFilter('myTag=="my value"', 0).then((options) => {
-                        expect(options).to.not.have.property('gzip');
-                    });
+                    );
                 });
             });
         });
@@ -575,50 +602,75 @@ describe('client', () => {
                 ws = getInstance(http, log);
 
                 ws.impersonateAs(targetUser);
+                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                    if (uri === "/oauth2/token") {
+                        return Promise.resolve({
+                            access_token: WS_ACCESS_TOKEN,
+                            refresh_token: WS_REFRESH_TOKEN,
+                            expires_in: Date.now() + 2000
+                        });
+                    } else {
+                        return Promise.resolve("default response");
+                    }
+                });
             });
 
+            afterEach(() => {
+                ws._wsRawSubmit.reset();
+            })
+
             describe('impersonateAs', () => {
-                it('should set the X-IMPERSONATE header', () => {
+                it('should set the X-IMPERSONATE header', async () => {
                     ws.impersonateAs(targetUser);
 
-                    let requestHandlers = [
-                        /* First up, an authentication request */
-                        stubs.authHandler(),
-                        (options) => {
-                            return Promise.resolve(options);
+                    const res = await ws.deleteByFilter('myTag=="my value"', 30);
+                    expect(res).to.equal("default response");
+                    expect(ws._wsRawSubmit.callCount).to.equal(2);
+                    verifyRequestCall(
+                        ws._wsRawSubmit.secondCall.args,
+                        "GET",
+                        "/api/deleteRec",
+                        {},
+                        {
+                            headers: {
+                                "Accept": "application/json",
+                                "Authorization": "Bearer an access token",
+                                "X-IMPERSONATE": targetUser
+                            },
+                            params: {
+                                filter: 'myTag=="my value"',
+                                limit: 30
+                            },
+                            decompress: true
                         }
-                    ];
-
-                    http.setHandler((options) => {
-                        return requestHandlers.shift()(options);
-                    });
-
-                    return ws.deleteByFilter('myTag=="my value"', 30).then((options) => {
-                        expect(options.headers).to.have.property('X-IMPERSONATE');
-                        expect(options.headers['X-IMPERSONATE']).to.equal(targetUser);
-                    });
+                    );
                 });
             });
 
             describe('unsetImpersonate', () => {
-                it('should omit the X-IMPERSONATE attribute in header', () => {
+                it('should omit the X-IMPERSONATE attribute in header', async () => {
                     ws.unsetImpersonate();
 
-                    let requestHandlers = [
-                        /* First up, an authentication request */
-                        stubs.authHandler(),
-                        (options) => {
-                            return Promise.resolve(options);
+                    const res = await ws.deleteByFilter('myTag=="my value"', 30);
+                    expect(res).to.equal("default response");
+                    expect(ws._wsRawSubmit.callCount).to.equal(2);
+                    verifyRequestCall(
+                        ws._wsRawSubmit.secondCall.args,
+                        "GET",
+                        "/api/deleteRec",
+                        {},
+                        {
+                            headers: {
+                                "Accept": "application/json",
+                                "Authorization": "Bearer an access token"
+                            },
+                            params: {
+                                filter: 'myTag=="my value"',
+                                limit: 30
+                            },
+                            decompress: true
                         }
-                    ];
-
-                    http.setHandler((options) => {
-                        return requestHandlers.shift()(options);
-                    });
-
-                    return ws.deleteByFilter('myTag=="my value"', 30).then((options) => {
-                        expect(options.headers).to.not.have.property('X-IMPERSONATE');
-                    });
+                    );
                 });
             });
 

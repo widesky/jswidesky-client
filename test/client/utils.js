@@ -28,7 +28,16 @@ function verifyRequestCall(stubArgs, method, uri, body, config) {
     expect(stubArgs[3]).to.deep.equal(config);
 }
 
+function sleep(ms) {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            return resolve()
+        }, ms);
+    })
+}
+
 module.exports = {
     verifyTokenCall: verifyTokenCall,
-    verifyRequestCall: verifyRequestCall
+    verifyRequestCall: verifyRequestCall,
+    sleep: sleep
 }
