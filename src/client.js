@@ -292,7 +292,6 @@ class WideSkyClient {
             if (this._log) {
                 this._log.trace('Begin token acquisition');
             }
-            console.log("doLogin");
             firstStep = this.doLogin();
         } else if (this._ws_token.expires_in < Date.now()) {
             /* Token is expired, so do a refresh */
@@ -301,7 +300,6 @@ class WideSkyClient {
                 this._log.trace('Begin token refresh');
             }
             this._ws_token_wait = [];
-            console.log("doRefresh");
             firstStep = this.doRefresh();
             refresh = true;
         } else {
