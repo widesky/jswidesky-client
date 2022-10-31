@@ -1026,10 +1026,10 @@ class WideSkyClient {
                 file,
                 filename,
                 mediaType,
-                inlineRetrieval,
-                cacheMaxAge,
-                force,
-                tags) {
+                inlineRetrieval=true,
+                cacheMaxAge=1800,       // 30 minutes
+                force=false,
+                tags={}) {
 
         if (typeof file === 'string') {
             // Assume an absolute file path
@@ -1047,24 +1047,20 @@ class WideSkyClient {
         }
 
         if (typeof force !== 'boolean') {
-            force = false;
+            throw new Error("Force must be of type boolean.");
         }
 
         if (typeof inlineRetrieval !== 'boolean') {
-            inlineRetrieval = true;
+            throw new Error('InlineRetrieval must be of type boolean.');
         }
 
         if (typeof cacheMaxAge !== 'number') {
-            cacheMaxAge = 1800;  // 30 minutes
+            throw new Error('CacheMaxAge must be of type number.');
         }
         else {
             if (cacheMaxAge < 0) {
                 throw new Error('CacheMaxAge must be more than or equals to 0.');
             }
-        }
-
-        if (!tags) {
-            tags = {};
         }
 
         if (typeof tags !== 'object') {
