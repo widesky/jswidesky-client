@@ -121,7 +121,7 @@ class WideSkyClient {
      * more info.
      * @returns Data from response of request.
      */
-    _ws_raw_submit(method, uri, body, config) {
+    _wsRawSubmit(method, uri, body, config) {
         /* istanbul ignore next */
         if (this._log) {
             this._log.trace(config, 'Raw request');
@@ -180,7 +180,7 @@ class WideSkyClient {
 
     async _submitRequest(method, uri, body={}, config={}) {
         config = await this.attachReqConfig(config);
-        return this._ws_raw_submit(method, uri, body, config);
+        return this._wsRawSubmit(method, uri, body, config);
     }
 
     /**
@@ -191,7 +191,7 @@ class WideSkyClient {
         /* istanbul ignore next */
         if (this._log) this._log.trace('Performing login attempt');
 
-        return this._ws_raw_submit(
+        return this._wsRawSubmit(
             "POST",
             "/oauth2/token",
             {
@@ -216,7 +216,7 @@ class WideSkyClient {
         /* istanbul ignore next */
         if (this._log) this._log.trace('Performing token refresh attempt');
 
-        return this._ws_raw_submit(
+        return this._wsRawSubmit(
             "POST",
             "/oauth2/token",
             {

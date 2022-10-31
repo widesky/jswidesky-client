@@ -79,8 +79,7 @@ const StubHTTPClient = function() {
             }
             return Promise.resolve()
         });
-        ws._ws_raw_submit = fakeSubmit;
-
+        ws._wsRawSubmit = fakeSubmit;
 
         // ws._request = (options) => {
         //     return handler(options);
