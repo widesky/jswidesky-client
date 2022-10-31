@@ -120,7 +120,6 @@ class WideSkyClient {
      * @param config Request config to be applied. Refer to https://www.npmjs.com/package/axios#request-config for
      * more info.
      * @returns Data from response of request.
-     * @private
      */
     _ws_raw_submit(method, uri, body, config) {
         /* istanbul ignore next */
@@ -169,7 +168,7 @@ class WideSkyClient {
         config.headers['Accept'] = 'application/json';
 
         if (this.isAcceptingGzip()) {
-            config.gzip = true;
+            config.decompress = true;
         }
 
         if (this.isImpersonating()) {
