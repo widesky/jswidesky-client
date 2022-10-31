@@ -10,7 +10,8 @@ const request = require('request-promise'),
     _ = require('lodash'),
     moment = require("moment-timezone"),
     fs = require("fs"),
-    axios = require("axios");
+    axios = require("axios"),
+    FormData = require("form-data");
 
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
@@ -1087,28 +1088,31 @@ class WideSkyClient {
             contentDisposition += '; filename="' + filename + "'";
         }
 
-        return this._ws_submit({
-            method: 'PUT',
-            uri: '/api/file/storage',
-            formData: {
-                'id': id,
-                'ts': ts,
-                'data': {
-                    'options': {
-                        'contentType': mediaType,
-                        'filename': filename
-                    },
-                    'value': file
-                },
-                'force': force.toString(),
-                'cacheMaxAge': cacheMaxAge.toString(),
-                'contentDisposition': contentDisposition,
-                'tags': JSON.stringify(requestTags)
-            },
-            headers: {
-                'content-type': 'multipart/form-data'
+        // Create form
+        const formData = new FormData();
+        const form = {
+            'id': id,
+            'ts': ts,
+            'data': file,
+            'force': force.toString(),
+            'cacheMaxAge': cacheMaxAge.toString(),
+            'contentDisposition': contentDisposition,
+            'tags': JSON.stringify(requestTags)
+        };
+        for (const [key, value] of Object.entries(form)) {
+            formData.append(key, value);
+        }
+
+        return this.submitRequest(
+            "PUT",
+            "/api/file/storage",
+            formData,
+            {
+                headers: {
+                    'content-type': 'multipart/form-data'
+                }
             }
-        });
+        );
     }
 
     /**
