@@ -939,13 +939,20 @@ class WideSkyClient {
         );
     };
 
-
     /**
      * Perform a history write request.
      *
      * @param   records     Records to be written keyed by timestamp (object)
      *                      Each record value should map the point to its value
-     *                      for that time record.
+     *                      for that time record. Records should have the format of:
+     *                      {
+     *                          <time>: {
+     *                              <id>: <valueToBeWritten>,
+     *                              ...
+     *                          },
+     *                          ...
+     *                      }
+     *                      where each of the '<>' values are in HayStack format.
      * @returns Promise that resolves to the raw grid.
      */
     hisWrite(records) {
@@ -983,15 +990,15 @@ class WideSkyClient {
             return 0
         });
 
-        return this._ws_hs_submit({
-            method: 'POST',
-            uri: '/api/hisWrite',
-            body: {
+        return this.submitRequest(
+            "POST",
+            "/api/hisWrite",
+            {
                 meta: {ver: '2.0'},
                 cols: outCols,
                 rows: rows
             }
-        });
+        );
     };
 
 
