@@ -734,7 +734,7 @@ class WideSkyClient {
      *                      (Date)      Starting timestamp of read
      * @param   to          (Date)      Ending timestamp of read
      *
-     * @param   batch_sz    (Number)    Optional batch size when reading multiple
+     * @param   batchSize    (Number)    Optional batch size when reading multiple
      *                                  points.  Some environments may experience
      *                                  issues reading more than a few dozen points
      *                                  at a time due to HTTP request payload
@@ -744,12 +744,8 @@ class WideSkyClient {
      *
      * @returns Promise that resolves to the raw grid.
      */
-    hisRead(ids, from, to, batch_sz) {
+    hisRead(ids, from, to, batchSize=50) {
         let range;
-
-        if (batch_sz === undefined) {
-            batch_sz = 50;
-        }
 
         if (to !== undefined) {
             /* Full range given, both from and to *must* be Dates */
@@ -763,8 +759,9 @@ class WideSkyClient {
             range = from;
         }
 
-        if (!(ids instanceof Array))
+        if (!(Array.isArray(ids))) {
             ids = [ids];
+        }
 
         /* Format the range */
         range = range.toHSZINC();
@@ -774,7 +771,7 @@ class WideSkyClient {
             return (new data.Ref(id)).toHSJSON();
         });
 
-        if (ids.length < batch_sz) {
+        if (ids.length < batchSize) {
             /* Small hisRead, handle as normal */
             return this._hisRead(ids, range);
         }
@@ -783,7 +780,7 @@ class WideSkyClient {
         const reads = [];
         let offset = 0;
         while (offset < ids.length) {
-            const block = ids.slice(offset, offset + batch_sz);
+            const block = ids.slice(offset, offset + batchSize);
             reads.push(block);
             offset += block.length;
         }
@@ -802,15 +799,15 @@ class WideSkyClient {
         };
 
         const status = {
-            his_start: null,
-            his_end: null,
-            row_ts: {},
-            col_id: {}
+            hisStart: null,
+            hisEnd: null,
+            rowTs: {},
+            colId: {}
         };
 
         /* Enumerate the columns */
         for (let i = 0; i < ids.length; i++) {
-            status.col_id[ids[i]] = i;
+            status.colId[ids[i]] = i;
             result.cols.push({
                 name: "v" + i,
                 id: ids[i]
@@ -826,13 +823,13 @@ class WideSkyClient {
             })
         ).then(() => {
             /* Assemble all the rows */
-            let times = Object.keys(status.row_ts).map((ts) => {
+            let times = Object.keys(status.rowTs).map((ts) => {
                 return parseInt(ts);
             });
             times.sort();
 
             result.rows = times.map(function (ts) {
-                return status.row_ts[ts];
+                return status.rowTs[ts];
             });
 
             /* Return the merged result */
@@ -840,11 +837,11 @@ class WideSkyClient {
         });
     };
 
-    _mergeHisReadRes(result, status, block_ids, block_res) {
+    _mergeHisReadRes(result, status, blockIds, blockRes) {
         /* Merge the header */
 
-        let this_start = data.parse(block_res.meta.hisStart);
-        let this_end = data.parse(block_res.meta.hisEnd);
+        let this_start = data.parse(blockRes.meta.hisStart);
+        let this_end = data.parse(blockRes.meta.hisEnd);
 
         /*
          * Defensive programming: docs say hisStart/hisEnd can be 'm:'
@@ -853,35 +850,35 @@ class WideSkyClient {
          */
 
         if ((this_start != null) && (this_start instanceof Date)) {
-            /* Is this_start earlier than status.his_start? */
+            /* Is this_start earlier than status.hisStart? */
             this_start = this_start.valueOf();
-            if ((status.his_start == null) || (status.his_start > this_start)) {
-                status.his_start = this_start;
-                result.meta.hisStart = block_res.meta.hisStart;
+            if ((status.hisStart == null) || (status.hisStart > this_start)) {
+                status.hisStart = this_start;
+                result.meta.hisStart = blockRes.meta.hisStart;
             }
         }
 
         if ((this_end != null) && (this_end instanceof Date)) {
-            /* Is this_end later than status.his_start? */
+            /* Is this_end later than status.hisStart? */
             this_end = this_end.valueOf();
-            if ((status.his_end == null) || (status.his_end < this_end)) {
-                status.his_end = this_end;
-                result.meta.hisEnd = block_res.meta.hisEnd;
+            if ((status.hisEnd == null) || (status.hisEnd < this_end)) {
+                status.hisEnd = this_end;
+                result.meta.hisEnd = blockRes.meta.hisEnd;
             }
         }
 
         /* Are there other fields to merge?  (for future expansion) */
 
-        for (const field in block_res.meta) {
+        for (const field in blockRes.meta) {
             if (!result.meta.hasOwnProperty(field)) {
-                result.meta[field] = block_res.meta[field];
+                result.meta[field] = blockRes.meta[field];
             }
         }
 
         /* Now, merge the data */
 
-        for (let r = 0; r < block_res.rows.length; r++) {
-            const in_row = block_res.rows[r];
+        for (let r = 0; r < blockRes.rows.length; r++) {
+            const in_row = blockRes.rows[r];
             let ts = data.parse(in_row.ts);
 
             /* Sanity check, `ts` must be a Date */
@@ -894,20 +891,20 @@ class WideSkyClient {
             /* Extract ms time */
             ts = ts.valueOf();
             let out_row;
-            if (status.row_ts.hasOwnProperty(ts)) {
-                out_row = status.row_ts[ts];
+            if (status.rowTs.hasOwnProperty(ts)) {
+                out_row = status.rowTs[ts];
             } else {
                 out_row = {ts: in_row.ts};
-                status.row_ts[ts] = out_row;
+                status.rowTs[ts] = out_row;
             }
 
             /* Copy the columns in */
-            for (let c = 0; c < block_ids.length; c++) {
+            for (let c = 0; c < blockIds.length; c++) {
                 const val = in_row['v' + c];
 
                 if (val != null) {
-                    const id = block_ids[c];
-                    const col = status.col_id[id];
+                    const id = blockIds[c];
+                    const col = status.colId[id];
 
                     if (col == null) {
                         throw new Error('Unexpected ID ' + id);
@@ -920,23 +917,26 @@ class WideSkyClient {
     };
 
     _hisRead(ids, range) {
-        const args = {
-            range: range
+        const config = {
+            params: {
+                range
+            }
         };
 
         if (ids.length === 1) {
-            args.id = (new data.Ref(ids[0])).toHSZINC();
+            config.params.id = (new data.Ref(ids[0])).toHSZINC();
         } else {
             ids.forEach((id, idx) => {
-                args['id' + idx] = (new data.Ref(id)).toHSZINC();
+                config.params['id' + idx] = (new data.Ref(id)).toHSZINC();
             });
         }
 
-        return this._ws_hs_submit({
-            method: 'GET',
-            uri: '/api/hisRead',
-            qs: args
-        });
+        return this.submitRequest(
+            "GET",
+            "/api/hisRead",
+            {},
+            config
+        );
     };
 
 
