@@ -3,9 +3,7 @@
  */
 "use strict";
 
-const request = require('request-promise'),
-    rqerr = require('request-promise/errors'),
-    data = require('./data'),
+const data = require('./data'),
     replace = require('./graphql/replace'),
     _ = require('lodash'),
     moment = require("moment-timezone"),
@@ -38,12 +36,6 @@ class WideSkyClient {
         this.#clientId = clientId;
         this.#clientSecret = clientSecret;
         this.#accessToken = accessToken
-
-        /*
-         * HTTP library references, these may be replaced with stubs for testing.
-         */
-        this._request = request;
-        this._rqerr = rqerr;
 
         /* Logger instance */
         this._log = log;
