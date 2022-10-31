@@ -244,7 +244,7 @@ class WideSkyClient {
 
         resolve(token);
         waiters.forEach(function (waiter) {
-            waiter.resolve(token.access_token);
+            waiter.resolve(token);
         });
     }
 
