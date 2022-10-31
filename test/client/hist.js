@@ -20,50 +20,48 @@ const WideSkyClient = require('../../src/client'),
     WS_REFRESH_TOKEN2 = stubs.WS_REFRESH_TOKEN2,
     getInstance = stubs.getInstance;
 
+function verifyTokenCall(args) {
+    expect(args[0]).to.equal("POST");
+    expect(args[1]).to.equal("/oauth2/token");
+    expect(args[2]).to.deep.equal({
+        username: WS_USER,
+        password: WS_PASSWORD,
+        grant_type: "password"
+    });
+    expect(args[3]).to.deep.equal({
+        auth: {
+            username: WS_CLIENT_ID,
+            password: WS_CLIENT_SECRET
+        }
+    });
+}
 
 describe('client', () => {
     describe('hisRead', () => {
-        it('should generate GET hisRead with range as-is '
-            + 'if given string', () => {
-                let http = new stubs.StubHTTPClient(),
-                    log = new stubs.StubLogger(),
-                    ws = getInstance(http, log);
+        it('should generate GET hisRead with range as-is if given string', async () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
 
-                /* We expect the following requests */
-                let requestHandlers = [
-                    /* First up, an authentication request */
-                    stubs.authHandler(),
-                    /* The read request is next */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            gzip: true,
-                            headers: {
-                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                Accept: 'application/json'
-                            },
-                            json: true,
-                            method: 'GET',
-                            uri: '/api/hisRead',
-                            qs: {
-                                'id': '@my.id',
-                                'range': '"today"'
-                            }
-                        });
-
-                        return Promise.resolve('grid goes here');
-                    }
-                ];
-
-                http.setHandler((options) => {
-                    expect(requestHandlers).to.not.be.empty;
-                    return requestHandlers.shift()(options);
-                });
-
-                return ws.hisRead('my.id', 'today').then((res) => {
-                    expect(res).to.equal('grid goes here');
-                });
+            await ws.hisRead("my.id", "today");
+            expect(ws._ws_raw_submit.callCount).to.equal(2);
+            verifyTokenCall(ws._ws_raw_submit.firstCall.args);
+            const hisWriteArgs = ws._ws_raw_submit.secondCall.args;
+            expect(hisWriteArgs[0]).to.equal("GET");
+            expect(hisWriteArgs[1]).to.equal("/api/hisRead");
+            expect(hisWriteArgs[2]).to.deep.equal({})       // empty body
+            expect(hisWriteArgs[3]).to.deep.equal({
+                params: {
+                    range: "\"today\"",
+                    id: "@my.id"
+                },
+                headers: {
+                    Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                    Accept: "application/json"
+                },
+                decompress: true
             });
+        });
 
         it('should generate GET hisRead with range defined by times', () => {
             let http = new stubs.StubHTTPClient(),

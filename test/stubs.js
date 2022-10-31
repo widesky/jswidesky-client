@@ -9,6 +9,16 @@ const sinon = require('sinon'),
     expect = require('chai').expect,
     WideSkyClient = require('../src/client');
 
+const WS_URI = 'http://localhost:3000',
+    WS_USER = 'user@example.com',
+    WS_PASSWORD = 'password',
+    WS_CLIENT_ID = 'client id string',
+    WS_CLIENT_SECRET = 'client secret',
+    WS_ACCESS_TOKEN = 'an access token',
+    WS_REFRESH_TOKEN = 'a refresh token',
+    WS_ACCESS_TOKEN2 = 'another access token',
+    WS_REFRESH_TOKEN2 = 'another refresh token';
+
 /**
  * StubLogger is a logger object that spoofs a Bunyan-style logger.
  */
@@ -59,24 +69,27 @@ const StubHTTPClient = function() {
      * Stub a WideSkyClient instance with this HTTP client instance.
      */
     self.stubClient = function(ws) {
-        ws._request = (options) => {
-            return handler(options);
-        };
-        ws._rqerr = {
-            StatusCodeError: StubHTTPStatusCodeError
-        };
+        // const fakeSubmit = sinon.stub().returns(Promise.resolve("IHHHIHIHI"));
+        // fakeSubmit.withArgs()
+        const fakeSubmit = sinon.spy((method, uri, body, config) => {
+            if (uri === "/oauth2/token") {
+                return Promise.resolve({
+                    access_token: WS_ACCESS_TOKEN
+                });
+            }
+            return Promise.resolve()
+        });
+        ws._ws_raw_submit = fakeSubmit;
+
+
+        // ws._request = (options) => {
+        //     return handler(options);
+        // };
+        // ws._rqerr = {
+        //     StatusCodeError: StubHTTPStatusCodeError
+        // };
     };
 };
-
-const WS_URI = 'http://localhost:3000',
-    WS_USER = 'user@example.com',
-    WS_PASSWORD = 'password',
-    WS_CLIENT_ID = 'client id string',
-    WS_CLIENT_SECRET = 'client secret',
-    WS_ACCESS_TOKEN = 'an access token',
-    WS_REFRESH_TOKEN = 'a refresh token',
-    WS_ACCESS_TOKEN2 = 'another access token',
-    WS_REFRESH_TOKEN2 = 'another refresh token';
 
 const getInstance = function(http, log) {
     let c = new WideSkyClient(
