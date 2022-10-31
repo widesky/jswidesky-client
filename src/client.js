@@ -164,7 +164,7 @@ class WideSkyClient {
             config.headers = {};
         }
 
-        config.headers['Authorization'] = 'Bearer ' + token;
+        config.headers['Authorization'] = 'Bearer ' + token.access_token;
         config.headers['Accept'] = 'application/json';
 
         if (this.isAcceptingGzip()) {
@@ -242,7 +242,7 @@ class WideSkyClient {
         const waiters = this._ws_token_wait;
         this._ws_token_wait = null;
 
-        resolve(token.access_token);
+        resolve(token);
         waiters.forEach(function (waiter) {
             waiter.resolve(token.access_token);
         });
@@ -319,11 +319,11 @@ class WideSkyClient {
                                 'Refresh fails, trying log-in instead'
                             );
                         }
-                        this.doLogin()
+                        return this.doLogin()
                             .then((token) => this.getTokenSuccess(token, resolve))
                             .catch((err) => this.getTokenFail(err, reject));
                     } else {
-                        this.getTokenFail(err, reject);
+                        return this.getTokenFail(err, reject);
                     }
                 });
         });
@@ -562,7 +562,7 @@ class WideSkyClient {
      *                      (integer)
      * @returns Promise that resolves to the raw grid.
      */
-    deleteByFilter(filter, limit) {
+    deleteByFilter(filter, limit=0) {
         return this._submitRequest(
             "GET",
             "/api/deleteRec",
