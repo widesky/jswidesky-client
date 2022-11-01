@@ -159,7 +159,7 @@ class WideSkyClient {
      * @param config Existing config to add to.
      * @returns Modified config.
      */
-    async attachReqConfig(config) {
+    async _attachReqConfig(config) {
         const token = await this.getToken();
         config = Object.assign({}, config);       // make a copy
 
@@ -181,8 +181,8 @@ class WideSkyClient {
         return config;
     }
 
-    async _submitRequest(method, uri, body={}, config={}) {
-        config = await this.attachReqConfig(config);
+    async submitRequest(method, uri, body={}, config={}) {
+        config = await this._attachReqConfig(config);
         return this._wsRawSubmit(method, uri, body, config);
     }
 
@@ -190,7 +190,7 @@ class WideSkyClient {
      * Private method: perform a new log-in.  Returns JSON response from
      * server or raises an error.
      */
-    doLogin() {
+    _doLogin() {
         /* istanbul ignore next */
         if (this._log) this._log.trace('Performing login attempt');
 
@@ -215,7 +215,7 @@ class WideSkyClient {
      * Private method: refresh a token. Returns JSON response from server or
      * raises an error. Requires that _ws_token is not null.
      */
-    doRefresh() {
+    _doRefresh() {
         /* istanbul ignore next */
         if (this._log) this._log.trace('Performing token refresh attempt');
 
@@ -235,7 +235,7 @@ class WideSkyClient {
         );
     };
 
-    getTokenSuccess(token, resolve) {
+    _getTokenSuccess(token, resolve) {
         /* istanbul ignore next */
         if (this._log) {
             this._log.info('Logged in to API server');
@@ -251,7 +251,7 @@ class WideSkyClient {
         });
     }
 
-    getTokenFail(err, reject) {
+    _getTokenFail(err, reject) {
         /* istanbul ignore next */
         if (this._log) {
             this._log.warn(err, 'Failed to log into API server');
@@ -295,7 +295,7 @@ class WideSkyClient {
             if (this._log) {
                 this._log.trace('Begin token acquisition');
             }
-            firstStep = this.doLogin();
+            firstStep = this._doLogin();
         } else if (this._ws_token.expires_in < Date.now()) {
             /* Token is expired, so do a refresh */
             /* istanbul ignore next */
@@ -303,7 +303,7 @@ class WideSkyClient {
                 this._log.trace('Begin token refresh');
             }
             this._ws_token_wait = [];
-            firstStep = this.doRefresh();
+            firstStep = this._doRefresh();
             refresh = true;
         } else {
             return this._ws_token;
@@ -311,7 +311,7 @@ class WideSkyClient {
 
         return new Promise( async (resolve, reject) => {
             return firstStep
-                .then((token) => this.getTokenSuccess(token, resolve))
+                .then((token) => this._getTokenSuccess(token, resolve))
                 .catch((err) => {
                     /* If we're refreshing, try a full log-in */
                     if (refresh) {
@@ -322,11 +322,11 @@ class WideSkyClient {
                                 'Refresh fails, trying log-in instead'
                             );
                         }
-                        return this.doLogin()
-                            .then((token) => this.getTokenSuccess(token, resolve))
-                            .catch((err) => this.getTokenFail(err, reject));
+                        return this._doLogin()
+                            .then((token) => this._getTokenSuccess(token, resolve))
+                            .catch((err) => this._getTokenFail(err, reject));
                     } else {
-                        return this.getTokenFail(err, reject);
+                        return this._getTokenFail(err, reject);
                     }
                 });
         });
@@ -338,11 +338,11 @@ class WideSkyClient {
      * @param uri API endpoint to perform the operation.
      * @returns {Promise<*>}
      */
-    opByIds(ids, uri) {
+    _opByIds(ids, uri) {
         if (typeof ids === "string" || (Array.isArray(ids) && ids.length === 1)) {
             const id = Array.isArray(ids) ? ids[0] : ids;
 
-            return this._submitRequest(
+            return this.submitRequest(
                 "GET",
                 uri,
                 {},
@@ -363,7 +363,7 @@ class WideSkyClient {
                     }
                 }
 
-                return this._submitRequest(
+                return this.submitRequest(
                     "POST",
                     uri,
                     {
@@ -386,44 +386,13 @@ class WideSkyClient {
     }
 
     /**
-     * Perform a `read` request of the WideSky API server.  This function takes
-     * one or more IDs expressed as a list.
-     *
-     * @param   ids     Entity IDs, either a single ID or an array.  (string or
-     *                  array of strings)
-     * @returns Promise that resolves to the raw grid.
-     */
-    read(ids) {
-        return this.opByIds(ids, "/api/read");
-    };
-
-    /**
-     * Perform a graphql request to the WideSky API server.
-     * This function takes in a string which contains the
-     * graph query.
-     *
-     * @param   graphql The graph query
-     * @returns Promise that resolves to the graphql response.
-     */
-    query(graphql) {
-        graphql = replace.outerBraces(graphql);
-        let body = { "query": graphql }
-
-        return this._submitRequest(
-            "POST",
-            "/graphql",
-            body
-        );
-    }
-
-    /**
      * Perform a filter operation, conducting the necessary checks before doing so.
      * @param op Operation to be completed
      * @param filter Filter to be used.
      * @param limit Limit to be used.
      * @returns {Promise<*>} Result of API call.
      */
-    byFilter(op, filter, limit) {
+    _byFilter(op, filter, limit) {
         if (limit < 0) {
             throw new Error("Invalid negative limit given.");
         }
@@ -432,7 +401,7 @@ class WideSkyClient {
             throw new Error(`Invalid filter type ${typeof filter} given. Expected string.`);
         }
 
-        return this._submitRequest(
+        return this.submitRequest(
             "GET",
             `/api/${op}`,
             {},
@@ -447,6 +416,37 @@ class WideSkyClient {
 
     /**
      * Perform a `read` request of the WideSky API server.  This function takes
+     * one or more IDs expressed as a list.
+     *
+     * @param   ids     Entity IDs, either a single ID or an array.  (string or
+     *                  array of strings)
+     * @returns Promise that resolves to the raw grid.
+     */
+    read(ids) {
+        return this._opByIds(ids, "/api/read");
+    };
+
+    /**
+     * Perform a graphql request to the WideSky API server.
+     * This function takes in a string which contains the
+     * graph query.
+     *
+     * @param   graphql The graph query
+     * @returns Promise that resolves to the graphql response.
+     */
+    query(graphql) {
+        graphql = replace.outerBraces(graphql);
+        let body = { "query": graphql }
+
+        return this.submitRequest(
+            "POST",
+            "/graphql",
+            body
+        );
+    }
+
+    /**
+     * Perform a `read` request of the WideSky API server.  This function takes
      * a filter string which is used by the server to scan matching entities.
      *
      * @param   filter      Filter expression (string)
@@ -454,7 +454,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     find(filter, limit=0) {
-        return this.byFilter("read", filter, limit);
+        return this._byFilter("read", filter, limit);
     };
 
     /**
@@ -462,7 +462,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     reloadCache() {
-        return this._submitRequest(
+        return this.submitRequest(
             "GET",
             "/api/reloadAuthCache"
         );
@@ -513,7 +513,7 @@ class WideSkyClient {
         /* Add the others in, in alphabetical order */
         cols = [...cols, ...(Object.keys(present).sort())];
 
-        return this._submitRequest(
+        return this.submitRequest(
             "POST",
             `/api/${op}`,
             {
@@ -564,7 +564,7 @@ class WideSkyClient {
             throw new Error('New password cannot be empty.');
         }
 
-        return this._submitRequest(
+        return this.submitRequest(
             "POST",
             "/user/updatePassword",
             {
@@ -581,7 +581,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     deleteById(ids) {
-        return this.opByIds(ids, "/api/deleteRec");
+        return this._opByIds(ids, "/api/deleteRec");
     };
 
 
@@ -594,7 +594,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     deleteByFilter(filter, limit=0) {
-        return this.byFilter("deleteRec", filter, limit);
+        return this._byFilter("deleteRec", filter, limit);
     };
 
     /**
@@ -803,7 +803,7 @@ class WideSkyClient {
             });
         }
 
-        return this._submitRequest(
+        return this.submitRequest(
             "GET",
             "/api/hisRead",
             {},
@@ -862,7 +862,7 @@ class WideSkyClient {
             return 0
         });
 
-        return this._submitRequest(
+        return this.submitRequest(
             "POST",
             "/api/hisWrite",
             {
@@ -973,7 +973,7 @@ class WideSkyClient {
             formData.append(key, value);
         }
 
-        return this._submitRequest(
+        return this.submitRequest(
             "PUT",
             "/api/file/storage",
             formData,
@@ -1060,7 +1060,7 @@ class WideSkyClient {
             }
         }
 
-        return this._submitRequest(
+        return this.submitRequest(
             "GET",
             "/api/file/storage",
             {},

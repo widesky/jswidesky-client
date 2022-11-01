@@ -26,7 +26,7 @@ const {
 
 describe('client', () => {
     describe('internals', () => {
-        describe('_submitRequest', () => {
+        describe('submitRequest', () => {
             it('should obtain a token before sending request', async () => {
                 let http = new stubs.StubHTTPClient(),
                     ws = getInstance(http);
@@ -35,7 +35,7 @@ describe('client', () => {
                 ws.getToken = sinon.stub().returns(WS_ACCESS_TOKEN);
                 ws._wsRawSubmit = sinon.stub().returns("my response");
 
-                const result = await ws._submitRequest("GET", "URI");
+                const result = await ws.submitRequest("GET", "URI");
                 expect(result).to.equal("my response");
                 expect(ws.getToken.callCount).to.equal(1);
                 expect(ws.getToken.calledBefore(ws._wsRawSubmit)).to.be.true;
@@ -57,10 +57,10 @@ describe('client', () => {
                     }
                 });
 
-                const res = await ws._submitRequest("GET", "URI");
+                const res = await ws.submitRequest("GET", "URI");
                 expect(res).to.equal("default response");
                 await sleep(100);
-                const res2 = await ws._submitRequest("GET", "URI");
+                const res2 = await ws.submitRequest("GET", "URI");
                 expect(res2).to.equal("default response");
 
                 expect(ws._wsRawSubmit.callCount).to.equal(3);
@@ -125,10 +125,10 @@ describe('client', () => {
                     }
                 });
 
-                const res = await ws._submitRequest("GET", "URI");
+                const res = await ws.submitRequest("GET", "URI");
                 expect(res).to.equal("default response");
                 await sleep(100);
-                const res2 = await ws._submitRequest("GET", "URI");
+                const res2 = await ws.submitRequest("GET", "URI");
                 expect(res2).to.equal("default response");
 
                 expect(ws._wsRawSubmit.callCount).to.equal(4);
@@ -208,10 +208,10 @@ describe('client', () => {
                     }
                 });
 
-                const res = await ws._submitRequest("GET", "URI");
+                const res = await ws.submitRequest("GET", "URI");
                 expect(res).to.equal("default response");
                 await sleep(200);
-                const res2 = await ws._submitRequest("GET", "URI");
+                const res2 = await ws.submitRequest("GET", "URI");
                 expect(res2).to.equal("default response");
 
                 expect(ws._wsRawSubmit.callCount).to.equal(5);
@@ -303,8 +303,8 @@ describe('client', () => {
                     }
                 });
 
-                let first = ws._submitRequest("GET", "URI");
-                let second = ws._submitRequest("GET", "URI");
+                let first = ws.submitRequest("GET", "URI");
+                let second = ws.submitRequest("GET", "URI");
 
                 return first.then((res) => {
                     expect(res).to.equal("default response");
@@ -372,10 +372,10 @@ describe('client', () => {
                     }
                 });
 
-                const res = await ws._submitRequest("GET", "URI");
+                const res = await ws.submitRequest("GET", "URI");
                 expect(res).to.equal("default response");
                 await sleep(200);
-                const res2 = await ws._submitRequest("GET", "URI");
+                const res2 = await ws.submitRequest("GET", "URI");
                 expect(res2).to.equal("default response");
 
                 expect(ws._wsRawSubmit.callCount).to.equal(5);
@@ -463,8 +463,8 @@ describe('client', () => {
                 }
 
                 return Promise.all([
-                    check(ws._submitRequest("GET", "URI")),
-                    check(ws._submitRequest("GET", "URI"))
+                    check(ws.submitRequest("GET", "URI")),
+                    check(ws.submitRequest("GET", "URI"))
                 ]);
             });
 
@@ -476,7 +476,7 @@ describe('client', () => {
                     return Promise.reject(new Error("Request failed"));
                 });
 
-                return ws._submitRequest("GET", "URI"
+                return ws.submitRequest("GET", "URI"
                 ).then(() => {
                     throw new Error('This worked, how?');
                 }).catch((err) => {
