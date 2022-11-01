@@ -22,8 +22,6 @@ module.exports = (env, argv) => {
         output: {
             path: path.join(__dirname, '/dist/'),
             filename: argv.mode === 'production' ? `[name].min.js` : `[name].develop.js`,
-            library: '',
-            libraryExport: '',
             libraryTarget: 'umd',
             globalObject: 'this',
         },
@@ -45,10 +43,19 @@ module.exports = (env, argv) => {
                 }]
             }]
         },
-        node: {
-            fs: 'empty',
-            net: 'empty',
-            tls: 'empty',
+        resolve: {
+            fallback: {
+                fs: false,
+                net: false,
+                tls: false,
+                url: false,
+                http: false,
+                stream: false,
+                assert: false,
+                zlib: false,
+                buffer: false,
+                https: false
+            }
         }
     };
 
