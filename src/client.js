@@ -3,13 +3,12 @@
  */
 "use strict";
 
-const data = require('./data'),
-    replace = require('./graphql/replace'),
-    _ = require('lodash'),
-    moment = require("moment-timezone"),
-    fs = require("fs"),
-    axios = require("axios"),
-    FormData = require("form-data");
+const data = require('./data');
+const replace = require('./graphql/replace');
+const moment = require("moment-timezone");
+const fs = require("fs");
+const axios = require("axios");
+const FormData = require("form-data");
 
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
@@ -41,10 +40,10 @@ class WideSkyClient {
         this._log = log;
 
         if (this.#accessToken) {
-            if (!_.has(this.#accessToken, "refresh_token") ||
-                !_.has(this.#accessToken, "expires_in") ||
-                !_.has(this.#accessToken, "token_type") ||
-                !_.has(this.#accessToken, "access_token")) {
+            if (!this.#accessToken.hasOwnProperty("refresh_token") ||
+                !this.#accessToken.hasOwnProperty("expires_in") ||
+                !this.#accessToken.hasOwnProperty("token_type") ||
+                !this.#accessToken.hasOwnProperty("access_token")) {
                 throw new Error("Parameter 'accessToken' is not a valid WideSky token.");
             }
         }
@@ -78,6 +77,10 @@ class WideSkyClient {
         this.initAxios(base_uri);
     }
 
+    /**
+     * Apply the config to be used for all axios requests.
+     * @param baseUri Uri of the target API server.
+     */
     initAxios(baseUri) {
         this.axios = axios.create({
             baseURL: baseUri
@@ -148,7 +151,7 @@ class WideSkyClient {
         return res.then((res) => {
                 return res.data
             }
-        )
+        );
     };
 
     /**
