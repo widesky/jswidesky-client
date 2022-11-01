@@ -306,7 +306,7 @@ class WideSkyClient {
             firstStep = this.doRefresh();
             refresh = true;
         } else {
-            return this._ws_token.access_token;
+            return this._ws_token;
         }
 
         return new Promise( async (resolve, reject) => {
