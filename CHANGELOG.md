@@ -13,7 +13,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `WideSkyClient.read` will now throw an error.
 
 ### CHANGED
-- Replaced deprecated package `request` and `request-promise` for `axios`
+- Replaced deprecated packages `request` and `request-promise` for `axios`
 - Updated packages:
   - `moment-timezone` v0.5.31 -> v0.5.38
   - `jsesc` v2.5.1 -> v3.0.2
