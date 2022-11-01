@@ -15,14 +15,15 @@ const {verifyRequestCall} = require("./utils");
 
 
 describe('client', () => {
+    let ws, http, log;
+    beforeEach(() => {
+        http = new stubs.StubHTTPClient();
+        log = new stubs.StubLogger();
+        ws = getInstance(http, log);
+    });
+
     describe('read', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -118,13 +119,7 @@ describe('client', () => {
     });
 
     describe('query', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -169,13 +164,7 @@ describe('client', () => {
     });
 
     describe('reloadCache', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -218,13 +207,7 @@ describe('client', () => {
     });
 
     describe('updatePassword', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -280,13 +263,7 @@ describe('client', () => {
 
     /* read-by-filter is handled by the `find` method */
     describe('find', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -357,13 +334,7 @@ describe('client', () => {
     });
 
     describe('_create_or_update', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -568,13 +539,7 @@ describe('client', () => {
     });
 
     describe('create', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -694,13 +659,7 @@ describe('client', () => {
     });
 
     describe('update', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -786,13 +745,7 @@ describe('client', () => {
     });
 
     describe('deleteById', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
@@ -889,13 +842,7 @@ describe('client', () => {
 
     /* read-by-filter is handled by the `find` method */
     describe('deleteByFilter', () => {
-
-        let ws, http, log;
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
-            log = new stubs.StubLogger();
-            ws = getInstance(http, log);
-
             // Correct spy for function _wsRawSubmit()
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === "/oauth2/token") {
