@@ -351,6 +351,15 @@ class WideSkyClient {
             );
         } else if (Array.isArray(ids)) {
             if (ids.length > 1) {
+                // verify input is all strings
+                for (const id of ids) {
+                    if (typeof id !== "string") {
+                        throw new Error(
+                            `Parameter 'ids' contains an element that is not a string. Found ${typeof id}.`
+                        );
+                    }
+                }
+
                 return this._submitRequest(
                     "POST",
                     uri,
@@ -405,6 +414,35 @@ class WideSkyClient {
     }
 
     /**
+     * Perform a filter operation, conducting the necessary checks before doing so.
+     * @param op Operation to be completed
+     * @param filter Filter to be used.
+     * @param limit Limit to be used.
+     * @returns {Promise<*>} Result of API call.
+     */
+    byFilter(op, filter, limit) {
+        if (limit < 0) {
+            throw new Error("Invalid negative limit given.");
+        }
+
+        if (typeof filter !== "string") {
+            throw new Error(`Invalid filter type ${typeof filter} given. Expected string.`);
+        }
+
+        return this._submitRequest(
+            "GET",
+            `/api/${op}`,
+            {},
+            {
+                params: {
+                    filter,
+                    limit
+                }
+            }
+        )
+    }
+
+    /**
      * Perform a `read` request of the WideSky API server.  This function takes
      * a filter string which is used by the server to scan matching entities.
      *
@@ -413,17 +451,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     find(filter, limit=0) {
-        return this._submitRequest(
-            "GET",
-            "/api/read",
-            {},
-            {
-                params: {
-                    filter,
-                    limit
-                }
-            }
-        );
+        return this.byFilter("read", filter, limit);
     };
 
     /**
@@ -563,17 +591,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     deleteByFilter(filter, limit=0) {
-        return this._submitRequest(
-            "GET",
-            "/api/deleteRec",
-            {},
-            {
-                params: {
-                    filter,
-                    limit
-                }
-            }
-        );
+        return this.byFilter("deleteRec", filter, limit);
     };
 
     /**

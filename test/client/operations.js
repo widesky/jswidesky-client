@@ -116,6 +116,48 @@ describe('client', () => {
                 }
             );
         });
+
+        it("should reject if input of type object", async () => {
+            try {
+                await ws.read({a: 123});
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal(
+                    "Parameter 'ids' is neither a single id or an array of id's."
+                );
+            }
+        });
+
+        it("should reject if input is an empty array", async () => {
+            try {
+                await ws.read([]);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal("An empty array of id's was given.");
+            }
+        });
+
+        it("should reject if array input contains an invalid element of type object", async () => {
+            try {
+                await ws.read(["id1", "id2", {a: 123}]);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal(
+                    "Parameter 'ids' contains an element that is not a string. Found object."
+                );
+            }
+        });
+
+        it("should reject if array input contains an invalid element of type number", async () => {
+            try {
+                await ws.read(["id1", "id2", 123]);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal(
+                    "Parameter 'ids' contains an element that is not a string. Found number."
+                );
+            }
+        });
     });
 
     describe('query', () => {
@@ -255,8 +297,7 @@ describe('client', () => {
                 await ws.updatePassword("");
                 throw new Error('Should not have succeeded');
             } catch (err) {
-                if (err.message !== 'New password cannot be empty.')
-                    throw err;
+                expect(err.message).to.equal('New password cannot be empty.');
             }
         });
     });
@@ -330,6 +371,24 @@ describe('client', () => {
                     }
                 }
             );
+        });
+
+        it("should reject if filter is not of type string", async () => {
+           try {
+               await ws.find(123, 30);
+               throw new Error("Should not have worked");
+           } catch (error) {
+               expect(error.message).to.equal("Invalid filter type number given. Expected string.")
+           }
+        });
+
+        it("should reject if limit is negative", async () => {
+            try {
+                await ws.find("my filter", -1);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal("Invalid negative limit given.")
+            }
         });
     });
 
@@ -738,8 +797,7 @@ describe('client', () => {
                 });
                 throw new Error('This should not have worked');
             } catch (err) {
-                if (err.message !== 'id is missing')
-                    throw err;
+                expect(err.message).to.equal("id is missing");
             }
         });
     });
@@ -838,6 +896,48 @@ describe('client', () => {
                 }
             );
         });
+
+        it("should reject if input of type object", async () => {
+            try {
+                await ws.deleteById({a: 123});
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal(
+                    "Parameter 'ids' is neither a single id or an array of id's."
+                );
+            }
+        });
+
+        it("should reject if input is an empty array", async () => {
+            try {
+                await ws.deleteById([]);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal("An empty array of id's was given.");
+            }
+        });
+
+        it("should reject if array input contains an invalid element of type object", async () => {
+            try {
+                await ws.deleteById(["id1", "id2", {a: 123}]);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal(
+                    "Parameter 'ids' contains an element that is not a string. Found object."
+                );
+            }
+        });
+
+        it("should reject if array input contains an invalid element of type number", async () => {
+            try {
+                await ws.deleteById(["id1", "id2", 123]);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal(
+                    "Parameter 'ids' contains an element that is not a string. Found number."
+                );
+            }
+        });
     });
 
     /* read-by-filter is handled by the `find` method */
@@ -909,6 +1009,24 @@ describe('client', () => {
                     }
                 }
             );
+        });
+
+        it("should reject if filter is not of type string", async () => {
+            try {
+                await ws.deleteByFilter(123, 30);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal("Invalid filter type number given. Expected string.")
+            }
+        });
+
+        it("should reject if limit is negative", async () => {
+            try {
+                await ws.deleteByFilter("my filter", -1);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect(error.message).to.equal("Invalid negative limit given.")
+            }
         });
     });
 });
