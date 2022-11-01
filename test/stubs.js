@@ -69,8 +69,6 @@ const StubHTTPClient = function() {
      * Stub a WideSkyClient instance with this HTTP client instance.
      */
     self.stubClient = function(ws) {
-        // const fakeSubmit = sinon.stub().returns(Promise.resolve("IHHHIHIHI"));
-        // fakeSubmit.withArgs()
         const fakeSubmit = sinon.spy((method, uri, body, config) => {
             if (uri === "/oauth2/token") {
                 return Promise.resolve({
@@ -80,13 +78,6 @@ const StubHTTPClient = function() {
             return Promise.resolve()
         });
         ws._wsRawSubmit = fakeSubmit;
-
-        // ws._request = (options) => {
-        //     return handler(options);
-        // };
-        // ws._rqerr = {
-        //     StatusCodeError: StubHTTPStatusCodeError
-        // };
     };
 };
 
