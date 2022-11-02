@@ -4,8 +4,23 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 ### FIXED
-- Replaced `x instanceof Array` with `Array.isArray(x)` to resolve
-  perculiar issues with passing arrays in NodeRED function nodes.
+- Replaced `x instanceof Array` with `Array.isArray(x)` to resolve.
+  peculiar issues with passing arrays in NodeRED function nodes.
+- Formatting using `moment` includes the milliseconds of the DateTime object.
+- Invalid inputs for `WideSkyClient.find` and `WideSkyClient.deleteByFilter` are caught before 
+  making a request to the given `uri` for the client.
+- An empty of array of entity id's given to functions `WideSkyClient.deleteById` and 
+  `WideSkyClient.read` will now throw an error.
+
+### CHANGED
+- Replaced deprecated packages `request` and `request-promise` for `axios`.
+- Updated packages:
+  - `moment-timezone` v0.5.31 -> v0.5.38.
+  - `jsesc` v2.5.1 -> v3.0.2.
+- Converted WideSkyClient to an ES6 class.
+
+### REMOVED
+- Package `bluebird`
 
 ## [1.2.2] - 2022-08-11
 ### CHANGED
@@ -58,4 +73,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [1.1.2]: https://github.com/widesky/jswidesky-client/compare/1.1.2...1.1.1
 [1.2.0]: https://github.com/widesky/jswidesky-client/compare/1.2.0...1.1.2
 [1.2.1]: https://github.com/widesky/jswidesky-client/compare/1.2.1...1.2.0
-[1.2.1]: https://github.com/widesky/jswidesky-client/compare/1.2.2...1.2.1
+[1.2.2]: https://github.com/widesky/jswidesky-client/compare/1.2.2...1.2.1
