@@ -356,10 +356,22 @@ class WideSkyClient {
             if (ids.length > 1) {
                 // verify input is all strings
                 for (const id of ids) {
-                    if (!(typeof id === "string" || id instanceof Object)) {
-                        throw new Error(
-                            `Parameter 'ids' contains an element that is not a string. Found ${typeof id}.`
-                        );
+                    if (!(typeof id === "string")) {
+                        if (id instanceof Object) {
+                            // check if its compatible with class Ref
+                            try {
+                                new data.Ref(id);
+                            } catch (error) {
+                                throw new Error(
+                                    "Parameter 'ids' contains an element that is of type object but not compatible " +
+                                    `with class Ref due to: ${error.message}`
+                                );
+                            }
+                        } else {
+                            throw new Error(
+                                `Parameter 'ids' contains an element that is not a string. Found ${typeof id}.`
+                            );
+                        }
                     }
                 }
 

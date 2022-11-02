@@ -177,7 +177,8 @@ describe('client', () => {
                 throw new Error("Should not have worked");
             } catch (error) {
                 expect(error.message).to.equal(
-                    "clonee object 'id' property must be a string"
+                    "Parameter 'ids' contains an element that is of type object but not compatible with class " +
+                    "Ref due to: clonee object 'id' property must be a string"
                 );
             }
         });
@@ -989,7 +990,8 @@ describe('client', () => {
                 throw new Error("Should not have worked");
             } catch (error) {
                 expect(error.message).to.equal(
-                    "clonee object 'id' property must be a string"
+                    "Parameter 'ids' contains an element that is of type object but not compatible with class " +
+                    "Ref due to: clonee object 'id' property must be a string"
                 );
             }
         });
