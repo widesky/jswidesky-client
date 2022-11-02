@@ -356,7 +356,7 @@ class WideSkyClient {
             if (ids.length > 1) {
                 // verify input is all strings
                 for (const id of ids) {
-                    if (typeof id !== "string" || id instanceof Object) {
+                    if (!(typeof id === "string" || id instanceof Object)) {
                         throw new Error(
                             `Parameter 'ids' contains an element that is not a string. Found ${typeof id}.`
                         );
