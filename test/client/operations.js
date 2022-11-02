@@ -12,6 +12,7 @@ const stubs = require('../stubs'),
     WS_REFRESH_TOKEN = stubs.WS_REFRESH_TOKEN,
     getInstance = stubs.getInstance;
 const {verifyRequestCall} = require("./utils");
+const {Ref} = require("../../src/data");
 
 
 describe('client', () => {
@@ -117,6 +118,38 @@ describe('client', () => {
             );
         });
 
+        it("should generate POST read if one of the ID's is of type Ref", async () => {
+            const res = await ws.read([
+                'my.id1',
+                'my.id2',
+                new Ref("someId", "someDis")
+            ]);
+            expect(res).to.equal("Grid goes here");
+
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "POST",
+                "/api/read",
+                {
+                    meta: {ver: "2.0"},
+                    cols: [{name: "id"}],
+                    rows: [
+                        {id: "r:my.id1"},
+                        {id: "r:my.id2"},
+                        {id: "r:someId someDis"}
+                    ]
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json"
+                    },
+                    decompress: true
+                }
+            );
+        });
+
         it("should reject if input of type object", async () => {
             try {
                 await ws.read({a: 123});
@@ -137,13 +170,14 @@ describe('client', () => {
             }
         });
 
-        it("should reject if array input contains an invalid element of type object", async () => {
+
+        it("should reject if array input contains an invalid element of type object but not of type Ref", async () => {
             try {
                 await ws.read(["id1", "id2", {a: 123}]);
                 throw new Error("Should not have worked");
             } catch (error) {
                 expect(error.message).to.equal(
-                    "Parameter 'ids' contains an element that is not a string. Found object."
+                    "clonee object 'id' property must be a string"
                 );
             }
         });
@@ -897,6 +931,38 @@ describe('client', () => {
             );
         });
 
+        it("should generate POST read if one of the ID's is of type Ref", async () => {
+            const res = await ws.deleteById([
+                'my.id1',
+                'my.id2',
+                new Ref("someId", "someDis")
+            ]);
+            expect(res).to.equal("Grid goes here");
+
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "POST",
+                "/api/deleteRec",
+                {
+                    meta: {ver: "2.0"},
+                    cols: [{name: "id"}],
+                    rows: [
+                        {id: "r:my.id1"},
+                        {id: "r:my.id2"},
+                        {id: "r:someId someDis"}
+                    ]
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json"
+                    },
+                    decompress: true
+                }
+            );
+        });
+
         it("should reject if input of type object", async () => {
             try {
                 await ws.deleteById({a: 123});
@@ -917,13 +983,13 @@ describe('client', () => {
             }
         });
 
-        it("should reject if array input contains an invalid element of type object", async () => {
+        it("should reject if array input contains an invalid element of type object but not of type Ref", async () => {
             try {
                 await ws.deleteById(["id1", "id2", {a: 123}]);
                 throw new Error("Should not have worked");
             } catch (error) {
                 expect(error.message).to.equal(
-                    "Parameter 'ids' contains an element that is not a string. Found object."
+                    "clonee object 'id' property must be a string"
                 );
             }
         });
