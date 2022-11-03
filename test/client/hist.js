@@ -5,113 +5,75 @@
  */
 "use strict";
 
-const WideSkyClient = require('../../src/client'),
-    stubs = require('../stubs'),
+const stubs = require('../stubs'),
     sinon = require('sinon'),
     expect = require('chai').expect,
-    WS_URI = stubs.WS_URI,
-    WS_USER = stubs.WS_USER,
-    WS_PASSWORD = stubs.WS_PASSWORD,
-    WS_CLIENT_ID = stubs.WS_CLIENT_ID,
-    WS_CLIENT_SECRET = stubs.WS_CLIENT_SECRET,
     WS_ACCESS_TOKEN = stubs.WS_ACCESS_TOKEN,
-    WS_REFRESH_TOKEN = stubs.WS_REFRESH_TOKEN,
-    WS_ACCESS_TOKEN2 = stubs.WS_ACCESS_TOKEN2,
-    WS_REFRESH_TOKEN2 = stubs.WS_REFRESH_TOKEN2,
     getInstance = stubs.getInstance;
 
+const { verifyTokenCall, verifyRequestCall } = require("./utils");
 
 describe('client', () => {
     describe('hisRead', () => {
-        it('should generate GET hisRead with range as-is '
-            + 'if given string', () => {
-                let http = new stubs.StubHTTPClient(),
-                    log = new stubs.StubLogger(),
-                    ws = getInstance(http, log);
-
-                /* We expect the following requests */
-                let requestHandlers = [
-                    /* First up, an authentication request */
-                    stubs.authHandler(),
-                    /* The read request is next */
-                    (options) => {
-                        expect(options).to.eql({
-                            baseUrl: WS_URI,
-                            gzip: true,
-                            headers: {
-                                Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                                Accept: 'application/json'
-                            },
-                            json: true,
-                            method: 'GET',
-                            uri: '/api/hisRead',
-                            qs: {
-                                'id': '@my.id',
-                                'range': '"today"'
-                            }
-                        });
-
-                        return Promise.resolve('grid goes here');
-                    }
-                ];
-
-                http.setHandler((options) => {
-                    expect(requestHandlers).to.not.be.empty;
-                    return requestHandlers.shift()(options);
-                });
-
-                return ws.hisRead('my.id', 'today').then((res) => {
-                    expect(res).to.equal('grid goes here');
-                });
-            });
-
-        it('should generate GET hisRead with range defined by times', () => {
+        it('should generate GET hisRead with range as-is if given string', async () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
 
-            /* We expect the following requests */
-            let requestHandlers = [
-                /* First up, an authentication request */
-                stubs.authHandler(),
-                /* The read request is next */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
-                        },
-                        json: true,
-                        method: 'GET',
-                        uri: '/api/hisRead',
-                        qs: {
-                            'id': '@my.id',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                    + '2018-01-01T00:00:00.000Z UTC"'
-                        }
-                    });
-
-                    return Promise.resolve('grid goes here');
+            await ws.hisRead("my.id", "today");
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "GET",
+                "/api/hisRead",
+                {},
+                {
+                    params: {
+                        range: "\"today\"",
+                        id: "@my.id"
+                    },
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json"
+                    },
+                    decompress: true
                 }
-            ];
+            );
+        });
 
-            http.setHandler((options) => {
-                expect(requestHandlers).to.not.be.empty;
-                return requestHandlers.shift()(options);
-            });
+        it('should generate GET hisRead with range defined by times', async () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
 
-            return ws.hisRead(
+            await ws.hisRead(
                 'my.id',
                 new Date('2014-01-01T00:00Z'),
                 new Date('2018-01-01T00:00Z')
-            ).then((res) => {
-                expect(res).to.equal('grid goes here');
-            });
+            );
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "GET",
+                "/api/hisRead",
+                {},
+                {
+                    params: {
+                        range: "\"2014-01-01T00:00:00.000Z UTC,2018-01-01T00:00:00.000Z UTC\"",
+                        id: "@my.id"
+                    },
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json"
+                    },
+                    decompress: true
+                }
+            );
         });
 
-        it('if given time range should require `from` to be a Date', () => {
+        it('given time range should require `from` to be a Date', () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
@@ -130,7 +92,7 @@ describe('client', () => {
             }
         });
 
-        it('if given time range should require `to` to be a Date', () => {
+        it('given time range should require `to` to be a Date', () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
@@ -149,200 +111,127 @@ describe('client', () => {
             }
         });
 
-        it('should support reading more than one point', () => {
+        it('should support reading more than one point', async () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
 
-            /* We expect the following requests */
-            let requestHandlers = [
-                /* First up, an authentication request */
-                stubs.authHandler(),
-                /* The read request is next */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
-                        },
-                        json: true,
-                        method: 'GET',
-                        uri: '/api/hisRead',
-                        qs: {
-                            'id0': '@my.pt.a',
-                            'id1': '@my.pt.b',
-                            'id2': '@my.pt.c',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                    + '2018-01-01T00:00:00.000Z UTC"'
-                        }
-                    });
-
-                    return Promise.resolve('grid goes here');
-                }
-            ];
-
-            http.setHandler((options) => {
-                expect(requestHandlers).to.not.be.empty;
-                return requestHandlers.shift()(options);
-            });
-
-            return ws.hisRead(
+            await ws.hisRead(
                 ['my.pt.a', 'my.pt.b', 'my.pt.c'],
                 new Date('2014-01-01T00:00Z'),
                 new Date('2018-01-01T00:00Z')
-            ).then((res) => {
-                expect(res).to.equal('grid goes here');
-            });
+            );
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "GET",
+                "/api/hisRead",
+                {},
+                {
+                    params: {
+                        range: "\"2014-01-01T00:00:00.000Z UTC,2018-01-01T00:00:00.000Z UTC\"",
+                        id0: "@my.pt.a",
+                        id1: "@my.pt.b",
+                        id2: "@my.pt.c"
+                    },
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json"
+                    },
+                    decompress: true
+                }
+            );
         });
 
-        it('should perform big reads in batches', () => {
+        it('should perform big reads in batches', async () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
 
-            /* We expect the following requests */
-            let requestHandlers = [
-                /* First up, an authentication request */
-                stubs.authHandler(),
-                /* Read request 1 */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
-                        },
-                        json: true,
-                        method: 'GET',
-                        uri: '/api/hisRead',
-                        qs: {
-                            'id0': '@my.pt.a',
-                            'id1': '@my.pt.b',
-                            'id2': '@my.pt.c',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                    + '2018-01-01T00:00:00.000Z UTC"'
-                        }
-                    });
-
-                    return Promise.resolve({
-                        meta: {
-                            ver: '2.0'
-                        },
-                        cols: [
-                            {name: 'ts'},
-                            {
-                                name: 'v0',
-                                id: 'r:my.pt.a',
+            // Correct spy for function _wsRawSubmit()
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                let returnItem;
+                if (uri === "/oauth2/token") {
+                    returnItem = {
+                        access_token: WS_ACCESS_TOKEN
+                    };
+                } else if (uri === "/api/hisRead") {
+                    if (config.params.id0 === "@my.pt.a") {
+                        returnItem = {
+                            meta: {
+                                ver: '2.0'
                             },
-                            {
-                                name: 'v1',
-                                id: 'r:my.pt.b'
+                            cols: [
+                                {name: 'ts'},
+                                {
+                                    name: 'v0',
+                                    id: 'r:my.pt.a',
+                                },
+                                {
+                                    name: 'v1',
+                                    id: 'r:my.pt.b'
+                                },
+                                {
+                                    name: 'v2',
+                                    id: 'r:my.pt.c'
+                                }
+                            ],
+                            rows: []
+                        };
+                    } else if (config.params.id0 === "@my.pt.d") {
+                        returnItem = {
+                            meta: {
+                                ver: '2.0'
                             },
-                            {
-                                name: 'v2',
-                                id: 'r:my.pt.c'
-                            }
-                        ],
-                        rows: []
-                    });
-                },
-                /* Read request 2 */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
-                        },
-                        json: true,
-                        method: 'GET',
-                        uri: '/api/hisRead',
-                        qs: {
-                            'id0': '@my.pt.d',
-                            'id1': '@my.pt.e',
-                            'id2': '@my.pt.f',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                    + '2018-01-01T00:00:00.000Z UTC"'
-                        }
-                    });
-
-                    return Promise.resolve({
-                        meta: {
-                            ver: '2.0'
-                        },
-                        cols: [
-                            {name: 'ts'},
-                            {
-                                name: 'v0',
-                                id: 'r:my.pt.d',
+                            cols: [
+                                {name: 'ts'},
+                                {
+                                    name: 'v0',
+                                    id: 'r:my.pt.d',
+                                },
+                                {
+                                    name: 'v1',
+                                    id: 'r:my.pt.e'
+                                },
+                                {
+                                    name: 'v2',
+                                    id: 'r:my.pt.f'
+                                }
+                            ],
+                            rows: []
+                        };
+                    } else if (config.params.id0 === "@my.pt.g") {
+                        returnItem = {
+                            meta: {
+                                ver: '2.0'
                             },
-                            {
-                                name: 'v1',
-                                id: 'r:my.pt.e'
-                            },
-                            {
-                                name: 'v2',
-                                id: 'r:my.pt.f'
-                            }
-                        ],
-                        rows: []
-                    });
-                },
-                /* Read request 3 */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
-                        },
-                        json: true,
-                        method: 'GET',
-                        uri: '/api/hisRead',
-                        qs: {
-                            'id0': '@my.pt.g',
-                            'id1': '@my.pt.h',
-                            'id2': '@my.pt.i',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                    + '2018-01-01T00:00:00.000Z UTC"'
-                        }
-                    });
-
-                    return Promise.resolve({
-                        meta: {
-                            ver: '2.0'
-                        },
-                        cols: [
-                            {name: 'ts'},
-                            {
-                                name: 'v0',
-                                id: 'r:my.pt.g',
-                            },
-                            {
-                                name: 'v1',
-                                id: 'r:my.pt.h'
-                            },
-                            {
-                                name: 'v2',
-                                id: 'r:my.pt.i'
-                            }
-                        ],
-                        rows: []
-                    });
+                            cols: [
+                                {name: 'ts'},
+                                {
+                                    name: 'v0',
+                                    id: 'r:my.pt.g',
+                                },
+                                {
+                                    name: 'v1',
+                                    id: 'r:my.pt.h'
+                                },
+                                {
+                                    name: 'v2',
+                                    id: 'r:my.pt.i'
+                                }
+                            ],
+                            rows: []
+                        };
+                    } else {
+                        returnItem = {};
+                    }
                 }
-            ];
 
-            http.setHandler((options) => {
-                expect(requestHandlers).to.not.be.empty;
-                return requestHandlers.shift()(options);
+                return Promise.resolve(returnItem);
             });
 
-            return ws.hisRead(
+            const result = await ws.hisRead(
                 [
                     'my.pt.a', 'my.pt.b', 'my.pt.c',
                     'my.pt.d', 'my.pt.e', 'my.pt.f',
@@ -351,260 +240,269 @@ describe('client', () => {
                 new Date('2014-01-01T00:00Z'),
                 new Date('2018-01-01T00:00Z'),
                 3
-            ).then((res) => {
-                expect(res).to.eql({
-                    meta: {
-                        ver: '2.0',
-                        hisStart: null,
-                        hisEnd: null
-                    },
-                    cols: [
-                        {name: 'ts'},
-                        {
-                            name: 'v0',
-                            id: 'r:my.pt.a',
-                        },
-                        {
-                            name: 'v1',
-                            id: 'r:my.pt.b'
-                        },
-                        {
-                            name: 'v2',
-                            id: 'r:my.pt.c'
-                        },
-                        {
-                            name: 'v3',
-                            id: 'r:my.pt.d',
-                        },
-                        {
-                            name: 'v4',
-                            id: 'r:my.pt.e'
-                        },
-                        {
-                            name: 'v5',
-                            id: 'r:my.pt.f'
-                        },
-                        {
-                            name: 'v6',
-                            id: 'r:my.pt.g',
-                        },
-                        {
-                            name: 'v7',
-                            id: 'r:my.pt.h'
-                        },
-                        {
-                            name: 'v8',
-                            id: 'r:my.pt.i'
-                        }
-                    ],
-                    rows: []
-                });
-            });
-        });
-
-        it('should merge the batch read grids\' results', () => {
-            let http = new stubs.StubHTTPClient(),
-                log = new stubs.StubLogger(),
-                ws = getInstance(http, log);
-
-            /* We expect the following requests */
-            let requestHandlers = [
-                /* First up, an authentication request */
-                stubs.authHandler(),
-                /* Read request 1 */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
-                        },
-                        json: true,
-                        method: 'GET',
-                        uri: '/api/hisRead',
-                        qs: {
-                            'id0': '@my.pt.a',
-                            'id1': '@my.pt.b',
-                            'id2': '@my.pt.c',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                    + '2018-01-01T00:00:00.000Z UTC"'
-                        }
-                    });
-
-                    return Promise.resolve({
-                        meta: {
-                            ver: '2.0'
-                        },
-                        cols: [
-                            {name: 'ts'},
-                            {
-                                name: 'v0',
-                                id: 'r:my.pt.a',
-                            },
-                            {
-                                name: 'v1',
-                                id: 'r:my.pt.b'
-                            },
-                            {
-                                name: 'v2',
-                                id: 'r:my.pt.c'
-                            }
-                        ],
-                        rows: [
-                            {
-                                ts: 't:2015-01-01T00:00:00Z UTC',
-                                v0: 'n:110',
-                                v1: 'n:120',
-                                v2: 'n:130'
-                            },
-                            {
-                                ts: 't:2015-01-01T01:00:00Z UTC',
-                                v0: 'n:111',
-                                v1: 'n:121',
-                                v2: 'n:131'
-                            },
-                            {
-                                ts: 't:2015-01-01T02:00:00Z UTC',
-                                v0: 'n:112',
-                                v1: 'n:122',
-                                v2: 'n:132'
-                            }
-                        ]
-                    });
+            );
+            expect(result).to.deep.equal({
+                meta: {
+                    ver: '2.0',
+                    hisStart: null,
+                    hisEnd: null
                 },
-                /* Read request 2 */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
+                cols: [
+                    {name: 'ts'},
+                    {
+                        name: 'v0',
+                        id: 'r:my.pt.a',
+                    },
+                    {
+                        name: 'v1',
+                        id: 'r:my.pt.b'
+                    },
+                    {
+                        name: 'v2',
+                        id: 'r:my.pt.c'
+                    },
+                    {
+                        name: 'v3',
+                        id: 'r:my.pt.d',
+                    },
+                    {
+                        name: 'v4',
+                        id: 'r:my.pt.e'
+                    },
+                    {
+                        name: 'v5',
+                        id: 'r:my.pt.f'
+                    },
+                    {
+                        name: 'v6',
+                        id: 'r:my.pt.g',
+                    },
+                    {
+                        name: 'v7',
+                        id: 'r:my.pt.h'
+                    },
+                    {
+                        name: 'v8',
+                        id: 'r:my.pt.i'
+                    }
+                ],
+                rows: []
+            });
+
+            expect(ws._wsRawSubmit.callCount).to.equal(4);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+
+            const expectedArgs = [
+                {},     // first one skipped as its verified earlier
+                {
+                    method: "GET",
+                    uri: "/api/hisRead",
+                    body: {},
+                    config: {
+                        params: {
+                            "range": "\"2014-01-01T00:00:00.000Z UTC,2018-01-01T00:00:00.000Z UTC\"",
+                            "id0": "@my.pt.a",
+                            "id1": "@my.pt.b",
+                            "id2": "@my.pt.c"
                         },
-                        json: true,
-                        method: 'GET',
-                        uri: '/api/hisRead',
-                        qs: {
+                        headers: {
+                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                            Accept: "application/json"
+                        },
+                        decompress: true
+                    }
+                },
+                {
+                    method: "GET",
+                    uri: "/api/hisRead",
+                    body: {},
+                    config: {
+                        params: {
                             'id0': '@my.pt.d',
                             'id1': '@my.pt.e',
                             'id2': '@my.pt.f',
                             'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                    + '2018-01-01T00:00:00.000Z UTC"'
-                        }
-                    });
-
-                    return Promise.resolve({
-                        meta: {
-                            ver: '2.0'
+                                + '2018-01-01T00:00:00.000Z UTC"'
                         },
-                        cols: [
-                            {name: 'ts'},
-                            {
-                                name: 'v0',
-                                id: 'r:my.pt.d',
-                            },
-                            {
-                                name: 'v1',
-                                id: 'r:my.pt.e'
-                            },
-                            {
-                                name: 'v2',
-                                id: 'r:my.pt.f'
-                            }
-                        ],
-                        rows: [
-                            {
-                                ts: 't:2015-01-01T00:00:00Z UTC',
-                                v0: 'n:210',
-                                v1: 'n:220',
-                                v2: 'n:230'
-                            },
-                            {
-                                ts: 't:2015-01-01T01:00:00Z UTC',
-                                v0: 'n:211',
-                                v1: 'n:221',
-                                v2: 'n:231'
-                            },
-                            {
-                                ts: 't:2015-01-01T02:00:00Z UTC',
-                                v0: 'n:212',
-                                v1: 'n:222',
-                                v2: 'n:232'
-                            }
-                        ]
-                    });
-                },
-                /* Read request 3 */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
                         headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
+                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                            Accept: "application/json"
                         },
-                        json: true,
-                        method: 'GET',
-                        uri: '/api/hisRead',
-                        qs: {
+                        decompress: true
+                    }
+                },
+                {
+                    method: "GET",
+                    uri: "/api/hisRead",
+                    body: {},
+                    config: {
+                        params: {
                             'id0': '@my.pt.g',
                             'id1': '@my.pt.h',
                             'id2': '@my.pt.i',
                             'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                    + '2018-01-01T00:00:00.000Z UTC"'
-                        }
-                    });
-
-                    return Promise.resolve({
-                        meta: {
-                            ver: '2.0'
+                                + '2018-01-01T00:00:00.000Z UTC"'
                         },
-                        cols: [
-                            {name: 'ts'},
-                            {
-                                name: 'v0',
-                                id: 'r:my.pt.g',
-                            },
-                            {
-                                name: 'v1',
-                                id: 'r:my.pt.h'
-                            },
-                            {
-                                name: 'v2',
-                                id: 'r:my.pt.i'
-                            }
-                        ],
-                        rows: [
-                            {
-                                ts: 't:2015-01-01T00:00:00Z UTC',
-                                v0: 'n:310',
-                                v1: 'n:320',
-                                v2: 'n:330',
-                            },
-                            {
-                                ts: 't:2015-01-01T01:00:00Z UTC',
-                                v0: 'n:311',
-                                v1: 'n:321',
-                                v2: 'n:331',
-                            },
-                            {
-                                ts: 't:2015-01-01T02:00:00Z UTC',
-                                v0: 'n:312',
-                                v1: 'n:322',
-                                v2: 'n:332',
-                            }
-                        ]
-                    });
+                        headers: {
+                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                            Accept: "application/json"
+                        },
+                        decompress: true
+                    }
                 }
             ];
 
-            http.setHandler((options) => {
-                expect(requestHandlers).to.not.be.empty;
-                return requestHandlers.shift()(options);
+            for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
+                const { method, uri, body, config } = expectedArgs[i];
+                verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
+            }
+        });
+
+        it('should merge the batch read grids\' results', async () => {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            // Correct spy for function _wsRawSubmit()
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                let returnItem;
+                if (uri === "/oauth2/token") {
+                    returnItem = {
+                        access_token: WS_ACCESS_TOKEN
+                    };
+                } else if (uri === "/api/hisRead") {
+                    if (config.params.id0 === "@my.pt.a") {
+                        returnItem = {
+                            meta: {
+                                ver: '2.0'
+                            },
+                            cols: [
+                                {name: 'ts'},
+                                {
+                                    name: 'v0',
+                                    id: 'r:my.pt.a',
+                                },
+                                {
+                                    name: 'v1',
+                                    id: 'r:my.pt.b'
+                                },
+                                {
+                                    name: 'v2',
+                                    id: 'r:my.pt.c'
+                                }
+                            ],
+                            rows: [
+                                {
+                                    ts: 't:2015-01-01T00:00:00Z UTC',
+                                    v0: 'n:110',
+                                    v1: 'n:120',
+                                    v2: 'n:130'
+                                },
+                                {
+                                    ts: 't:2015-01-01T01:00:00Z UTC',
+                                    v0: 'n:111',
+                                    v1: 'n:121',
+                                    v2: 'n:131'
+                                },
+                                {
+                                    ts: 't:2015-01-01T02:00:00Z UTC',
+                                    v0: 'n:112',
+                                    v1: 'n:122',
+                                    v2: 'n:132'
+                                }
+                            ]
+                        };
+                    } else if (config.params.id0 === "@my.pt.d") {
+                        returnItem = {
+                            meta: {
+                                ver: '2.0'
+                            },
+                            cols: [
+                                {name: 'ts'},
+                                {
+                                    name: 'v0',
+                                    id: 'r:my.pt.d',
+                                },
+                                {
+                                    name: 'v1',
+                                    id: 'r:my.pt.e'
+                                },
+                                {
+                                    name: 'v2',
+                                    id: 'r:my.pt.f'
+                                }
+                            ],
+                            rows: [
+                                {
+                                    ts: 't:2015-01-01T00:00:00Z UTC',
+                                    v0: 'n:210',
+                                    v1: 'n:220',
+                                    v2: 'n:230'
+                                },
+                                {
+                                    ts: 't:2015-01-01T01:00:00Z UTC',
+                                    v0: 'n:211',
+                                    v1: 'n:221',
+                                    v2: 'n:231'
+                                },
+                                {
+                                    ts: 't:2015-01-01T02:00:00Z UTC',
+                                    v0: 'n:212',
+                                    v1: 'n:222',
+                                    v2: 'n:232'
+                                }
+                            ]
+                        };
+                    } else if (config.params.id0 === "@my.pt.g") {
+                        returnItem = {
+                            meta: {
+                                ver: '2.0'
+                            },
+                            cols: [
+                                {name: 'ts'},
+                                {
+                                    name: 'v0',
+                                    id: 'r:my.pt.g',
+                                },
+                                {
+                                    name: 'v1',
+                                    id: 'r:my.pt.h'
+                                },
+                                {
+                                    name: 'v2',
+                                    id: 'r:my.pt.i'
+                                }
+                            ],
+                            rows: [
+                                {
+                                    ts: 't:2015-01-01T00:00:00Z UTC',
+                                    v0: 'n:310',
+                                    v1: 'n:320',
+                                    v2: 'n:330',
+                                },
+                                {
+                                    ts: 't:2015-01-01T01:00:00Z UTC',
+                                    v0: 'n:311',
+                                    v1: 'n:321',
+                                    v2: 'n:331',
+                                },
+                                {
+                                    ts: 't:2015-01-01T02:00:00Z UTC',
+                                    v0: 'n:312',
+                                    v1: 'n:322',
+                                    v2: 'n:332',
+                                }
+                            ]
+                        };
+                    } else {
+                        returnItem = {};
+                    }
+                }
+
+                return Promise.resolve(returnItem);
             });
 
-            return ws.hisRead(
+            const result = await ws.hisRead(
                 [
                     'my.pt.a', 'my.pt.b', 'my.pt.c',
                     'my.pt.d', 'my.pt.e', 'my.pt.f',
@@ -613,92 +511,160 @@ describe('client', () => {
                 new Date('2014-01-01T00:00Z'),
                 new Date('2018-01-01T00:00Z'),
                 3
-            ).then((res) => {
-                expect(res).to.eql({
-                    meta: {
-                        ver: '2.0',
-                        hisStart: null,
-                        hisEnd: null
+            );
+            expect(result).to.deep.equal({
+                meta: {
+                    ver: '2.0',
+                    hisStart: null,
+                    hisEnd: null
+                },
+                cols: [
+                    {name: 'ts'},
+                    {
+                        name: 'v0',
+                        id: 'r:my.pt.a',
                     },
-                    cols: [
-                        {name: 'ts'},
-                        {
-                            name: 'v0',
-                            id: 'r:my.pt.a',
-                        },
-                        {
-                            name: 'v1',
-                            id: 'r:my.pt.b'
-                        },
-                        {
-                            name: 'v2',
-                            id: 'r:my.pt.c'
-                        },
-                        {
-                            name: 'v3',
-                            id: 'r:my.pt.d',
-                        },
-                        {
-                            name: 'v4',
-                            id: 'r:my.pt.e'
-                        },
-                        {
-                            name: 'v5',
-                            id: 'r:my.pt.f'
-                        },
-                        {
-                            name: 'v6',
-                            id: 'r:my.pt.g',
-                        },
-                        {
-                            name: 'v7',
-                            id: 'r:my.pt.h'
-                        },
-                        {
-                            name: 'v8',
-                            id: 'r:my.pt.i'
-                        }
-                    ],
-                    rows: [
-                        {
-                            ts: 't:2015-01-01T00:00:00Z UTC',
-                            v0: 'n:110',
-                            v1: 'n:120',
-                            v2: 'n:130',
-                            v3: 'n:210',
-                            v4: 'n:220',
-                            v5: 'n:230',
-                            v6: 'n:310',
-                            v7: 'n:320',
-                            v8: 'n:330'
-                        },
-                        {
-                            ts: 't:2015-01-01T01:00:00Z UTC',
-                            v0: 'n:111',
-                            v1: 'n:121',
-                            v2: 'n:131',
-                            v3: 'n:211',
-                            v4: 'n:221',
-                            v5: 'n:231',
-                            v6: 'n:311',
-                            v7: 'n:321',
-                            v8: 'n:331'
-                        },
-                        {
-                            ts: 't:2015-01-01T02:00:00Z UTC',
-                            v0: 'n:112',
-                            v1: 'n:122',
-                            v2: 'n:132',
-                            v3: 'n:212',
-                            v4: 'n:222',
-                            v5: 'n:232',
-                            v6: 'n:312',
-                            v7: 'n:322',
-                            v8: 'n:332'
-                        }
-                    ]
-                });
+                    {
+                        name: 'v1',
+                        id: 'r:my.pt.b'
+                    },
+                    {
+                        name: 'v2',
+                        id: 'r:my.pt.c'
+                    },
+                    {
+                        name: 'v3',
+                        id: 'r:my.pt.d',
+                    },
+                    {
+                        name: 'v4',
+                        id: 'r:my.pt.e'
+                    },
+                    {
+                        name: 'v5',
+                        id: 'r:my.pt.f'
+                    },
+                    {
+                        name: 'v6',
+                        id: 'r:my.pt.g',
+                    },
+                    {
+                        name: 'v7',
+                        id: 'r:my.pt.h'
+                    },
+                    {
+                        name: 'v8',
+                        id: 'r:my.pt.i'
+                    }
+                ],
+                rows: [
+                    {
+                        ts: 't:2015-01-01T00:00:00Z UTC',
+                        v0: 'n:110',
+                        v1: 'n:120',
+                        v2: 'n:130',
+                        v3: 'n:210',
+                        v4: 'n:220',
+                        v5: 'n:230',
+                        v6: 'n:310',
+                        v7: 'n:320',
+                        v8: 'n:330'
+                    },
+                    {
+                        ts: 't:2015-01-01T01:00:00Z UTC',
+                        v0: 'n:111',
+                        v1: 'n:121',
+                        v2: 'n:131',
+                        v3: 'n:211',
+                        v4: 'n:221',
+                        v5: 'n:231',
+                        v6: 'n:311',
+                        v7: 'n:321',
+                        v8: 'n:331'
+                    },
+                    {
+                        ts: 't:2015-01-01T02:00:00Z UTC',
+                        v0: 'n:112',
+                        v1: 'n:122',
+                        v2: 'n:132',
+                        v3: 'n:212',
+                        v4: 'n:222',
+                        v5: 'n:232',
+                        v6: 'n:312',
+                        v7: 'n:322',
+                        v8: 'n:332'
+                    }
+                ]
             });
+
+            expect(ws._wsRawSubmit.callCount).to.equal(4);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+
+            const expectedArgs = [
+                {},     // first one skipped as its verified earlier
+                {
+                    method: "GET",
+                    uri: "/api/hisRead",
+                    body: {},
+                    config: {
+                        params: {
+                            'id0': '@my.pt.a',
+                            'id1': '@my.pt.b',
+                            'id2': '@my.pt.c',
+                            'range': '"2014-01-01T00:00:00.000Z UTC,'
+                                + '2018-01-01T00:00:00.000Z UTC"'
+                        },
+                        headers: {
+                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                            Accept: "application/json"
+                        },
+                        decompress: true
+                    }
+                },
+                {
+                    method: "GET",
+                    uri: "/api/hisRead",
+                    body: {},
+                    config: {
+                        params: {
+                            'id0': '@my.pt.d',
+                            'id1': '@my.pt.e',
+                            'id2': '@my.pt.f',
+                            'range': '"2014-01-01T00:00:00.000Z UTC,'
+                                + '2018-01-01T00:00:00.000Z UTC"'
+                        },
+                        headers: {
+                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                            Accept: "application/json"
+                        },
+                        decompress: true
+                    }
+                },
+                {
+                    method: "GET",
+                    uri: "/api/hisRead",
+                    body: {},
+                    config: {
+                        params: {
+                            'id0': '@my.pt.g',
+                            'id1': '@my.pt.h',
+                            'id2': '@my.pt.i',
+                            'range': '"2014-01-01T00:00:00.000Z UTC,'
+                                + '2018-01-01T00:00:00.000Z UTC"'
+                        },
+                        headers: {
+                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                            Accept: "application/json"
+                        },
+                        decompress: true
+                    }
+                }
+            ];
+
+            for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
+                const { method, uri, body, config } = expectedArgs[i];
+                verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
+            }
         });
 
         describe('._mergeHisReadRes', () => {
@@ -737,10 +703,10 @@ describe('client', () => {
                         };
 
                         let status = {
-                            his_start: TS_VAL[0],
-                            his_end: null,
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: TS_VAL[0],
+                            hisEnd: null,
+                            colId: {},
+                            rowTs: {}
                         };
 
                         ws._mergeHisReadRes(
@@ -758,10 +724,10 @@ describe('client', () => {
                         /* Nothing should change */
 
                         expect(status).to.eql({
-                            his_start: TS_VAL[0],
-                            his_end: null,
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: TS_VAL[0],
+                            hisEnd: null,
+                            colId: {},
+                            rowTs: {}
                         });
 
                         expect(result).to.eql({
@@ -787,10 +753,10 @@ describe('client', () => {
                         };
 
                         let status = {
-                            his_start: TS_VAL[0],
-                            his_end: null,
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: TS_VAL[0],
+                            hisEnd: null,
+                            colId: {},
+                            rowTs: {}
                         };
 
                         ws._mergeHisReadRes(
@@ -811,10 +777,10 @@ describe('client', () => {
                         /* Nothing should change */
 
                         expect(status).to.eql({
-                            his_start: TS_VAL[0],
-                            his_end: null,
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: TS_VAL[0],
+                            hisEnd: null,
+                            colId: {},
+                            rowTs: {}
                         });
 
                         expect(result).to.eql({
@@ -840,10 +806,10 @@ describe('client', () => {
                         };
 
                         let status = {
-                            his_start: TS_VAL[2],
-                            his_end: null,
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: TS_VAL[2],
+                            hisEnd: null,
+                            colId: {},
+                            rowTs: {}
                         };
 
                         ws._mergeHisReadRes(
@@ -864,10 +830,10 @@ describe('client', () => {
                         /* Should have changed to the value given */
 
                         expect(status).to.eql({
-                            his_start: TS_VAL[1],
-                            his_end: null,
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: TS_VAL[1],
+                            hisEnd: null,
+                            colId: {},
+                            rowTs: {}
                         });
 
                         expect(result).to.eql({
@@ -895,10 +861,10 @@ describe('client', () => {
                         };
 
                         let status = {
-                            his_start: null,
-                            his_end: TS_VAL[0],
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: null,
+                            hisEnd: TS_VAL[0],
+                            colId: {},
+                            rowTs: {}
                         };
 
                         ws._mergeHisReadRes(
@@ -916,10 +882,10 @@ describe('client', () => {
                         /* Nothing should change */
 
                         expect(status).to.eql({
-                            his_start: null,
-                            his_end: TS_VAL[0],
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: null,
+                            hisEnd: TS_VAL[0],
+                            colId: {},
+                            rowTs: {}
                         });
 
                         expect(result).to.eql({
@@ -945,10 +911,10 @@ describe('client', () => {
                         };
 
                         let status = {
-                            his_start: null,
-                            his_end: TS_VAL[2],
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: null,
+                            hisEnd: TS_VAL[2],
+                            colId: {},
+                            rowTs: {}
                         };
 
                         ws._mergeHisReadRes(
@@ -970,10 +936,10 @@ describe('client', () => {
                         /* Nothing should change */
 
                         expect(status).to.eql({
-                            his_start: null,
-                            his_end: TS_VAL[2],
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: null,
+                            hisEnd: TS_VAL[2],
+                            colId: {},
+                            rowTs: {}
                         });
 
                         expect(result).to.eql({
@@ -999,10 +965,10 @@ describe('client', () => {
                         };
 
                         let status = {
-                            his_start: null,
-                            his_end: TS_VAL[0],
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: null,
+                            hisEnd: TS_VAL[0],
+                            colId: {},
+                            rowTs: {}
                         };
 
                         ws._mergeHisReadRes(
@@ -1024,10 +990,10 @@ describe('client', () => {
                         /* Should have changed to the value given */
 
                         expect(status).to.eql({
-                            his_start: null,
-                            his_end: TS_VAL[1],
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: null,
+                            hisEnd: TS_VAL[1],
+                            colId: {},
+                            rowTs: {}
                         });
 
                         expect(result).to.eql({
@@ -1055,10 +1021,10 @@ describe('client', () => {
                         };
 
                         let status = {
-                            his_start: TS_VAL[0],
-                            his_end: null,
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: TS_VAL[0],
+                            hisEnd: null,
+                            colId: {},
+                            rowTs: {}
                         };
 
                         ws._mergeHisReadRes(
@@ -1101,10 +1067,10 @@ describe('client', () => {
                         };
 
                         let status = {
-                            his_start: TS_VAL[0],
-                            his_end: null,
-                            col_id: {},
-                            row_ts: {}
+                            hisStart: TS_VAL[0],
+                            hisEnd: null,
+                            colId: {},
+                            rowTs: {}
                         };
 
                         ws._mergeHisReadRes(
@@ -1149,14 +1115,14 @@ describe('client', () => {
                     };
 
                     let status = {
-                        his_start: TS_VAL[0],
-                        his_end: null,
-                        col_id: {
+                        hisStart: TS_VAL[0],
+                        hisEnd: null,
+                        colId: {
                             'r:id1': 3,
                             'r:id2': 4,
                             'r:id3': 5
                         },
-                        row_ts: {}
+                        rowTs: {}
                     };
 
                     try {
@@ -1215,14 +1181,14 @@ describe('client', () => {
                     };
 
                     let status = {
-                        his_start: TS_VAL[0],
-                        his_end: null,
-                        col_id: {
+                        hisStart: TS_VAL[0],
+                        hisEnd: null,
+                        colId: {
                             'r:id1': 3,
                             'r:id2': 4,
                             'r:id3': 5
                         },
-                        row_ts: {}
+                        rowTs: {}
                     };
 
                     try {
@@ -1288,21 +1254,21 @@ describe('client', () => {
                     };
 
                     let status = {
-                        his_start: TS_VAL[0],
-                        his_end: null,
-                        col_id: {
+                        hisStart: TS_VAL[0],
+                        hisEnd: null,
+                        colId: {
                             'r:id1': 3,
                             'r:id2': 4,
                             'r:id3': 5
                         },
-                        row_ts: {}
+                        rowTs: {}
                     };
 
                     try {
                         ws._mergeHisReadRes(
                             result, status,
                             [
-                                'r:id0', 'r:id2', 'r:id3' /* id0 not in col_id */
+                                'r:id0', 'r:id2', 'r:id3' /* id0 not in colId */
                             ], 
                             {
                                 meta: {
@@ -1339,7 +1305,7 @@ describe('client', () => {
                     }
                 });
 
-                it('should add rows to status.row_ts', () => {
+                it('should add rows to status.rowTs', () => {
                     let result = {
                         meta: {
                             ver: '2.0',
@@ -1351,14 +1317,14 @@ describe('client', () => {
                     };
 
                     let status = {
-                        his_start: TS_VAL[0],
-                        his_end: null,
-                        col_id: {
+                        hisStart: TS_VAL[0],
+                        hisEnd: null,
+                        colId: {
                             'r:id1': 3,
                             'r:id2': 4,
                             'r:id3': 5
                         },
-                        row_ts: {}
+                        rowTs: {}
                     };
 
                     ws._mergeHisReadRes(
@@ -1394,7 +1360,7 @@ describe('client', () => {
                         }
                     );
 
-                    expect(status.row_ts).to.eql({
+                    expect(status.rowTs).to.eql({
                         [TS_VAL[0]]: {
                             ts: 't:' + TS_ISO[0],
                             v3: 'n:123',
@@ -1428,14 +1394,14 @@ describe('client', () => {
                     };
 
                     let status = {
-                        his_start: TS_VAL[0],
-                        his_end: null,
-                        col_id: {
+                        hisStart: TS_VAL[0],
+                        hisEnd: null,
+                        colId: {
                             'r:id1': 3,
                             'r:id2': 4,
                             'r:id3': 5
                         },
-                        row_ts: {}
+                        rowTs: {}
                     };
 
                     ws._mergeHisReadRes(
@@ -1471,7 +1437,7 @@ describe('client', () => {
                         }
                     );
 
-                    expect(status.row_ts).to.eql({
+                    expect(status.rowTs).to.eql({
                         [TS_VAL[0]]: {
                             ts: 't:' + TS_ISO[0],
                             v4: 'n:456',
@@ -1491,7 +1457,7 @@ describe('client', () => {
                     });
                 });
 
-                it('should add fields to existing rows in.row_ts', () => {
+                it('should add fields to existing rows in.rowTs', () => {
                     let result = {
                         meta: {
                             ver: '2.0',
@@ -1503,14 +1469,14 @@ describe('client', () => {
                     };
 
                     let status = {
-                        his_start: TS_VAL[0],
-                        his_end: null,
-                        col_id: {
+                        hisStart: TS_VAL[0],
+                        hisEnd: null,
+                        colId: {
                             'r:id1': 3,
                             'r:id2': 4,
                             'r:id3': 5
                         },
-                        row_ts: {
+                        rowTs: {
                             [TS_VAL[0]]: {
                                 ts: 't:' + TS_ISO[0],
                                 v0: 'n:111',
@@ -1565,7 +1531,7 @@ describe('client', () => {
                         }
                     );
 
-                    expect(status.row_ts).to.eql({
+                    expect(status.rowTs).to.eql({
                         [TS_VAL[0]]: {
                             ts: 't:' + TS_ISO[0],
                             v0: 'n:111',
@@ -1600,163 +1566,163 @@ describe('client', () => {
     });
 
     describe('hisWrite', () => {
-        it('should generate POST with records in timestamp order', () => {
+        it('should generate POST with records in timestamp order', async () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
 
-            /* We expect the following requests */
-            let requestHandlers = [
-                /* First up, an authentication request */
-                stubs.authHandler(),
-                /* The read request is next */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
-                        },
-                        json: true,
-                        method: 'POST',
-                        uri: '/api/hisWrite',
-                        body: {
-                            meta: {ver: "2.0"},
-                            cols: [
-                                {name: "ts"},
-                                {name: "v0", id: "r:my.id"}
-                            ],
-                            rows: [
-                                {
-                                    ts: "t:2016-01-01T00:00Z UTC",
-                                    v0: "n:234.56"
-                                },
-                                {
-                                    ts: "t:2016-01-02T00:00Z UTC",
-                                    v0: "n:123.45"
-                                },
-                                {
-                                    ts: "t:2016-02-01T00:00Z UTC",
-                                    v0: "n:631.42"
-                                }
-                            ]
-                        }
-                    });
-
-                    return Promise.resolve('grid goes here');
+            // Correct spy for function _wsRawSubmit()
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                let returnItem;
+                if (uri === "/oauth2/token") {
+                    returnItem = {
+                        access_token: WS_ACCESS_TOKEN
+                    };
+                } else if (uri === "/api/hisWrite") {
+                    returnItem = "grid goes here";
+                } else {
+                    returnItem = {};
                 }
-            ];
 
-            http.setHandler((options) => {
-                expect(requestHandlers).to.not.be.empty;
-                return requestHandlers.shift()(options);
+                return Promise.resolve(returnItem);
             });
 
-            return ws.hisWrite(
+            const result = await ws.hisWrite({
+                't:2016-01-02T00:00Z UTC': {
+                    'r:my.id': 'n:123.45'
+                },
+                't:2016-01-01T00:00Z UTC': {
+                    'r:my.id': 'n:234.56'
+                },
+                't:2016-02-01T00:00Z UTC': {
+                    'r:my.id': 'n:631.42'
+                }
+            });
+            expect(result).to.equal("grid goes here");
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "POST",
+                "/api/hisWrite",
                 {
-                    't:2016-01-02T00:00Z UTC': {
-                        'r:my.id': 'n:123.45'
+                    meta: {ver: "2.0"},
+                    cols: [
+                        {name: "ts"},
+                        {name: "v0", id: "r:my.id"}
+                    ],
+                    rows: [
+                        {
+                            ts: "t:2016-01-01T00:00Z UTC",
+                            v0: "n:234.56"
+                        },
+                        {
+                            ts: "t:2016-01-02T00:00Z UTC",
+                            v0: "n:123.45"
+                        },
+                        {
+                            ts: "t:2016-02-01T00:00Z UTC",
+                            v0: "n:631.42"
+                        }
+                    ]
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json"
                     },
-                    't:2016-01-01T00:00Z UTC': {
-                        'r:my.id': 'n:234.56'
-                    },
-                    't:2016-02-01T00:00Z UTC': {
-                        'r:my.id': 'n:631.42'
-                    }
+                    decompress: true
                 }
-            ).then((res) => {
-                expect(res).to.equal('grid goes here');
-            });
+            );
         });
 
-        it('should support multiple points', () => {
+        it('should support multiple points', async () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
 
-            /* We expect the following requests */
-            let requestHandlers = [
-                /* First up, an authentication request */
-                stubs.authHandler(),
-                /* The read request is next */
-                (options) => {
-                    expect(options).to.eql({
-                        baseUrl: WS_URI,
-                        gzip: true,
-                        headers: {
-                            Authorization: 'Bearer ' + WS_ACCESS_TOKEN,
-                            Accept: 'application/json'
-                        },
-                        json: true,
-                        method: 'POST',
-                        uri: '/api/hisWrite',
-                        body: {
-                            meta: {ver: "2.0"},
-                            cols: [
-                                {name: "ts"},
-                                {name: "v0", id: "r:my.pt.a"},
-                                {name: "v1", id: "r:my.pt.b"},
-                                {name: "v2", id: "r:my.pt.c"}
-                            ],
-                            rows: [
-                                {
-                                    ts: "t:2016-01-01T00:00Z UTC",
-                                    v0: "n:223466",
-                                    v1: "n:176485"
-                                },
-                                {
-                                    ts: "t:2016-01-02T00:00Z UTC",
-                                    v0: "n:347347",
-                                    v1: "n:123456",
-                                    v2: "n:175332"
-                                },
-                                {
-                                    ts: "t:2016-02-01T00:00Z UTC",
-                                    v0: "n:623672",
-                                    v2: "n:623457"
-                                },
-                                {
-                                    ts: "t:2016-02-02T00:00Z UTC",
-                                    v1: "n:612342",
-                                    v2: "n:873442"
-                                }
-                            ]
-                        }
-                    });
-
-                    return Promise.resolve('grid goes here');
+            // Correct spy for function _wsRawSubmit()
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                let returnItem;
+                if (uri === "/oauth2/token") {
+                    returnItem = {
+                        access_token: WS_ACCESS_TOKEN
+                    };
+                } else if (uri === "/api/hisWrite") {
+                    returnItem = "grid goes here";
+                } else {
+                    returnItem = {};
                 }
-            ];
 
-            http.setHandler((options) => {
-                expect(requestHandlers).to.not.be.empty;
-                return requestHandlers.shift()(options);
+                return Promise.resolve(returnItem);
             });
 
-            return ws.hisWrite(
+            const result = await ws.hisWrite({
+                't:2016-01-02T00:00Z UTC': {
+                    'r:my.pt.a': 'n:347347',
+                    'r:my.pt.b': 'n:123456',
+                    'r:my.pt.c': 'n:175332'
+                },
+                't:2016-01-01T00:00Z UTC': {
+                    'r:my.pt.a': 'n:223466',
+                    'r:my.pt.b': 'n:176485'
+                },
+                't:2016-02-01T00:00Z UTC': {
+                    'r:my.pt.a': 'n:623672',
+                    'r:my.pt.c': 'n:623457'
+                },
+                't:2016-02-02T00:00Z UTC': {
+                    'r:my.pt.b': 'n:612342',
+                    'r:my.pt.c': 'n:873442'
+                }
+            });
+            expect(result).to.equal("grid goes here");
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "POST",
+                "/api/hisWrite",
                 {
-                    't:2016-01-02T00:00Z UTC': {
-                        'r:my.pt.a': 'n:347347',
-                        'r:my.pt.b': 'n:123456',
-                        'r:my.pt.c': 'n:175332'
+                    meta: {ver: "2.0"},
+                    cols: [
+                        {name: "ts"},
+                        {name: "v0", id: "r:my.pt.a"},
+                        {name: "v1", id: "r:my.pt.b"},
+                        {name: "v2", id: "r:my.pt.c"}
+                    ],
+                    rows: [
+                        {
+                            ts: "t:2016-01-01T00:00Z UTC",
+                            v0: "n:223466",
+                            v1: "n:176485"
+                        },
+                        {
+                            ts: "t:2016-01-02T00:00Z UTC",
+                            v0: "n:347347",
+                            v1: "n:123456",
+                            v2: "n:175332"
+                        },
+                        {
+                            ts: "t:2016-02-01T00:00Z UTC",
+                            v0: "n:623672",
+                            v2: "n:623457"
+                        },
+                        {
+                            ts: "t:2016-02-02T00:00Z UTC",
+                            v1: "n:612342",
+                            v2: "n:873442"
+                        }
+                    ]
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json"
                     },
-                    't:2016-01-01T00:00Z UTC': {
-                        'r:my.pt.a': 'n:223466',
-                        'r:my.pt.b': 'n:176485'
-                    },
-                    't:2016-02-01T00:00Z UTC': {
-                        'r:my.pt.a': 'n:623672',
-                        'r:my.pt.c': 'n:623457'
-                    },
-                    't:2016-02-02T00:00Z UTC': {
-                        'r:my.pt.b': 'n:612342',
-                        'r:my.pt.c': 'n:873442'
-                    }
+                    decompress: true
                 }
-            ).then((res) => {
-                expect(res).to.equal('grid goes here');
-            });
+            );
         });
     });
 });

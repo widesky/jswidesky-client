@@ -3,136 +3,18 @@
  */
 "use strict";
 
-var jsesc = require('jsesc');
+const jsesc = require('jsesc');
+const MarkerType = require("./dataTypes/markerType");
+const NAType = require("./dataTypes/naType");
+const RemoveType = require("./dataTypes/removeType");
+const Ref = require("./dataTypes/ref");
+const HSNumber = require("./dataTypes/hsNumber");
 
-const VER_2 = '2.0',
-    VER_3 = '3.0';
-
-/**
- * Marker data type, a singleton that indicates a tag exists.
- */
-var MarkerType = function() {
-};
-MarkerType.prototype.HS_JSON_STR = 'm:';
-MarkerType.prototype.HS_ZINC_STR = 'M';
-MarkerType.prototype.toHSJSON = function() {
-    return this.HS_JSON_STR;
-};
-MarkerType.prototype.toHSZINC = function() {
-    return this.HS_ZINC_STR
-};
-var MARKER = new MarkerType();
-
-/**
- * Remove data type, a singleton that indicates a tag is to be removed.
- */
-var RemoveType = function() {
-};
-RemoveType.prototype.HS_JSON_V2_STR = 'x:';
-RemoveType.prototype.HS_JSON_V3_STR = '-:';
-RemoveType.prototype.HS_ZINC_STR = 'R';
-RemoveType.prototype.toHSJSON = function(version) {
-    if (version === VER_3)
-        return this.HS_JSON_V3_STR;
-    else
-        return this.HS_JSON_V2_STR;
-};
-RemoveType.prototype.toHSZINC = function() {
-    return this.HS_ZINC_STR;
-};
-var REMOVE = new RemoveType();
-
-/**
- * NA data type, a singleton that indicates a tag's value is not available.
- */
-var NAType = function() {
-};
-NAType.prototype.HS_JSON_STR = 'z:';
-NAType.prototype.HS_ZINC_STR = 'NA';
-NAType.prototype.toHSJSON = function() {
-    return this.HS_JSON_STR;
-};
-NAType.prototype.toHSZINC = function() {
-    return this.HS_ZINC_STR;
-};
-var NA = new NAType();
-
-/**
- * Project Haystack Ref data type.  A reference to another entity.
- */
-var Ref = function(id, dis) {
-    if ((typeof id) === 'object') {
-        /* Clone constructor */
-        if (dis !== undefined)
-            throw new Error('clone constructor takes a Ref only');
-
-        if ((typeof id.id) !== 'string')
-            throw new Error(
-                'clonee object \'id\' property must be a string'
-            );
-
-        if (id.dis && ((typeof id.dis) !== 'string'))
-            throw new Error(
-                'clonee object \'dis\' property must be null or a string'
-            );
-
-        this.id = id.id;
-        this.dis = id.dis;
-    } else {
-        /* id must be a string */
-        if ((typeof id) !== 'string')
-            throw new Error('id is not a string');
-
-        var space = id.indexOf(' ');
-        if (space >= 0) {
-            if (dis !== undefined) {
-                throw new Error('id may not contain spaces');
-            }
-
-            /* Split on the space */
-            dis = id.substring(space+1);
-            id = id.substring(0, space);
-        }
-
-        if (id.startsWith(this.HS_JSON_PREFIX)) {
-            /* JSON Ref */
-            this.id = id.substring(2);
-        } else if (id.startsWith(this.HS_ZINC_PREFIX)) {
-            /* ZINC Ref */
-            this.id = id.substring(1);
-            if (dis) {
-                if (!(dis.startsWith('"') && dis.endsWith('"')))
-                    throw new Error('dis must be a valid ZINC string');
-                dis = JSON.parse(dis);
-            }
-        } else {
-            /* Raw ID */
-            this.id = id;
-        }
-
-        /* Descriptive text */
-        this.dis = dis || null;
-    }
-};
-
-Ref.prototype.HS_ZINC_PREFIX = '@';
-Ref.prototype.HS_JSON_PREFIX = 'r:';
-
-Ref.prototype.toHSJSON = function() {
-    var res = this.HS_JSON_PREFIX + this.id;
-    if (this.dis) {
-        res += ' ' + this.dis;
-    }
-    return res;
-};
-
-Ref.prototype.toHSZINC = function() {
-    var res = this.HS_ZINC_PREFIX + this.id;
-    if (this.dis) {
-        res += ' ' + this.dis.toHSZINC();
-    }
-    return res;
-};
+const VER_2 = '2.0';
+const VER_3 = '3.0';
+const MARKER = new MarkerType();
+const REMOVE = new RemoveType();
+const NA = new NAType();
 
 /**
  * Parsing of strings from JSON or ZINC.
@@ -173,6 +55,7 @@ Date.fromHS = function(str) {
     if (str.startsWith('t:')) {
         str = str.substring(2);    /* JSON */
     }
+    
     return (new Date (Date.parse(str)));
 };
 
@@ -188,85 +71,6 @@ Date.prototype.toHSJSON = function() {
  */
 Date.prototype.toHSZINC = function() {
     return this.toJSON() + ' UTC';
-};
-
-/**
- * Project Haystack ZINC number regular expression.  Not perfect, but it'll do
- * for now.
- */
-const HS_ZINC_NUM = /^(-?\d+|-?\d+\.\d+|-?\d+[eE]\d+|-?\d+\.\d+[eE]\d+|-?\d+[eE]\d+)([^\.]*)$/;
-
-/**
- * Project Haystack Number data type
- */
-var HSNumber = function(str, unit) {
-    if ((typeof str) === 'object') {
-        /* Copy constructor */
-        if ((typeof str.value) !== 'number')
-            throw new Error(
-                'clonee \'value\' property must be a number');
-
-        if (str.unit && ((typeof str.unit) !== 'string'))
-            throw new Error(
-                'clonee \'unit\' property must be a string or undefined'
-            );
-
-        this.value = str.value;
-        this.unit = str.unit;
-    } else if (typeof str === 'number') {
-        /* Cast constructor */
-        this.value = str;
-        this.unit = unit || undefined;
-    } else if (str.startsWith('n:')) {
-        var space = str.indexOf(' ');
-        var strnum = null;
-        var unit = undefined;
-
-        if (space >= 0) {
-            strnum = str.substring(2,space);
-            unit = str.substring(space+1);
-        } else {
-            strnum = str.substring(2);
-        }
-
-        if (strnum.indexOf('.') >= 0) {
-            this.value = Number.parseFloat(strnum);
-            this.unit = unit;
-        } else {
-            this.value = Number.parseInt(strnum);
-            this.unit = unit;
-        }
-    } else {
-        var m = str.match(HS_ZINC_NUM);
-        if (m[1].indexOf('.') >= 0) {
-            this.value = Number.parseFloat(m[1]);
-        } else {
-            this.value = Number.parseInt(m[1]);
-        }
-        this.unit = (m[2] || undefined);
-    }
-};
-
-/**
- * Emit Project Haystack JSON.
- */
-HSNumber.prototype.toHSJSON = function() {
-    var res = 'n:' + this.value.toString();
-    if (this.unit !== undefined) {
-        res += ' ' + this.unit;
-    }
-    return res;
-};
-
-/**
- * Emit Project Haystack ZINC.
- */
-HSNumber.prototype.toHSZINC = function() {
-    var res = this.value.toString();
-    if (this.unit !== undefined) {
-        res += this.unit;
-    }
-    return res;
 };
 
 /**
@@ -345,7 +149,7 @@ function _dumpList(list, version) {
  * Parse a grid
  */
 function _parseGrid(grid) {
-    var parsed = {};
+    const parsed = {};
 
     parsed.meta = _parseDict(grid.meta, 'ver');
     parsed.cols = grid.cols.map((col) => {
@@ -362,7 +166,7 @@ function _parseGrid(grid) {
  * Dump a grid
  */
 function _dumpGrid(grid, version) {
-    var dumped = {};
+    const dumped = {};
 
     dumped.meta = _dumpDict(grid.meta, 'ver', grid.meta.ver);
     dumped.cols = grid.cols.map((col) => {
@@ -378,13 +182,13 @@ function _dumpGrid(grid, version) {
 /**
  * Parse a dict, optionally passing through a property value
  */
-function _parseDict(dict, passthrough) {
+function _parseDict(dict, passThrough) {
     var parsed = {};
 
-    if (passthrough) {
+    if (passThrough) {
         dict = Object.assign({}, dict);
-        parsed[passthrough] = dict[passthrough];
-        delete dict[passthrough];
+        parsed[passThrough] = dict[passThrough];
+        delete dict[passThrough];
     }
 
     Object.keys(dict).forEach((tag) => {
@@ -392,18 +196,18 @@ function _parseDict(dict, passthrough) {
     });
 
     return parsed;
-};
+}
 
 /**
  * Dump a dict, optionally passing through a property value
  */
-function _dumpDict(dict, passthrough, version) {
-    var dumped = {};
+function _dumpDict(dict, passThrough, version) {
+    const dumped = {};
 
-    if (passthrough) {
+    if (passThrough) {
         dict = Object.assign({}, dict);
-        dumped[passthrough] = dict[passthrough];
-        delete dict[passthrough];
+        dumped[passThrough] = dict[passThrough];
+        delete dict[passThrough];
     }
 
     Object.keys(dict).forEach((tag) => {
@@ -411,7 +215,7 @@ function _dumpDict(dict, passthrough, version) {
     });
 
     return dumped;
-};
+}
 
 /**
  * Parse an arbitrary value and return the relevant JavaScript
@@ -430,7 +234,7 @@ function parse(value) {
     /* Not likely to be anything else */
     /* istanbul ignore else */
     if (typeof(value) === 'object') {
-        if (value instanceof Array) {
+        if (Array.isArray(value)) {
             /* Parse the elements */
             return _parseList(value);
         } else if (value.hasOwnProperty('meta')
@@ -443,7 +247,7 @@ function parse(value) {
             return _parseDict(value);
         }
     }
-};
+}
 
 /**
  * Dump the given input in JSON format.
@@ -461,7 +265,7 @@ function dump(value, version) {
     /* Unlikely that we'll strike anything else */
     /* istanbul ignore else */
     if (typeof(value) === 'object') {
-        if (value instanceof Array) {
+        if (Array.isArray(value)) {
             /* Dump the elements */
             return _dumpList(value, version);
         } else if (value.hasOwnProperty('meta')
