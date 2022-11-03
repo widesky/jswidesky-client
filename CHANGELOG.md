@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [2.0.0] - 2022-11-03
 ### FIXED
 - Replaced `x instanceof Array` with `Array.isArray(x)` to resolve.
   peculiar issues with passing arrays in NodeRED function nodes.
@@ -74,3 +76,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [1.2.0]: https://github.com/widesky/jswidesky-client/compare/1.2.0...1.1.2
 [1.2.1]: https://github.com/widesky/jswidesky-client/compare/1.2.1...1.2.0
 [1.2.2]: https://github.com/widesky/jswidesky-client/compare/1.2.2...1.2.1
+[2.0.0]: https://github.com/widesky/jswidesky-client/compare/2.0.0...1.2.2
