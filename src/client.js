@@ -125,6 +125,7 @@ class WideSkyClient {
      * @returns Data from response of request.
      */
     _wsRawSubmit(method, uri, body, config) {
+        console.log('IN -> _wsRawSubmit');
         /* istanbul ignore next */
         if (this._log) {
             this._log.trace(config, 'Raw request');
@@ -151,7 +152,7 @@ class WideSkyClient {
         return res.then((res) => {
                 return res.data
             }
-        );
+        ).catch((error) => { console.log('NO GOOD! error=' + JSON.stringify(error); throw error; });
     };
 
     /**
@@ -914,6 +915,7 @@ class WideSkyClient {
                 force=false,
                 tags={}) {
 
+        console.log('IN -> fileUpload()');
         if (typeof file === 'string') {
             // Assume an absolute file path
             file = fs.createReadStream(file);
@@ -985,6 +987,7 @@ class WideSkyClient {
             formData.append(key, value);
         }
 
+        console.log('       fileUpload()=SubmitRequest, formData=' + JSON.stringify(formData));
         return this.submitRequest(
             "PUT",
             "/api/file/storage",
