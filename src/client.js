@@ -125,7 +125,7 @@ class WideSkyClient {
      * @returns Data from response of request.
      */
     _wsRawSubmit(method, uri, body, config) {
-        console.log('IN -> _wsRawSubmit');
+        console.log('IN -> _wsRawSubmit, method=' + method + ',uri='+uri);
         /* istanbul ignore next */
         if (this._log) {
             this._log.trace(config, 'Raw request');
@@ -149,7 +149,9 @@ class WideSkyClient {
                 throw new Error(`Not configured for method ${method}.`);
         }
 
+        console.log('Firing request!');
         return res.then((res) => {
+                console.log('Response!');
                 return res.data
             }
         ).catch((error) => { console.log('NO GOOD! error=' + JSON.stringify(error)); throw error; });
@@ -183,7 +185,9 @@ class WideSkyClient {
     }
 
     async submitRequest(method, uri, body={}, config={}) {
+        console.log('IN -> submitRequest');
         config = await this._attachReqConfig(config);
+        console.log('attached request config');
         return this._wsRawSubmit(method, uri, body, config);
     }
 
@@ -919,39 +923,51 @@ class WideSkyClient {
         if (typeof file === 'string') {
             // Assume an absolute file path
             file = fs.createReadStream(file);
+            console.log('absolute file path');
         }
         else if (Buffer.isBuffer(file)) {
             // buffer is ok
+            console.log('buffer is ok');
         }
         else {
+            console.log('error 1');
             throw new Error('File can only be a buffer or an absolute file path (string).');
         }
+        console.log(' step 1');
 
         if (typeof filename !== 'string') {
+            console.log('error 2');
             throw new Error('File name must be a string.');
         }
 
         if (typeof force !== 'boolean') {
+            console.log('error 3');
             throw new Error("Force must be of type boolean.");
         }
 
         if (typeof inlineRetrieval !== 'boolean') {
+            console.log('error 4');
             throw new Error('InlineRetrieval must be of type boolean.');
         }
 
         if (typeof cacheMaxAge !== 'number') {
+            console.log('error 5');
             throw new Error('CacheMaxAge must be of type number.');
         }
         else {
             if (cacheMaxAge < 0) {
+                console.log('error 6');
                 throw new Error('CacheMaxAge must be more than or equals to 0.');
             }
         }
+        console.log(' step 2');
 
         if (typeof tags !== 'object') {
+            console.log('error 7');
             throw new Error(`Tags must be an object not ${typeof tags}.`);
         }
 
+        console.log(' step 3');
         const requestTags = [];
 
         const tagKeys = Object.keys(tags);
@@ -960,17 +976,20 @@ class WideSkyClient {
             const tagVal = tags[tagKey];
 
             if (typeof tagVal !== 'string') {
+                console.log('error 8');
                 throw new Error('Tag value for key ' + tagKey + ' must be string.');
             }
 
             requestTags.push(`${tagKey}=${tagVal}`);
         }
+        console.log(' step 4');
 
         let contentDisposition = inlineRetrieval ? 'inline': 'attachment';
         if (!inlineRetrieval && filename) {
             // e.g. attachment; filename="myPDF.pdf"
             contentDisposition += '; filename="' + filename + "'";
         }
+        console.log(' step 5');
 
         // Create form
         const formData = new FormData();
@@ -983,9 +1002,11 @@ class WideSkyClient {
             'contentDisposition': contentDisposition,
             'tags': JSON.stringify(requestTags)
         };
+        console.log(' step 6');
         for (const [key, value] of Object.entries(form)) {
             formData.append(key, value);
         }
+        console.log(' step 7');
 
         console.log('       fileUpload()=SubmitRequest, formData=' + JSON.stringify(formData));
         return this.submitRequest(
