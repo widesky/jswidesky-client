@@ -152,7 +152,7 @@ class WideSkyClient {
         return res.then((res) => {
                 return res.data
             }
-        ).catch((error) => { console.log('NO GOOD! error=' + JSON.stringify(error); throw error; });
+        ).catch((error) => { console.log('NO GOOD! error=' + JSON.stringify(error)); throw error; });
     };
 
     /**
