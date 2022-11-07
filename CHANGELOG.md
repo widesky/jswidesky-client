@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.2] - 2022-11-07
+### FIXED
+- Added conditional import for importing `axios` when run by either a browser or node process.
+
 ## [2.0.1] - 2022-11-07
 ### CHANGED
 - Updated build packages 
