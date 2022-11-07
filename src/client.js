@@ -16,6 +16,8 @@ if (typeof window === "undefined") {
     axios = require("axios");
 } else {
     // browser process
+    // special case for commonJS as found from this issue
+    // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
     axios = require("axios").default;
 }
 
