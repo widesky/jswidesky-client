@@ -7,8 +7,19 @@ const data = require('./data');
 const replace = require('./graphql/replace');
 const moment = require("moment-timezone");
 const fs = require("fs");
-const axios = require("axios");
 const FormData = require("form-data");
+
+let axios;
+// Browser/Node axios import
+if (typeof window === "undefined") {
+    // node process
+    axios = require("axios");
+} else {
+    // browser process
+    // special case for commonJS as found from this issue
+    // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
+    axios = require("axios").default;
+}
 
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
