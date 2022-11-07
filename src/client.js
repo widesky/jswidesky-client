@@ -7,8 +7,17 @@ const data = require('./data');
 const replace = require('./graphql/replace');
 const moment = require("moment-timezone");
 const fs = require("fs");
-const axios = require("axios");
 const FormData = require("form-data");
+
+let axios;
+// Browser/Node axios import
+if (typeof window === "undefined") {
+    // node process
+    axios = require("axios");
+} else {
+    // browser process
+    axios = require("axios").default;
+}
 
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
