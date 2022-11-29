@@ -1,6 +1,10 @@
 /*
- * vim: set tw=78 et ts=4 sw=4 si fileencoding=utf-8:
+ * vim: set tw=100 et ts=4 sw=4 si fileencoding=utf-8:
+ * © 2022 WideSky.Cloud Pty Ltd
+ * SPDX-License-Identifier: MIT
  */
+"use strict";
+
 const _ = require("lodash");
 const FIND_HISTORY_INPUT = /history(.*){/g;
 const FIND_FILTER_INPUT = /filter:\s?"(.*)"/g;
