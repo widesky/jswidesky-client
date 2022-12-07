@@ -4,7 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 ### ADDED
-- `createUser` creates a new user account using the `/api/admin/user` endpoint.
+- Added support for the WideSky `createUser` endpoint, `/api/admin/user` for creating a new user account through one of the
+  supported local/scram authentication methods.
 
 ## [2.0.2] - 2022-11-07
 ### FIXED
