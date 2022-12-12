@@ -613,6 +613,25 @@ class WideSkyClient {
             this._log.trace('Creating a new user: ' + email);
         }
 
+        if (email.length < 1) {
+            throw new Error('Email cannot be empty.');
+        }
+
+        if (description.length < 1) {
+            throw new Error('Description cannot be empty.');
+        }
+
+        if (Array.isArray(roles) === false) {
+            throw new Error('Roles must be an array.');
+        }
+        else if (roles.length === 0) {
+            throw new Error('At least one roles must be set.');
+        }
+
+        if (method !== AUTH_METHOD.LOCAL && method !== AUTH_METHOD.SCRAM) {
+            throw new Error('Auth method can only be LOCAL or SCRAM.');
+        }
+
         return this.submitRequest(
             "PUT", "/api/admin/user",
             {email, name, description, roles, password, method}
