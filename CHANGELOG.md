@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### ADDED
+- Added support for the WideSky `createUser` endpoint, `/api/admin/user`. As its name implies, this function is use for 
+  creating a new user account in WideSky through one of the supported local/scram authentication method.
 
 ## [2.0.2] - 2022-11-07
 ### FIXED

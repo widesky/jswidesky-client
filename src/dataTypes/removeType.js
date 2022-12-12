@@ -1,3 +1,10 @@
+/*
+ * vim: set tw=100 et ts=4 sw=4 si fileencoding=utf-8:
+ * © 2022 WideSky.Cloud Pty Ltd
+ * SPDX-License-Identifier: MIT
+ */
+"use strict";
+
 const VER_3 = '3.0';
 
 /**

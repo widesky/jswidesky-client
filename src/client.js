@@ -1,5 +1,7 @@
 /*
- * vim: set tw=78 et ts=4 sw=4 si fileencoding=utf-8:
+ * vim: set tw=100 et ts=4 sw=4 si fileencoding=utf-8:
+ * © 2022 WideSky.Cloud Pty Ltd
+ * SPDX-License-Identifier: MIT
  */
 "use strict";
 
@@ -24,6 +26,23 @@ if (typeof window === "undefined") {
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
 const MOMENT_FORMAT_MS_PRECISION = 'YYYY-MM-DDTHH:mm:ss.SSS\\Z';
+
+
+/**
+ * Authentication methods supported for creating new users.
+ */
+const AUTH_METHOD = Object.freeze({
+    /**
+     * Authentication with locally-stored credentials using OAuth2 password grants.
+     */
+    LOCAL: "local",
+    /**
+     * Authentication with locally-stored credentials using Salted Challenge-Response Authentication
+     * Mechanism.
+     */
+    SCRAM: "scram"
+});
+
 
 class WideSkyClient {
     base_uri
@@ -570,6 +589,54 @@ class WideSkyClient {
     update(entities) {
         return this._create_or_update('updateRec', entities);
     };
+
+    /**
+     * Create a new user account.
+     *
+     * @param   {string}    email       Email (user name) of the new user
+     * @param   {string}    name        Name (description) of the new user account,
+     *                                  will become the `dis` field of the user entity.
+     * @param   {string}    description Purpose of the user account, e.g. "User",
+     *                                  "SuperUser", … etc.  Fills in the `primaryFunction` tag.
+     * @param   {string[]}  roles       The IDs (UUIDs or names) of the `role` entities to link to
+     *                                  this new user.
+     * @param   {string?}   password    The new password for the user.  If set to `null` or the
+     *                                  empty string, the user will be sent an email to "activate"
+     *                                  their user account (and supply a password as they do so).
+     * @param   {string?}   method      The authentication method for the new user.  At the time
+     *                                  of writing, the choices are: "local" (the default, using
+     *                                  OAuth2 authentication) and "scram" (SCRAM authentication).
+     */
+    createUser(email, name, description, roles, password=null, method=AUTH_METHOD.LOCAL) {
+        /* istanbul ignore next */
+        if (this._log) {
+            this._log.trace('Creating a new user: ' + email);
+        }
+
+        if (email.length < 1) {
+            throw new Error('Email cannot be empty.');
+        }
+
+        if (description.length < 1) {
+            throw new Error('Description cannot be empty.');
+        }
+
+        if (Array.isArray(roles) === false) {
+            throw new Error('Roles must be an array.');
+        }
+        else if (roles.length === 0) {
+            throw new Error('At least one roles must be set.');
+        }
+
+        if (method !== AUTH_METHOD.LOCAL && method !== AUTH_METHOD.SCRAM) {
+            throw new Error('Auth method can only be LOCAL or SCRAM.');
+        }
+
+        return this.submitRequest(
+            "PUT", "/api/admin/user",
+            {email, name, description, roles, password, method}
+        );
+    }
 
     /**
      * Change the current session user's password.
