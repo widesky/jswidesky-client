@@ -10,6 +10,7 @@ const replace = require('./graphql/replace');
 const moment = require("moment-timezone");
 const fs = require("fs");
 const FormData = require("form-data");
+const socket = require("socket.io-client");
 
 let axios;
 // Browser/Node axios import
@@ -1164,6 +1165,137 @@ class WideSkyClient {
                 }
             }
         );
+    }
+
+    /**
+     * Initiate a haystack watchSub op based on the given list of point ids
+     * @param {Array} pointIds An array of point ids
+     * @param {string} lease Duration (ms) the watch will exist
+     * @param {string} description A short description for the watch session
+     * @param {Object} config Configuration options used in `submitRequest()`
+     * @returns Promise that resolves to a watch object.
+     */
+    watchSub(pointIds, lease, description, config = {}) {
+        const rows = pointIds.map((id) => {
+            return {id: `r:${id}`};
+        });
+
+        return this.submitRequest(
+            "POST",
+            "/api/watchSub",
+            {
+                meta: {
+                    ver: "2.0",
+                    watchDis: `s:${description}`,
+                    lease: lease
+                },
+                cols: [
+                    {name: "id"}
+                ],
+                rows: rows
+            },
+            config
+        );
+    }
+
+    /**
+     * Initiate a haystack watchSub op to extend a watch given the watchId
+     * and lease.
+     * @param {string} watchId ID of the opened watch.
+     * @param {string} pointIds an array of pointIds.
+     * @param {string} lease Duration (ms) the watch was created with.
+     * @param {Object} config Configuration options used in `submitRequest()`
+     * @returns 
+     */
+    watchExtend(watchId, pointIds, lease, config = {}) {
+
+        const rows = pointIds.map((id) => {
+            return {id: `r:${id}`};
+        });
+
+        return this.submitRequest(
+            "POST",
+            "/api/watchSub",
+            {
+                meta: {
+                    ver: "2.0",
+                    watchId: `s:${watchId}`,
+                    lease: lease
+                },
+                cols: [{name: "id"}],
+                rows: rows
+            },
+            config
+        );
+    } 
+
+    /**
+     * Initiate a watchUnsub op using the given watchId.
+     * If deletePointIds is set, then the listed points will be removed
+     * from the watch.
+     * @param {string} watchId ID of the opened watch.
+     * @param {Array} deletePointIds List of the points to be deleted.
+     * @param {boolean} close If true, the watch session will be closed.
+     * @param {Object} config Configuration options used in `submitRequest()`
+     * @returns Promise
+     */
+    watchUnsub(watchId, deletePointIds, close = true, config = {}) {
+        const payload = {
+            meta: {
+                ver: '2.0',
+                watchId: `s:` + watchId,
+            },
+            cols: [],
+            rows: []
+        };
+
+        if (deletePointIds.length > 0) {
+            payload.cols.push({name: 'id'});
+
+            for (let index = 0; index < deletePointIds.length; index++) {
+                payload.rows.push({id: 'r:' + deletePointIds[index]});
+            }
+        }
+        else {
+            payload.cols.push({name: 'empty'});
+        }
+
+        if (close) {
+            payload.meta['close'] = 'm:';
+        }
+
+        return this.submitRequest(
+            "POST",
+            "/api/watchUnsub",
+            payload,
+            config
+        );
+    }
+
+    /**
+     * Initiate a watch socket object given a list of point ids through
+     * a watchSub operation.
+     * @param {Array} pointIds An array of point ids
+     * @param {string} lease Duration (ms) the watch will exist
+     * @param {string} description A short description of the watch session
+     * @param {Object} config Configuration options used in `submitRequest()`
+     * @returns a socket.io Socket object
+     */
+    getWatchSocket(watchId) {
+        const tokens = this.getToken();
+        const accessToken = tokens.access_token;
+
+        const url = `${this.base_uri}/${watchId}`;
+
+        return socket.connect(url, {
+            query: { Authorization: accessToken },
+            "force new connection": true,
+            autoconnect: false,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: Infinity
+        });
     }
 }
 
