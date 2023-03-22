@@ -1290,11 +1290,7 @@ class WideSkyClient {
         return socket.connect(url, {
             query: { Authorization: accessToken },
             "force new connection": true,
-            autoconnect: false,
-            reconnection: true,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            reconnectionAttempts: Infinity
+            autoconnect: false
         });
     }
 }
