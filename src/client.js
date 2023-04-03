@@ -1169,13 +1169,17 @@ class WideSkyClient {
 
     /**
      * Initiate a haystack watchSub op based on the given list of point ids
-     * @param {Array} pointIds An array of point ids
+     * @param {*} pointIds String or Array. The point Ids to perform watchSub on.
      * @param {string} lease Duration (ms) the watch will exist
      * @param {string} description A short description for the watch session
      * @param {Object} config Configuration options used in `submitRequest()`
      * @returns Promise that resolves to a watch object.
      */
     watchSub(pointIds, lease, description, config = {}) {
+        if (!(Array.isArray(pointIds))) {
+            pointIds = [pointIds];
+        }
+
         const rows = pointIds.map((id) => {
             return {id: `r:${id}`};
         });
