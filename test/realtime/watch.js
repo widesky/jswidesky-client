@@ -104,7 +104,7 @@ describe("Realtime", function () {
             );
         });
 
-        it("Should generate correct request grid for watchUnsub call", async function () {
+        it("should generate correct request grid for watchUnsub call", async function () {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);

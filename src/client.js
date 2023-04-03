@@ -1202,12 +1202,15 @@ class WideSkyClient {
      * Initiate a haystack watchSub op to extend a watch given the watchId
      * and lease.
      * @param {string} watchId ID of the opened watch.
-     * @param {string} pointIds an array of pointIds.
+     * @param {*} pointIds String or Array. The points.
      * @param {string} lease Duration (ms) the watch was created with.
      * @param {Object} config Configuration options used in `submitRequest()`
      * @returns 
      */
     watchExtend(watchId, pointIds, lease, config = {}) {
+        if (!(Array.isArray(pointIds))) {
+            pointIds = [pointIds];
+        }
 
         const rows = pointIds.map((id) => {
             return {id: `r:${id}`};
@@ -1234,12 +1237,16 @@ class WideSkyClient {
      * If deletePointIds is set, then the listed points will be removed
      * from the watch.
      * @param {string} watchId ID of the opened watch.
-     * @param {Array} deletePointIds List of the points to be deleted.
+     * @param {*} deletePointIds String or Array. The points to be deleted.
      * @param {boolean} close If true, the watch session will be closed.
      * @param {Object} config Configuration options used in `submitRequest()`
      * @returns Promise
      */
     watchUnsub(watchId, deletePointIds, close = true, config = {}) {
+        if (!(Array.isArray(deletePointIds))) {
+            deletePointIds = [deletePointIds];
+        }
+
         const payload = {
             meta: {
                 ver: '2.0',
@@ -1273,13 +1280,9 @@ class WideSkyClient {
     }
 
     /**
-     * Initiate a watch socket object given a list of point ids through
-     * a watchSub operation.
-     * @param {Array} pointIds An array of point ids
-     * @param {string} lease Duration (ms) the watch will exist
-     * @param {string} description A short description of the watch session
-     * @param {Object} config Configuration options used in `submitRequest()`
-     * @returns a socket.io Socket object
+     * Initiate a watch socket object given a valid watch ID string.
+     * @param {string} watchId the watch ID string.
+     * @returns a socket.io Socket object.
      */
     getWatchSocket(watchId) {
         const tokens = this.getToken();
