@@ -1,6 +1,6 @@
 {
   "name": "@widesky/jswidesky-client",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "WideSky Client in JavaScript",
   "main": "index.js",
   "private": false,
@@ -19,7 +19,8 @@
     "form-data": "^4.0.0",
     "jsesc": "^3.0.2",
     "lodash": "^4.17.21",
-    "moment-timezone": "^0.5.38"
+    "moment-timezone": "^0.5.38",
+    "socket.io-client": "^2.4.0"
   },
   "devDependencies": {
     "@babel/core": "^7.19.6",

@@ -1,5 +1,7 @@
 /*
- * vim: set tw=78 et ts=4 sw=4 si fileencoding=utf-8:
+ * vim: set tw=100 et ts=4 sw=4 si fileencoding=utf-8:
+ * © 2022 WideSky.Cloud Pty Ltd
+ * SPDX-License-Identifier: MIT
  */
 "use strict";
 
@@ -8,6 +10,7 @@ const replace = require('./graphql/replace');
 const moment = require("moment-timezone");
 const fs = require("fs");
 const FormData = require("form-data");
+const socket = require("socket.io-client");
 
 let axios;
 // Browser/Node axios import
@@ -24,6 +27,23 @@ if (typeof window === "undefined") {
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
 const MOMENT_FORMAT_MS_PRECISION = 'YYYY-MM-DDTHH:mm:ss.SSS\\Z';
+
+
+/**
+ * Authentication methods supported for creating new users.
+ */
+const AUTH_METHOD = Object.freeze({
+    /**
+     * Authentication with locally-stored credentials using OAuth2 password grants.
+     */
+    LOCAL: "local",
+    /**
+     * Authentication with locally-stored credentials using Salted Challenge-Response Authentication
+     * Mechanism.
+     */
+    SCRAM: "scram"
+});
+
 
 class WideSkyClient {
     base_uri
@@ -572,6 +592,54 @@ class WideSkyClient {
     };
 
     /**
+     * Create a new user account.
+     *
+     * @param   {string}    email       Email (user name) of the new user
+     * @param   {string}    name        Name (description) of the new user account,
+     *                                  will become the `dis` field of the user entity.
+     * @param   {string}    description Purpose of the user account, e.g. "User",
+     *                                  "SuperUser", … etc.  Fills in the `primaryFunction` tag.
+     * @param   {string[]}  roles       The IDs (UUIDs or names) of the `role` entities to link to
+     *                                  this new user.
+     * @param   {string?}   password    The new password for the user.  If set to `null` or the
+     *                                  empty string, the user will be sent an email to "activate"
+     *                                  their user account (and supply a password as they do so).
+     * @param   {string?}   method      The authentication method for the new user.  At the time
+     *                                  of writing, the choices are: "local" (the default, using
+     *                                  OAuth2 authentication) and "scram" (SCRAM authentication).
+     */
+    createUser(email, name, description, roles, password=null, method=AUTH_METHOD.LOCAL) {
+        /* istanbul ignore next */
+        if (this._log) {
+            this._log.trace('Creating a new user: ' + email);
+        }
+
+        if (email.length < 1) {
+            throw new Error('Email cannot be empty.');
+        }
+
+        if (description.length < 1) {
+            throw new Error('Description cannot be empty.');
+        }
+
+        if (Array.isArray(roles) === false) {
+            throw new Error('Roles must be an array.');
+        }
+        else if (roles.length === 0) {
+            throw new Error('At least one roles must be set.');
+        }
+
+        if (method !== AUTH_METHOD.LOCAL && method !== AUTH_METHOD.SCRAM) {
+            throw new Error('Auth method can only be LOCAL or SCRAM.');
+        }
+
+        return this.submitRequest(
+            "PUT", "/api/admin/user",
+            {email, name, description, roles, password, method}
+        );
+    }
+
+    /**
      * Change the current session user's password.
      *
      * @param   newPassword - A string
@@ -1097,6 +1165,140 @@ class WideSkyClient {
                 }
             }
         );
+    }
+
+    /**
+     * Initiate a haystack watchSub op based on the given list of point ids
+     * @param {*} pointIds String or Array. The point Ids to perform watchSub on.
+     * @param {string} lease Duration (ms) the watch will exist
+     * @param {string} description A short description for the watch session
+     * @param {Object} config Configuration options used in `submitRequest()`
+     * @returns Promise that resolves to a watch object.
+     */
+    watchSub(pointIds, lease, description, config = {}) {
+        if (!(Array.isArray(pointIds))) {
+            pointIds = [pointIds];
+        }
+
+        const rows = pointIds.map((id) => {
+            return {id: `r:${id}`};
+        });
+
+        return this.submitRequest(
+            "POST",
+            "/api/watchSub",
+            {
+                meta: {
+                    ver: "2.0",
+                    watchDis: `s:${description}`,
+                    lease: lease
+                },
+                cols: [
+                    {name: "id"}
+                ],
+                rows: rows
+            },
+            config
+        );
+    }
+
+    /**
+     * Initiate a haystack watchSub op to extend a watch given the watchId
+     * and lease.
+     * @param {string} watchId ID of the opened watch.
+     * @param {*} pointIds String or Array. The points.
+     * @param {string} lease Duration (ms) the watch was created with.
+     * @param {Object} config Configuration options used in `submitRequest()`
+     * @returns 
+     */
+    watchExtend(watchId, pointIds, lease, config = {}) {
+        if (!(Array.isArray(pointIds))) {
+            pointIds = [pointIds];
+        }
+
+        const rows = pointIds.map((id) => {
+            return {id: `r:${id}`};
+        });
+
+        return this.submitRequest(
+            "POST",
+            "/api/watchSub",
+            {
+                meta: {
+                    ver: "2.0",
+                    watchId: `s:${watchId}`,
+                    lease: lease
+                },
+                cols: [{name: "id"}],
+                rows: rows
+            },
+            config
+        );
+    } 
+
+    /**
+     * Initiate a watchUnsub op using the given watchId.
+     * If deletePointIds is set, then the listed points will be removed
+     * from the watch.
+     * @param {string} watchId ID of the opened watch.
+     * @param {*} deletePointIds String or Array. The points to be deleted.
+     * @param {boolean} close If true, the watch session will be closed.
+     * @param {Object} config Configuration options used in `submitRequest()`
+     * @returns Promise
+     */
+    watchUnsub(watchId, deletePointIds, close = true, config = {}) {
+        if (!(Array.isArray(deletePointIds))) {
+            deletePointIds = [deletePointIds];
+        }
+
+        const payload = {
+            meta: {
+                ver: '2.0',
+                watchId: `s:` + watchId,
+            },
+            cols: [],
+            rows: []
+        };
+
+        if (deletePointIds.length > 0) {
+            payload.cols.push({name: 'id'});
+
+            for (let index = 0; index < deletePointIds.length; index++) {
+                payload.rows.push({id: 'r:' + deletePointIds[index]});
+            }
+        }
+        else {
+            payload.cols.push({name: 'empty'});
+        }
+
+        if (close) {
+            payload.meta['close'] = 'm:';
+        }
+
+        return this.submitRequest(
+            "POST",
+            "/api/watchUnsub",
+            payload,
+            config
+        );
+    }
+
+    /**
+     * Initiate a watch socket object given a valid watch ID string.
+     * @param {string} watchId the watch ID string.
+     * @returns a socket.io Socket object.
+     */
+    getWatchSocket(watchId) {
+        const tokens = this.getToken();
+        const accessToken = tokens.access_token;
+
+        const url = `${this.base_uri}/${watchId}`;
+
+        return socket.connect(url, {
+            query: { Authorization: accessToken },
+            "force new connection": true,
+            autoconnect: false
+        });
     }
 }
 

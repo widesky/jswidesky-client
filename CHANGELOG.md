@@ -2,7 +2,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [2.0.3] - 2023-04-05
+### ADDED
+- Added support for the WideSky `createUser` endpoint, `/api/admin/user`. As its name implies, this function is use for 
+  creating a new user account in WideSky through one of the supported local/scram authentication method.
+- Added support for the WideSky `watchSub` endpoint, `/api/watchSub`. This allows a user to subscribe to a watch.
+- Added a function to extend the lease of a watch.
+- Added support for the WideSky `watchUnsub` endpoint, `/api/watchUnsub`. This allows a user to unsubscribe to a watch.
+- Added a function to retrieve an API socket using a watch.
 
 ## [2.0.2] - 2022-11-07
 ### FIXED
@@ -76,7 +83,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...1.2.2
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.0.3
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -86,3 +93,5 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [1.2.2]: https://github.com/widesky/jswidesky-client/compare/1.2.2...1.2.1
 [2.0.0]: https://github.com/widesky/jswidesky-client/compare/2.0.0...1.2.2
 [2.0.1]: https://github.com/widesky/jswidesky-client/compare/2.0.1...2.0.0
+[2.0.2]: https://github.com/widesky/jswidesky-client/compare/2.0.2...2.0.1
+[2.0.3]: https://github.com/widesky/jswidesky-client/compare/2.0.3...2.0.2
