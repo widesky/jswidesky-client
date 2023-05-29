@@ -1209,7 +1209,7 @@ class WideSkyClient {
      * @param {*} pointIds String or Array. The points.
      * @param {string} lease Duration (ms) the watch was created with.
      * @param {Object} config Configuration options used in `submitRequest()`
-     * @returns 
+     * @returns Promise
      */
     watchExtend(watchId, pointIds, lease, config = {}) {
         if (!(Array.isArray(pointIds))) {
@@ -1234,7 +1234,7 @@ class WideSkyClient {
             },
             config
         );
-    } 
+    }
 
     /**
      * Initiate a watchUnsub op using the given watchId.
@@ -1297,8 +1297,96 @@ class WideSkyClient {
         return socket.connect(url, {
             query: { Authorization: accessToken },
             "force new connection": true,
-            autoconnect: false
+            autoConnect: false
         });
+    }
+
+    /**
+     * Perform a history delete request.
+     * @param {*} ids An array of point entity UUIDs for the delete operations or a single string.
+     * @param {String} range A valid hisRead range string.
+     * @returns Promise that resoves into haystack response grid.
+     */
+    hisDelete(ids, range) {
+        // If id was given as string, put in array.
+        if (!Array.isArray(ids)) {
+            ids = [ids];
+        }
+
+        if (!(ids.length > 0)) {
+            throw new Error("`ids` must contain at least one point UUID.");
+        }
+
+        // Validate the range
+        const range_err = "An invalid hisRead range input was given: ";
+        if (!range.startsWith("s:")) {
+            throw new Error(range_err + "Missing `s:`.");
+        }
+
+        const range_val = range.replace("s:", "");
+        if (range_val === "") {
+            throw new Error(range_err + "No range was given.");
+        }
+
+        if (!(range_val === "last" ||
+              range_val === "first" ||
+              range_val === "today" ||
+              range_val === "yesterday")) {
+
+            if (range_val.includes(",")) {
+                const ranges = range_val.split(",");
+
+                // Should not be more or less than 2 date(time) values in a range.
+                if (ranges.length != 2) {
+                    throw new Error(range_err + "Number of timestamps cannot exceed 2.");
+                }
+
+                for (const ts in ranges) {
+                    if (!moment(ranges[ts].trim(), moment.ISO_8601).isValid()) {
+                        throw new Error(range_err + "Invalid ISO8601 timestamp.");
+                    }
+                }
+
+            } else {
+                if (!moment(range_val, moment.ISO_8601).isValid()) {
+                    throw new Error(range_err + "Invalid ISO8601 timestamp.");
+                }
+            }
+        }
+
+        // Normalise the IDs into standard form
+        ids = ids.map(function (id) {
+            return new data.Ref(id).toHSJSON();
+        });
+
+        // Build request body
+        const payload = {
+            meta: {
+                ver: "2.0",
+            },
+            cols: [
+                {
+                    name: "range",
+                },
+            ],
+            rows: [
+                {
+                    range: range,
+                },
+            ],
+        };
+
+        if (ids.length === 1) {
+            payload.rows[0].id = new data.Ref(ids[0]).toHSJSON();
+            payload.cols.push({name: "id"});
+        } else {
+            ids.forEach((id, idx) => {
+                payload.rows[0]["id" + idx] = new data.Ref(id).toHSJSON();
+                payload.cols.push({name: "id" + idx});
+            });
+        }
+
+        return this.submitRequest("POST", "/api/hisDelete", payload, {});
     }
 }
 
