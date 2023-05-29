@@ -713,7 +713,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'id1', 'id2', 'id3'
-                            ], 
+                            ],
                             {
                                 meta: {ver: '2.0'},
                                 cols: [],
@@ -763,7 +763,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'id1', 'id2', 'id3'
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0',
@@ -816,7 +816,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'id1', 'id2', 'id3'
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0',
@@ -871,7 +871,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'id1', 'id2', 'id3'
-                            ], 
+                            ],
                             {
                                 meta: {ver: '2.0'},
                                 cols: [],
@@ -921,7 +921,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'id1', 'id2', 'id3'
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0',
@@ -975,7 +975,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'id1', 'id2', 'id3'
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0',
@@ -1031,7 +1031,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'id1', 'id2', 'id3'
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0',
@@ -1077,7 +1077,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'id1', 'id2', 'id3'
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0',
@@ -1130,7 +1130,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'r:id1', 'r:id2', 'r:id3'
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0'
@@ -1196,7 +1196,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'r:id1', 'r:id2', 'r:id3'
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0'
@@ -1269,7 +1269,7 @@ describe('client', () => {
                             result, status,
                             [
                                 'r:id0', 'r:id2', 'r:id3' /* id0 not in colId */
-                            ], 
+                            ],
                             {
                                 meta: {
                                     ver: '2.0'
@@ -1331,7 +1331,7 @@ describe('client', () => {
                         result, status,
                         [
                             'r:id1', 'r:id2', 'r:id3'
-                        ], 
+                        ],
                         {
                             meta: {
                                 ver: '2.0'
@@ -1408,7 +1408,7 @@ describe('client', () => {
                         result, status,
                         [
                             'r:id1', 'r:id2', 'r:id3'
-                        ], 
+                        ],
                         {
                             meta: {
                                 ver: '2.0'
@@ -1502,7 +1502,7 @@ describe('client', () => {
                         result, status,
                         [
                             'r:id1', 'r:id2', 'r:id3'
-                        ], 
+                        ],
                         {
                             meta: {
                                 ver: '2.0'
@@ -1721,6 +1721,118 @@ describe('client', () => {
                         Accept: "application/json"
                     },
                     decompress: true
+                }
+            );
+        });
+    });
+
+    describe('hisDelete', () => {
+        const TEST_RANGE = "s:2023-05-13T05:14:30Z, 2023-05-14T05:14:30Z";
+
+        it("should fail if no ids array is empty", async () => {
+            const err_msg = "`ids` must contain at least one point UUID.";
+
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                await ws.hisDelete([], TEST_RANGE);
+                throw new Error("Should not have worked.");
+            } catch (err) {
+                if (err.message != err_msg) {
+                    throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
+                }
+            }
+        });
+
+        it("should generate the correct grid for a single point", async () => {
+            const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            await ws.hisDelete(TEST_POINT, TEST_RANGE);
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "POST",
+                "/api/hisDelete",
+                {
+                    meta: {
+                        ver: "2.0",
+                    },
+                    cols: [
+                        {
+                            name: "range",
+                        },
+                        {
+                            name: "id",
+                        },
+                    ],
+                    rows: [
+                        {
+                            range: TEST_RANGE,
+                            id: `r:${TEST_POINT}`,
+                        },
+                    ],
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json",
+                    },
+                    decompress: true,
+                }
+            );
+        });
+
+        it("should generate the correct grid for an array of points", async () => {
+            const TEST_POINTS = [
+                "00000112-0000-0000-0000-000000000000",
+                "99998000-0000-0000-0000-000000000000",
+            ];
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            await ws.hisDelete(TEST_POINTS, TEST_RANGE);
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "POST",
+                "/api/hisDelete",
+                {
+                    meta: {
+                        ver: "2.0",
+                    },
+                    cols: [
+                        {
+                            name: "range",
+                        },
+                        {
+                            name: "id0",
+                        },
+                        {
+                            name: "id1",
+                        },
+                    ],
+                    rows: [
+                        {
+                            range: TEST_RANGE,
+                            id0: `r:${TEST_POINTS[0]}`,
+                            id1: `r:${TEST_POINTS[1]}`,
+                        },
+                    ],
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json",
+                    },
+                    decompress: true,
                 }
             );
         });

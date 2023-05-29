@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### ADDED
+- Added support for WideSky `hisDelete` endpoint, `/api/hisDelete`. This function is for deleting
+  historical timeseries data within a given range for the given points.
+
 ## [2.0.3] - 2023-04-05
 ### ADDED
 - Added support for the WideSky `createUser` endpoint, `/api/admin/user`. As its name implies, this function is use for 
