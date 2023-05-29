@@ -1746,6 +1746,113 @@ describe('client', () => {
             }
         });
 
+        it("should fail if range does not provide any timestamp", async () => {
+            const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
+            const err_msg = "An invalid hisRead range input was given: No range was given.";
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                await ws.hisDelete(TEST_POINT, "s:");
+                throw new Error("Should not have worked.");
+            } catch (err) {
+                if (err.message != err_msg) {
+                    throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
+                }
+            }
+        });
+
+        it("should fail if range does not start with s:", async () => {
+            const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
+            const err_msg = "An invalid hisRead range input was given: Missing `s:`.";
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                await ws.hisDelete(TEST_POINT, "last");
+                throw new Error("Should not have worked.");
+            } catch (err) {
+                if (err.message != err_msg) {
+                    throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
+                }
+            }
+        });
+
+        it("should fail if range contains more than 2 timestamps", async () => {
+            const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
+            const TEST_RANGE_INVALID = "s:2023-05-13T05:14:30Z, 2023-05-13T05:15:30Z, 2023-05-13T05:16:30Z"
+            const err_msg = "An invalid hisRead range input was given: Number of timestamps cannot exceed 2.";
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                await ws.hisDelete(TEST_POINT, TEST_RANGE_INVALID);
+                throw new Error("Should not have worked.");
+            } catch (err) {
+                if (err.message != err_msg) {
+                    throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
+                }
+            }
+        });
+
+        it("should fail if range is invalid date", async () => {
+            const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
+            const TEST_RANGE_INVALID = "s:2023-05-99"
+            const err_msg = "An invalid hisRead range input was given: Invalid ISO8601 timestamp.";
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                await ws.hisDelete(TEST_POINT, TEST_RANGE_INVALID);
+                throw new Error("Should not have worked.");
+            } catch (err) {
+                if (err.message != err_msg) {
+                    throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
+                }
+            }
+        });
+
+        it("should fail if range is invalid dateTime", async () => {
+            const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
+            const TEST_RANGE_INVALID = "s:2023-05-13T99:123:55Z";
+            const err_msg = "An invalid hisRead range input was given: Invalid ISO8601 timestamp.";
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                await ws.hisDelete(TEST_POINT, TEST_RANGE_INVALID);
+                throw new Error("Should not have worked.");
+            } catch (err) {
+                if (err.message != err_msg) {
+                    throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
+                }
+            }
+        });
+
+        it("should fail if range contains at least one invalid dateTime", async () => {
+            const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
+            const TEST_RANGE_INVALID = "s:2023-05-12T05:14:30Z, 2023-05-13T99:123:55Z";
+            const err_msg = "An invalid hisRead range input was given: Invalid ISO8601 timestamp.";
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            try {
+                await ws.hisDelete(TEST_POINT, TEST_RANGE_INVALID);
+                throw new Error("Should not have worked.");
+            } catch (err) {
+                if (err.message != err_msg) {
+                    throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
+                }
+            }
+        });
+
+
         it("should generate the correct grid for a single point", async () => {
             const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
             let http = new stubs.StubHTTPClient(),

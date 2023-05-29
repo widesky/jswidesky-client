@@ -1317,6 +1317,43 @@ class WideSkyClient {
             throw new Error("`ids` must contain at least one point UUID.");
         }
 
+        // Validate the range
+        const range_err = "An invalid hisRead range input was given: ";
+        if (!range.startsWith("s:")) {
+            throw new Error(range_err + "Missing `s:`.");
+        }
+
+        const range_val = range.replace("s:", "");
+        if (range_val === "") {
+            throw new Error(range_err + "No range was given.");
+        }
+
+        if (!(range_val === "last" ||
+              range_val === "first" ||
+              range_val === "today" ||
+              range_val === "yesterday")) {
+
+                if (range_val.includes(",")) {
+                    const ranges = range_val.split(",");
+
+                    // Should not be more or less than 2 date(time) values in a range.
+                    if (ranges.length != 2) {
+                        throw new Error(range_err + "Number of timestamps cannot exceed 2.");
+                    }
+
+                    for (const ts in ranges) {
+                        if (!moment(ranges[ts].trim(), moment.ISO_8601).isValid()) {
+                            throw new Error(range_err + "Invalid ISO8601 timestamp.");
+                        }
+                    }
+
+                } else {
+                    if (!moment(range_val, moment.ISO_8601).isValid()) {
+                        throw new Error(range_err + "Invalid ISO8601 timestamp.");
+                    }
+                }
+              }
+
         // Normalise the IDs into standard form
         ids = ids.map(function (id) {
             return new data.Ref(id).toHSJSON();

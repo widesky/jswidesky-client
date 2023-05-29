@@ -41,7 +41,7 @@ describe("Realtime", function () {
                             Authorization: WS_ACCESS_TOKEN
                         },
                         "force new connection": true,
-                        autoconnect: false
+                        autoConnect: false
                     }
                 ]
             )
