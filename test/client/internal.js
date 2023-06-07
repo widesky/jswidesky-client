@@ -485,7 +485,7 @@ describe('client', () => {
                 });
             });
 
-            it.only('should retry log-in if request fails due to 401', async () => {
+            it('should retry log-in if request fails due to 401', async () => {
                 let http = new stubs.StubHTTPClient(),
                     ws = getInstance(http);
 
