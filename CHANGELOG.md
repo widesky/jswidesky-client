@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Added support for WideSky `hisDelete` endpoint, `/api/hisDelete`. This function is for deleting
   historical timeseries data within a given range for the given points.
+- On 401 unauthorised errors, the client will attempt to relogin to force refresh the tokens and
+  retry the request.
 
 ## [2.0.3] - 2023-04-05
 ### ADDED

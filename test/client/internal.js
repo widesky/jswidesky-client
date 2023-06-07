@@ -484,6 +484,39 @@ describe('client', () => {
                         throw err;
                 });
             });
+
+            it.only('should retry log-in if request fails due to 401', async () => {
+                let http = new stubs.StubHTTPClient(),
+                    ws = getInstance(http);
+
+                ws._attachReqConfig = sinon.stub().callsFake((config) => {
+                    if (ws._ws_token !== null) {
+                        ws._ws_token = WS_ACCESS_TOKEN;
+                        return ws._ws_token;
+
+                    } else {
+                        ws._ws_token = WS_ACCESS_TOKEN2;
+                        return ws._ws_token;
+                    }
+                });
+                ws._ws_token = "not null";
+
+                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                    if (config === WS_ACCESS_TOKEN) {
+                        return Promise.reject({response: {status: 401}});
+                    } else if (config === WS_ACCESS_TOKEN2) {
+                        return Promise.resolve("success");
+                    } else {
+                        return Promise.reject({response: {status: "unexpected error"}});
+                    }
+                });
+
+                await ws.submitRequest("GET", "URI", null, null);
+
+                expect(ws._wsRawSubmit.callCount).to.equal(2);
+                expect(ws._attachReqConfig.callCount).to.equal(2);
+                expect(ws._ws_token).to.equal(WS_ACCESS_TOKEN2);
+            });
         });
 
         describe('login', () => {
