@@ -155,7 +155,7 @@ class WideSkyClient {
      * more info.
      * @returns Data from response of request.
      */
-    _wsRawSubmit(method, uri, body, config) {
+    async _wsRawSubmit(method, uri, body, config) {
         /* istanbul ignore next */
         if (this._log) {
             this._log.trace(config, 'Raw request');
@@ -164,25 +164,22 @@ class WideSkyClient {
         let res;
         switch (method.toUpperCase()) {
             case "GET":
-                res = this.axios.get(uri, config);
+                res = await this.axios.get(uri, config);
                 break;
             case "POST":
-                res = this.axios.post(uri, body, config);
+                res = await this.axios.post(uri, body, config);
                 break;
             case "PATCH":
-                res = this.axios.patch(uri, body, config);
+                res = await this.axios.patch(uri, body, config);
                 break;
             case "PUT":
-                res = this.axios.put(uri, body, config);
+                res = await this.axios.put(uri, body, config);
                 break;
             default:
                 throw new Error(`Not configured for method ${method}.`);
         }
 
-        return res.then((res) => {
-                return res.data
-            }
-        );
+        return res.data;
     };
 
     /**
@@ -214,7 +211,19 @@ class WideSkyClient {
 
     async submitRequest(method, uri, body={}, config={}) {
         config = await this._attachReqConfig(config);
-        return this._wsRawSubmit(method, uri, body, config);
+
+        try {
+            return await this._wsRawSubmit(method, uri, body, config);
+        } catch (err) {
+            // If error is 401, then get new token
+            if (err.response && err.response.status === 401 && this._ws_token) {
+                this._ws_token = null;
+                config = await this._attachReqConfig(config);
+                return this._wsRawSubmit(method, uri, body, config);
+            } else {
+                throw err;
+            }
+        }
     }
 
     /**
