@@ -217,12 +217,10 @@ class WideSkyClient {
             return res;
         } catch (err) {
             // If error is 401, then get new token
-            if (err.response && err.response.status === 401) {
+            if (err.response && err.response.status === 401 && this._ws_token) {
                 this._ws_token = null;
                 config = await this._attachReqConfig(config);
-
-                const retry_res = await this._wsRawSubmit(method, uri, body, config);
-                return retry_res;
+                return this._wsRawSubmit(method, uri, body, config);
             } else {
                 throw err;
             }
