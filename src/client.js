@@ -1072,7 +1072,7 @@ class WideSkyClient {
         for (const [key, value] of Object.entries(form)) {
             if (key === 'data') {
                 // formdata needs to know the mimetype of the File or Buffer
-                // Otherwise it will be disregarded and not set to API server
+                // Otherwise it will be disregarded and not sent to API server
                 formData.append(key, value, {filename});
             } else {
                 formData.append(key, value);
