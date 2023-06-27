@@ -1070,7 +1070,13 @@ class WideSkyClient {
             'tags': JSON.stringify(requestTags)
         };
         for (const [key, value] of Object.entries(form)) {
-            formData.append(key, value);
+            if (key === 'data') {
+                // formdata needs to know the mimetype of the File or Buffer
+                // Otherwise it will be disregarded and not set to API server
+                formData.append(key, value, {filename});
+            } else {
+                formData.append(key, value);
+            }
         }
 
         return this.submitRequest(
