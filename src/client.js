@@ -17,7 +17,8 @@ let axios;
 if (typeof window === "undefined") {
     // node process
     axios = require("axios");
-} else {
+}
+else {
     // browser process
     // special case for commonJS as found from this issue
     // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
@@ -189,8 +190,8 @@ class WideSkyClient {
      */
     async _attachReqConfig(config) {
         const token = await this.getToken();
-        config = Object.assign({}, config);       // make a copy
 
+        config = Object.assign({}, config);       // make a copy
         if (config.headers === undefined) {
             config.headers = {};
         }
@@ -214,13 +215,16 @@ class WideSkyClient {
 
         try {
             return await this._wsRawSubmit(method, uri, body, config);
-        } catch (err) {
+        }
+        catch (err) {
             // If error is 401, then get new token
             if (err.response && err.response.status === 401 && this._ws_token) {
                 this._ws_token = null;
                 config = await this._attachReqConfig(config);
+
                 return this._wsRawSubmit(method, uri, body, config);
-            } else {
+            }
+            else {
                 throw err;
             }
         }
@@ -232,7 +236,9 @@ class WideSkyClient {
      */
     _doLogin() {
         /* istanbul ignore next */
-        if (this._log) this._log.trace('Performing login attempt');
+        if (this._log) {
+            this._log.trace('Performing login attempt');
+        }
 
         return this._wsRawSubmit(
             "POST",
@@ -283,8 +289,8 @@ class WideSkyClient {
         this._ws_token = token;
 
         const waiters = this._ws_token_wait;
-        this._ws_token_wait = null;
 
+        this._ws_token_wait = null;
         resolve(token);
         waiters.forEach(function (waiter) {
             waiter.resolve(token);
@@ -299,8 +305,8 @@ class WideSkyClient {
         this._ws_token = null;
 
         const waiters = this._ws_token_wait;
-        this._ws_token_wait = null;
 
+        this._ws_token_wait = null;
         reject(err);
         waiters.forEach(function (waiter) {
             waiter.reject(err);
@@ -319,7 +325,10 @@ class WideSkyClient {
         if (this._ws_token_wait !== null) {
             /* Join the queue */
             /* istanbul ignore next */
-            if (this._log) this._log.trace('Waiting for token acquisition');
+            if (this._log) {
+                this._log.trace('Waiting for token acquisition');
+            }
+
             return new Promise( (resolve, reject) => {
                 this._ws_token_wait.push({
                     resolve: resolve,
@@ -335,17 +344,21 @@ class WideSkyClient {
             if (this._log) {
                 this._log.trace('Begin token acquisition');
             }
+
             firstStep = this._doLogin();
-        } else if (this._ws_token.expires_in < Date.now()) {
+        }
+        else if (this._ws_token.expires_in < Date.now()) {
             /* Token is expired, so do a refresh */
             /* istanbul ignore next */
             if (this._log) {
                 this._log.trace('Begin token refresh');
             }
+
             this._ws_token_wait = [];
             firstStep = this._doRefresh();
             refresh = true;
-        } else {
+        }
+        else {
             return this._ws_token;
         }
 
@@ -365,7 +378,8 @@ class WideSkyClient {
                         return this._doLogin()
                             .then((token) => this._getTokenSuccess(token, resolve))
                             .catch((err) => this._getTokenFail(err, reject));
-                    } else {
+                    }
+                    else {
                         return this._getTokenFail(err, reject);
                     }
                 });
@@ -392,7 +406,8 @@ class WideSkyClient {
                     }
                 }
             );
-        } else if (Array.isArray(ids)) {
+        }
+        else if (Array.isArray(ids)) {
             if (ids.length > 1) {
                 // verify input is all strings
                 for (const id of ids) {
@@ -401,7 +416,8 @@ class WideSkyClient {
                             // check if its compatible with class Ref
                             try {
                                 new data.Ref(id);
-                            } catch (error) {
+                            }
+                            catch (error) {
                                 throw new Error(
                                     "Parameter 'ids' contains an element that is of type object but not compatible " +
                                     `with class Ref due to: ${error.message}`
@@ -488,6 +504,7 @@ class WideSkyClient {
      */
     query(graphql) {
         graphql = replace.outerBraces(graphql);
+
         let body = { "query": graphql }
 
         return this.submitRequest(
@@ -534,6 +551,7 @@ class WideSkyClient {
 
         /* Generate the columns, make a note of the haystack version needed */
         let cols = [], present = {}, ver = '2.0';
+
         entities.forEach(function (entity) {
             Object.keys(entity).forEach(function (col) {
                 if (!present[col]) {
@@ -550,7 +568,10 @@ class WideSkyClient {
         /* Ensure updateRec lists `id` */
         if ((!present.id) && (op === 'updateRec')) {
             /* istanbul ignore next */
-            if (this._log) this._log.trace(entities, 'Entities lacks id column');
+            if (this._log) {
+                this._log.trace(entities, 'Entities lacks id column');
+            }
+
             throw new Error('id is missing');
         }
 
@@ -721,13 +742,17 @@ class WideSkyClient {
 
         if (to !== undefined) {
             /* Full range given, both from and to *must* be Dates */
-            if (!(from instanceof Date))
+            if (!(from instanceof Date)) {
                 throw new Error('`from` is not a Date');
-            if (!(to instanceof Date))
+            }
+
+            if (!(to instanceof Date)) {
                 throw new Error('`to` is not a Date');
+            }
 
             range = from.toHSZINC() + ',' + to.toHSZINC();
-        } else {
+        }
+        else {
             range = from;
         }
 
@@ -751,8 +776,10 @@ class WideSkyClient {
         /* Group the IDs into blocks */
         const reads = [];
         let offset = 0;
+
         while (offset < ids.length) {
             const block = ids.slice(offset, offset + batchSize);
+
             reads.push(block);
             offset += block.length;
         }
@@ -863,9 +890,11 @@ class WideSkyClient {
             /* Extract ms time */
             ts = ts.valueOf();
             let out_row;
+
             if (status.rowTs.hasOwnProperty(ts)) {
                 out_row = status.rowTs[ts];
-            } else {
+            }
+            else {
                 out_row = {ts: in_row.ts};
                 status.rowTs[ts] = out_row;
             }
@@ -897,7 +926,8 @@ class WideSkyClient {
 
         if (ids.length === 1) {
             config.params.id = (new data.Ref(ids[0])).toHSZINC();
-        } else {
+        }
+        else {
             ids.forEach((id, idx) => {
                 config.params['id' + idx] = (new data.Ref(id)).toHSZINC();
             });
@@ -929,7 +959,6 @@ class WideSkyClient {
      */
     hisWrite(records) {
         const cols = {}, outCols = [{name: 'ts'}];
-
         const rows = Object.keys(records).map(function (ts) {
             const rec = records[ts];
             const row = {ts: ts};
@@ -1069,12 +1098,18 @@ class WideSkyClient {
             'contentDisposition': contentDisposition,
             'tags': JSON.stringify(requestTags)
         };
+
         for (const [key, value] of Object.entries(form)) {
             if (key === 'data') {
                 // formdata needs to know the mimetype of the File or Buffer
-                // Otherwise it will be disregarded and not sent to API server
-                formData.append(key, value, {filename});
-            } else {
+                // the mimetype is derived automatically by looking at the given filename.
+                // MimeType is required or otherwise it will be disregarded and not sent to API server
+                formData.append(key, value, {
+                    filename,
+                    'contentType': mediaType
+                });
+            }
+            else {
                 formData.append(key, value);
             }
         }
