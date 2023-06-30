@@ -3,7 +3,7 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
 const VER_3 = '3.0';
 

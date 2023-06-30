@@ -3,14 +3,14 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
 /**
  * Marker data type, a singleton that indicates a tag exists.
  */
 class MarkerType {
-    HS_JSON_STR = "m:";
-    HS_ZINC_STR = "M";
+    HS_JSON_STR = 'm:';
+    HS_ZINC_STR = 'M';
 
     toHSJSON() {
         return this.HS_JSON_STR;

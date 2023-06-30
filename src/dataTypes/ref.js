@@ -3,7 +3,7 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
 /**
  * Project Haystack Ref data type.  A reference to another entity.

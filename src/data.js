@@ -3,14 +3,14 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
 const jsesc = require('jsesc');
-const MarkerType = require("./dataTypes/markerType");
-const NAType = require("./dataTypes/naType");
-const RemoveType = require("./dataTypes/removeType");
-const Ref = require("./dataTypes/ref");
-const HSNumber = require("./dataTypes/hsNumber");
+const MarkerType = require('./dataTypes/markerType');
+const NAType = require('./dataTypes/naType');
+const RemoveType = require('./dataTypes/removeType');
+const Ref = require('./dataTypes/ref');
+const HSNumber = require('./dataTypes/hsNumber');
 
 const VER_2 = '2.0';
 const VER_3 = '3.0';
@@ -24,9 +24,11 @@ const NA = new NAType();
 String.fromHS = function(str) {
     if (str.startsWith('s:') || str.startsWith('u:')) {
         return str.substring(2);    /* JSON */
-    } else if (str.startsWith('"') && str.endsWith('"')) {
+    }
+    else if (str.startsWith('"') && str.endsWith('"')) {
         return JSON.parse(str);     /* ZINC; close enough to normal JSON */
-    } else {
+    }
+    else {
         return str;
     }
 };
@@ -50,6 +52,7 @@ String.prototype.toHSZINC = function() {
  */
 Date.fromHS = function(str) {
     var space = str.indexOf(' ');
+
     if (space >= 0) {
         str = str.substring(0, space);
     }
