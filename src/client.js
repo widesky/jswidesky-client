@@ -3,26 +3,26 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
 const data = require('./data');
 const replace = require('./graphql/replace');
-const moment = require("moment-timezone");
-const fs = require("fs");
-const FormData = require("form-data");
-const socket = require("socket.io-client");
-
+const moment = require('moment-timezone');
+const fs = require('fs');
+const FormData = require('form-data');
+const socket = require('socket.io-client');
 let axios;
+
 // Browser/Node axios import
-if (typeof window === "undefined") {
+if (typeof window === 'undefined') {
     // node process
-    axios = require("axios");
+    axios = require('axios');
 }
 else {
     // browser process
     // special case for commonJS as found from this issue
     // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
-    axios = require("axios").default;
+    axios = require('axios').default;
 }
 
 /** Special columns, these will be placed in the given order */
@@ -37,12 +37,12 @@ const AUTH_METHOD = Object.freeze({
     /**
      * Authentication with locally-stored credentials using OAuth2 password grants.
      */
-    LOCAL: "local",
+    LOCAL: 'local',
     /**
      * Authentication with locally-stored credentials using Salted Challenge-Response Authentication
      * Mechanism.
      */
-    SCRAM: "scram"
+    SCRAM: 'scram'
 });
 
 
@@ -72,11 +72,11 @@ class WideSkyClient {
         this._log = log;
 
         if (this.#accessToken) {
-            if (!this.#accessToken.hasOwnProperty("refresh_token") ||
-                !this.#accessToken.hasOwnProperty("expires_in") ||
-                !this.#accessToken.hasOwnProperty("token_type") ||
-                !this.#accessToken.hasOwnProperty("access_token")) {
-                throw new Error("Parameter 'accessToken' is not a valid WideSky token.");
+            if (!this.#accessToken.hasOwnProperty('refresh_token') ||
+                !this.#accessToken.hasOwnProperty('expires_in') ||
+                !this.#accessToken.hasOwnProperty('token_type') ||
+                !this.#accessToken.hasOwnProperty('access_token')) {
+                throw new Error(`Parameter 'accessToken' is not a valid WideSky token.`);
             }
         }
 
@@ -164,16 +164,16 @@ class WideSkyClient {
 
         let res;
         switch (method.toUpperCase()) {
-            case "GET":
+            case 'GET':
                 res = await this.axios.get(uri, config);
                 break;
-            case "POST":
+            case 'POST':
                 res = await this.axios.post(uri, body, config);
                 break;
-            case "PATCH":
+            case 'PATCH':
                 res = await this.axios.patch(uri, body, config);
                 break;
-            case "PUT":
+            case 'PUT':
                 res = await this.axios.put(uri, body, config);
                 break;
             default:
@@ -241,12 +241,12 @@ class WideSkyClient {
         }
 
         return this._wsRawSubmit(
-            "POST",
-            "/oauth2/token",
+            'POST',
+            '/oauth2/token',
             {
                 username: this.#username,
                 password: this.#password,
-                grant_type: "password"
+                grant_type: 'password'
             },
             {
                 auth: {
@@ -266,8 +266,8 @@ class WideSkyClient {
         if (this._log) this._log.trace('Performing token refresh attempt');
 
         return this._wsRawSubmit(
-            "POST",
-            "/oauth2/token",
+            'POST',
+            '/oauth2/token',
             {
                 refresh_token: this._ws_token.refresh_token,
                 grant_type: 'refresh_token'
@@ -393,11 +393,11 @@ class WideSkyClient {
      * @returns {Promise<*>}
      */
     _opByIds(ids, uri) {
-        if (typeof ids === "string" || (Array.isArray(ids) && ids.length === 1)) {
+        if (typeof ids === 'string' || (Array.isArray(ids) && ids.length === 1)) {
             const id = Array.isArray(ids) ? ids[0] : ids;
 
             return this.submitRequest(
-                "GET",
+                'GET',
                 uri,
                 {},
                 {
@@ -411,7 +411,7 @@ class WideSkyClient {
             if (ids.length > 1) {
                 // verify input is all strings
                 for (const id of ids) {
-                    if (!(typeof id === "string")) {
+                    if (!(typeof id === 'string')) {
                         if (id instanceof Object) {
                             // check if its compatible with class Ref
                             try {
@@ -419,7 +419,7 @@ class WideSkyClient {
                             }
                             catch (error) {
                                 throw new Error(
-                                    "Parameter 'ids' contains an element that is of type object but not compatible " +
+                                    `Parameter 'ids' contains an element that is of type object but not compatible ` +
                                     `with class Ref due to: ${error.message}`
                                 );
                             }
@@ -432,7 +432,7 @@ class WideSkyClient {
                 }
 
                 return this.submitRequest(
-                    "POST",
+                    'POST',
                     uri,
                     {
                         meta: {
@@ -446,7 +446,7 @@ class WideSkyClient {
                         })
                     });
             } else {
-                throw new Error("An empty array of id's was given.");
+                throw new Error(`An empty array of id's was given.`);
             }
         } else {
             throw new Error(`Parameter 'ids' is neither a single id or an array of id's.`);
@@ -462,10 +462,10 @@ class WideSkyClient {
      */
     _byFilter(op, filter, limit) {
         if (limit < 0) {
-            throw new Error("Invalid negative limit given.");
+            throw new Error('Invalid negative limit given.');
         }
 
-        if (typeof filter !== "string") {
+        if (typeof filter !== 'string') {
             throw new Error(`Invalid filter type ${typeof filter} given. Expected string.`);
         }
 
@@ -491,7 +491,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     read(ids) {
-        return this._opByIds(ids, "/api/read");
+        return this._opByIds(ids, '/api/read');
     };
 
     /**
@@ -505,11 +505,11 @@ class WideSkyClient {
     query(graphql) {
         graphql = replace.outerBraces(graphql);
 
-        let body = { "query": graphql }
+        let body = { 'query': graphql }
 
         return this.submitRequest(
-            "POST",
-            "/graphql",
+            'POST',
+            '/graphql',
             body
         );
     }
@@ -523,7 +523,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     find(filter, limit=0) {
-        return this._byFilter("read", filter, limit);
+        return this._byFilter('read', filter, limit);
     };
 
     /**
@@ -532,8 +532,8 @@ class WideSkyClient {
      */
     reloadCache() {
         return this.submitRequest(
-            "GET",
-            "/api/reloadAuthCache"
+            'GET',
+            '/api/reloadAuthCache'
         );
     };
 
@@ -587,7 +587,7 @@ class WideSkyClient {
         cols = [...cols, ...(Object.keys(present).sort())];
 
         return this.submitRequest(
-            "POST",
+            'POST',
             `/api/${op}`,
             {
                 meta: {ver: ver},
@@ -664,7 +664,7 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "PUT", "/api/admin/user",
+            'PUT', '/api/admin/user',
             {email, name, description, roles, password, method}
         );
     }
@@ -686,8 +686,8 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "POST",
-            "/user/updatePassword",
+            'POST',
+            '/user/updatePassword',
             {
                 newPassword
             }
@@ -702,7 +702,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     deleteById(ids) {
-        return this._opByIds(ids, "/api/deleteRec");
+        return this._opByIds(ids, '/api/deleteRec');
     };
 
 
@@ -715,7 +715,7 @@ class WideSkyClient {
      * @returns Promise that resolves to the raw grid.
      */
     deleteByFilter(filter, limit=0) {
-        return this._byFilter("deleteRec", filter, limit);
+        return this._byFilter('deleteRec', filter, limit);
     };
 
     /**
@@ -792,7 +792,7 @@ class WideSkyClient {
                 hisEnd: null
             },
             cols: [
-                {name: "ts"}
+                {name: 'ts'}
             ],
             rows: []
         };
@@ -808,7 +808,7 @@ class WideSkyClient {
         for (let i = 0; i < ids.length; i++) {
             status.colId[ids[i]] = i;
             result.cols.push({
-                name: "v" + i,
+                name: 'v' + i,
                 id: ids[i]
             });
         }
@@ -934,8 +934,8 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "GET",
-            "/api/hisRead",
+            'GET',
+            '/api/hisRead',
             {},
             config
         );
@@ -992,8 +992,8 @@ class WideSkyClient {
         });
 
         return this.submitRequest(
-            "POST",
-            "/api/hisWrite",
+            'POST',
+            '/api/hisWrite',
             {
                 meta: {ver: '2.0'},
                 cols: outCols,
@@ -1047,7 +1047,7 @@ class WideSkyClient {
         }
 
         if (typeof force !== 'boolean') {
-            throw new Error("Force must be of type boolean.");
+            throw new Error('Force must be of type boolean.');
         }
 
         if (typeof inlineRetrieval !== 'boolean') {
@@ -1115,8 +1115,8 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "PUT",
-            "/api/file/storage",
+            'PUT',
+            '/api/file/storage',
             formData,
             {
                 headers: {
@@ -1158,7 +1158,7 @@ class WideSkyClient {
      */
     fileRetrieve(pointIds, from, to, presigned=true, presignExpiry=1800) {
         if (!(Array.isArray(pointIds))) {
-            if (typeof pointIds !== "string") {
+            if (typeof pointIds !== 'string') {
                 throw new Error(`Point id ${pointIds} must be a string.`);
             } else {
                 pointIds = [pointIds];
@@ -1202,8 +1202,8 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "GET",
-            "/api/file/storage",
+            'GET',
+            '/api/file/storage',
             {},
             {
                 params: {
@@ -1235,16 +1235,16 @@ class WideSkyClient {
         });
 
         return this.submitRequest(
-            "POST",
-            "/api/watchSub",
+            'POST',
+            '/api/watchSub',
             {
                 meta: {
-                    ver: "2.0",
+                    ver: '2.0',
                     watchDis: `s:${description}`,
                     lease: lease
                 },
                 cols: [
-                    {name: "id"}
+                    {name: 'id'}
                 ],
                 rows: rows
             },
@@ -1271,15 +1271,15 @@ class WideSkyClient {
         });
 
         return this.submitRequest(
-            "POST",
-            "/api/watchSub",
+            'POST',
+            '/api/watchSub',
             {
                 meta: {
-                    ver: "2.0",
+                    ver: '2.0',
                     watchId: `s:${watchId}`,
                     lease: lease
                 },
-                cols: [{name: "id"}],
+                cols: [{name: 'id'}],
                 rows: rows
             },
             config
@@ -1326,8 +1326,8 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "POST",
-            "/api/watchUnsub",
+            'POST',
+            '/api/watchUnsub',
             payload,
             config
         );
@@ -1346,7 +1346,7 @@ class WideSkyClient {
 
         return socket.connect(url, {
             query: { Authorization: accessToken },
-            "force new connection": true,
+            'force new connection': true,
             autoConnect: false
         });
     }
@@ -1364,42 +1364,42 @@ class WideSkyClient {
         }
 
         if (!(ids.length > 0)) {
-            throw new Error("`ids` must contain at least one point UUID.");
+            throw new Error('`ids` must contain at least one point UUID.');
         }
 
         // Validate the range
-        const range_err = "An invalid hisRead range input was given: ";
-        if (!range.startsWith("s:")) {
-            throw new Error(range_err + "Missing `s:`.");
+        const range_err = 'An invalid hisRead range input was given: ';
+        if (!range.startsWith('s:')) {
+            throw new Error(range_err + 'Missing `s:`.');
         }
 
-        const range_val = range.replace("s:", "");
-        if (range_val === "") {
-            throw new Error(range_err + "No range was given.");
+        const range_val = range.replace('s:', '');
+        if (range_val === '') {
+            throw new Error(range_err + 'No range was given.');
         }
 
-        if (!(range_val === "last" ||
-              range_val === "first" ||
-              range_val === "today" ||
-              range_val === "yesterday")) {
+        if (!(range_val === 'last' ||
+              range_val === 'first' ||
+              range_val === 'today' ||
+              range_val === 'yesterday')) {
 
-            if (range_val.includes(",")) {
-                const ranges = range_val.split(",");
+            if (range_val.includes(',')) {
+                const ranges = range_val.split(',');
 
                 // Should not be more or less than 2 date(time) values in a range.
                 if (ranges.length != 2) {
-                    throw new Error(range_err + "Number of timestamps cannot exceed 2.");
+                    throw new Error(range_err + 'Number of timestamps cannot exceed 2.');
                 }
 
                 for (const ts in ranges) {
                     if (!moment(ranges[ts].trim(), moment.ISO_8601).isValid()) {
-                        throw new Error(range_err + "Invalid ISO8601 timestamp.");
+                        throw new Error(range_err + 'Invalid ISO8601 timestamp.');
                     }
                 }
 
             } else {
                 if (!moment(range_val, moment.ISO_8601).isValid()) {
-                    throw new Error(range_err + "Invalid ISO8601 timestamp.");
+                    throw new Error(range_err + 'Invalid ISO8601 timestamp.');
                 }
             }
         }
@@ -1412,11 +1412,11 @@ class WideSkyClient {
         // Build request body
         const payload = {
             meta: {
-                ver: "2.0",
+                ver: '2.0',
             },
             cols: [
                 {
-                    name: "range",
+                    name: 'range',
                 },
             ],
             rows: [
@@ -1428,15 +1428,15 @@ class WideSkyClient {
 
         if (ids.length === 1) {
             payload.rows[0].id = new data.Ref(ids[0]).toHSJSON();
-            payload.cols.push({name: "id"});
+            payload.cols.push({name: 'id'});
         } else {
             ids.forEach((id, idx) => {
-                payload.rows[0]["id" + idx] = new data.Ref(id).toHSJSON();
-                payload.cols.push({name: "id" + idx});
+                payload.rows[0]['id' + idx] = new data.Ref(id).toHSJSON();
+                payload.cols.push({name: 'id' + idx});
             });
         }
 
-        return this.submitRequest("POST", "/api/hisDelete", payload, {});
+        return this.submitRequest('POST', '/api/hisDelete', payload, {});
     }
 }
 
