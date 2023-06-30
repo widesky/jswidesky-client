@@ -3,7 +3,7 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
 /**
  * Project Haystack ZINC number regular expression.  Not perfect, but it'll do

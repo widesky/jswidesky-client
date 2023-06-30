@@ -3,11 +3,11 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
-const _ = require("lodash");
+const _ = require('lodash');
 
-const TIMESERIES_NODE_NAME = "timeSeries";
+const TIMESERIES_NODE_NAME = 'timeSeries';
 
 const walkArray = function(walkAll, targetNode, curNode, curPath, found) {
     curNode.forEach((node, index) => {
@@ -80,7 +80,7 @@ class Find {
     static node(nodeName, graphqlResp, walkAll) {
         const found = {
             target: null,
-            path: ""
+            path: ''
         };
 
         if (_.isString(graphqlResp)) {
@@ -94,7 +94,7 @@ class Find {
         }
 
         if (nodeName) {
-            walkGraph(walkAll, nodeName, graphqlResp, "", found);
+            walkGraph(walkAll, nodeName, graphqlResp, '', found);
         }
 
         return found;
@@ -112,7 +112,7 @@ class Find {
     static timeseriesNode(aliasName, graphqlResp) {
         const found = {
             target: null,
-            path: ""
+            path: ''
         };
 
         if (_.isString(graphqlResp)) {
@@ -128,13 +128,13 @@ class Find {
         if (aliasName) {
             const aliasNode = {
                 target: null,
-                path: ""
+                path: ''
             };
-            walkGraph(false, aliasName, graphqlResp, "", aliasNode);
+            walkGraph(false, aliasName, graphqlResp, '', aliasNode);
 
             if (aliasNode.target) {
                 walkGraph(true,
-                    TIMESERIES_NODE_NAME, aliasNode.target, "", found);
+                    TIMESERIES_NODE_NAME, aliasNode.target, '', found);
 
                 if (found.target) {
                     // Combine the 2 found paths together.
