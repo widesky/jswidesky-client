@@ -3,9 +3,9 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
-const _ = require("lodash");
+const _ = require('lodash');
 const FIND_HISTORY_INPUT = /history(.*){/g;
 const FIND_FILTER_INPUT = /filter:\s?"(.*)"/g;
 
@@ -57,14 +57,14 @@ class Replace {
                 if (from) {
                     histInput = _.replace(
                         histInput,
-                        "$from",
+                        '$from',
                         from);
                 }
 
                 if (to) {
                     histInput = _.replace(
                         histInput,
-                        "$to",
+                        '$to',
                         to);
                 }
 

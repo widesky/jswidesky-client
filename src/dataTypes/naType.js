@@ -3,7 +3,7 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
 /**
  * NA data type, a singleton that indicates a tag's value is not available.

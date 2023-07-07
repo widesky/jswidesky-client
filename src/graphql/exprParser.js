@@ -3,11 +3,11 @@
  * © 2022 WideSky.Cloud Pty Ltd
  * SPDX-License-Identifier: MIT
  */
-"use strict";
+'use strict';
 
-const _ = require("lodash");
-const moment = require("moment-timezone");
-const WHITESPACE = " ";
+const _ = require('lodash');
+const moment = require('moment-timezone');
+const WHITESPACE = ' ';
 
 class ExprParser{
     // Parse a pair of from and to datetime
@@ -263,20 +263,20 @@ Expecting '+','-' or '/' sign after now.`);
     static toMomentUnit(exprUnit) {
         let mUnit;
 
-        if (exprUnit === "m") {
-            mUnit = "minutes";
+        if (exprUnit === 'm') {
+            mUnit = 'minutes';
         }
-        else if (exprUnit === "s") {
-            mUnit = "seconds"
+        else if (exprUnit === 's') {
+            mUnit = 'seconds'
         }
-        else if (exprUnit === "d") {
-            mUnit = "days"
+        else if (exprUnit === 'd') {
+            mUnit = 'days'
         }
-        else if (exprUnit === "h") {
-            mUnit = "hours"
+        else if (exprUnit === 'h') {
+            mUnit = 'hours'
         }
-        else if (exprUnit === "M") {
-            mUnit = "months"
+        else if (exprUnit === 'M') {
+            mUnit = 'months'
         }
 
         return mUnit;
@@ -313,7 +313,7 @@ Expecting '+','-' or '/' sign after now.`);
 
     // returns a string of numbers
     static consumeNumbers(charArr, pos) {
-        let numberStr = "";
+        let numberStr = '';
         let consumed = 0;
 
         for (let index = pos.current;
