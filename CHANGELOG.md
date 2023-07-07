@@ -4,7 +4,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
-## [2.0.4]
+## [2.0.5] - 2023-07-07
+### FIXED
+- Fixed file upload not working when given as a `Buffer`.
+
+## [2.0.4] - 2023-05-29
 ### ADDED
 - Added support for WideSky `hisDelete` endpoint, `/api/hisDelete`. This function is for deleting
   historical timeseries data within a given range for the given points.
