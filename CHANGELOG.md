@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+## [2.0.6] - 2023-10-03
+### FIXED
+- Fixed `hisDelete` date validation on timezone offsets.
 
 ## [2.0.5] - 2023-07-07
 ### FIXED
@@ -96,7 +99,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.0.4
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.0.6
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -109,3 +112,5 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.0.2]: https://github.com/widesky/jswidesky-client/compare/2.0.2...2.0.1
 [2.0.3]: https://github.com/widesky/jswidesky-client/compare/2.0.3...2.0.2
 [2.0.4]: https://github.com/widesky/jswidesky-client/compare/2.0.4...2.0.3
+[2.0.5]: https://github.com/widesky/jswidesky-client/compare/2.0.5...2.0.4
+[2.0.6]: https://github.com/widesky/jswidesky-client/compare/2.0.6...2.0.5

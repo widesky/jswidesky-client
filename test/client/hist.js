@@ -1852,7 +1852,6 @@ describe('client', () => {
             }
         });
 
-
         it("should generate the correct grid for a single point", async () => {
             const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
             let http = new stubs.StubHTTPClient(),
@@ -1881,6 +1880,50 @@ describe('client', () => {
                     rows: [
                         {
                             range: TEST_RANGE,
+                            id: `r:${TEST_POINT}`,
+                        },
+                    ],
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json",
+                    },
+                    decompress: true,
+                }
+            );
+        });
+
+        it("should generate the correct grid for a single point with a timezone offset", async () => {
+            const TEST_POINT = "b3b6be5a-cd9d-46ab-9fc5-837c1c583f79";
+            const TEST_RANGE_OFFSET = "s:2023-05-13T05:14:30+10:00 Brisbane, 2023-05-14T05:14:30+10:00 Brisbane";
+
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            await ws.hisDelete(TEST_POINT, TEST_RANGE_OFFSET);
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "POST",
+                "/api/hisDelete",
+                {
+                    meta: {
+                        ver: "2.0",
+                    },
+                    cols: [
+                        {
+                            name: "range",
+                        },
+                        {
+                            name: "id",
+                        },
+                    ],
+                    rows: [
+                        {
+                            range: TEST_RANGE_OFFSET,
                             id: `r:${TEST_POINT}`,
                         },
                     ],

@@ -1392,6 +1392,9 @@ class WideSkyClient {
                 }
 
                 for (const ts in ranges) {
+                    if (ranges[ts].includes(' ')) {
+                        ranges[ts] = ranges[ts].trimStart().split(' ')[0];
+                    }
                     if (!moment(ranges[ts].trim(), moment.ISO_8601).isValid()) {
                         throw new Error(range_err + 'Invalid ISO8601 timestamp.');
                     }
