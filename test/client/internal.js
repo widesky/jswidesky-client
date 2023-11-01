@@ -517,6 +517,73 @@ describe('client', () => {
                 expect(ws._attachReqConfig.callCount).to.equal(2);
                 expect(ws._ws_token).to.equal(WS_ACCESS_TOKEN2);
             });
+
+            describe("error handling", () => {
+                let http, ws;
+                before(() => {
+                    http = new stubs.StubHTTPClient();
+                    ws = getInstance(http);
+                    ws._attachReqConfig = sinon.stub().callsFake((config) => {
+                        if (ws._ws_token !== null) {
+                            ws._ws_token = WS_ACCESS_TOKEN;
+                            return ws._ws_token;
+
+                        } else {
+                            ws._ws_token = WS_ACCESS_TOKEN2;
+                            return ws._ws_token;
+                        }
+                    });
+                    ws._ws_token = "not null";
+                });
+
+
+
+                it("should throw syntax error if encountered", async () => {
+                    ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                        const a = [][0][1];
+                    });
+
+                    try {
+                        await ws.submitRequest("GET", "URI", null, null);
+                        throw new Error("Did not work");
+                    } catch (error) {
+                        expect(error.message).to.equal("Cannot read property '1' of undefined");
+                    }
+                });
+
+                it("should throw Axios error if no response received", async () => {
+                    ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                        const error = new Error("Pretend Axios Error");
+                        error.isAxiosError = true;
+                        throw error;
+                    });
+
+                    try {
+                        await ws.submitRequest("GET", "URI", null, null);
+                        throw new Error("Did not work");
+                    } catch (error) {
+                        expect(error.message).to.equal("Pretend Axios Error");
+                    }
+                });
+
+                it("should throw response as error if response received", async () => {
+                    ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                        const error = new Error("Pretend Axios Error");
+                        error.isAxiosError = true;
+                        error.response = {
+                            data: "A WideSky API server error"
+                        };
+                        throw error;
+                    });
+
+                    try {
+                        await ws.submitRequest("GET", "URI", null, null);
+                        throw new Error("Did not work");
+                    } catch (error) {
+                        expect(error.message).to.equal("A WideSky API server error");
+                    }
+                });
+            });
         });
 
         describe('login', () => {
