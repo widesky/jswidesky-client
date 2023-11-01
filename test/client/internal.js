@@ -536,18 +536,22 @@ describe('client', () => {
                     ws._ws_token = "not null";
                 });
 
-
-
                 it("should throw syntax error if encountered", async () => {
+                    let caughtErr;
                     ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
-                        const a = [][0][1];
+                        try {
+                            const a = [][0][1];
+                        } catch (error) {
+                            caughtErr = error;
+                            throw error;
+                        }
                     });
 
                     try {
                         await ws.submitRequest("GET", "URI", null, null);
                         throw new Error("Did not work");
                     } catch (error) {
-                        expect(error.message).to.equal("Cannot read property '1' of undefined");
+                        expect(error.message).to.equal(caughtErr.message);
                     }
                 });
 
@@ -567,13 +571,18 @@ describe('client', () => {
                 });
 
                 it("should throw response as error if response received", async () => {
+                    let err;
                     ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
-                        const error = new Error("Pretend Axios Error");
-                        error.isAxiosError = true;
-                        error.response = {
-                            data: "A WideSky API server error"
+                        err = new Error("Pretend Axios Error");
+                        err.isAxiosError = true;
+                        err.response = {
+                            data: {
+                                meta: {
+                                    dis: "s:A WideSky API server error"
+                                }
+                            }
                         };
-                        throw error;
+                        throw err;
                     });
 
                     try {
@@ -581,6 +590,12 @@ describe('client', () => {
                         throw new Error("Did not work");
                     } catch (error) {
                         expect(error.message).to.equal("A WideSky API server error");
+                        expect(error.stack).to.equal(
+                            "Error: A WideSky API server error\n" +
+                            "    at WideSkyClient.submitRequest (/home/daniel/Documents/WideSky/repos/jswidesky-client/src/client.js:232:41)\n" +
+                            "    at async Context.<anonymous> (/home/daniel/Documents/WideSky/repos/jswidesky-client/test/client/internal.js:589:25)" +
+                            err.stack.substring(err.stack.indexOf("\n", 3))
+                        )
                     }
                 });
             });
