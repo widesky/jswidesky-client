@@ -11,6 +11,7 @@ const moment = require('moment-timezone');
 const fs = require('fs');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
+const {RequestError} = require("./errors");
 let axios;
 
 // Browser/Node axios import
@@ -229,10 +230,8 @@ class WideSkyClient {
                         return this._wsRawSubmit(method, uri, body, config);
                     }
                     else {
-                        const wsError = new Error(err.response.data.meta.dis.substring(2));
-                        // extend stack trace to not lose the existing trace
-                        wsError.stack += err.stack.substring(err.stack.indexOf("\n"));
-                        throw wsError;
+                        // throw err;
+                        throw RequestError.make(err);
                     }
                 }
                 else {
