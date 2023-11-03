@@ -97,6 +97,7 @@ class WideSkyClient {
 
         this.initAccessToken();
         this.initAxios();
+        this.initClientOptions();
     }
 
     /**
@@ -168,6 +169,127 @@ class WideSkyClient {
         this.axios = axios.create(Object.assign({
             baseURL: this.baseUri
         }, this.options.axios || {}));
+    }
+
+    initClientOptions() {
+        /*
+        Client options to have structure
+        {
+            impersonateAs: String
+            acceptGzip: Boolean,
+            progress: {
+                enabled: Boolean,
+                instance: Object,
+                increment: function,
+                create: function
+            },
+            batch: {
+                // list of batch functions and defaults for each
+                // Existing functions adapted for batch functionality
+                hisRead: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                },
+                hisWrite: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    returnResult: Boolean
+                },
+                hisDelete: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    returnResult: Boolean
+                },
+                create: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    returnResult: Boolean
+                },
+                update: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    returnResult: Boolean
+                },
+                deleteById: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    returnResult: Boolean
+                },
+                deleteByFilter: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    limit: Number,
+                    returnResult: Boolean
+                },
+                // New functions using batch functionality
+                hisReadByFilter: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    limit: Number
+                },
+                addChildrenByFilter: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    limit: Number,
+                    returnResult: Boolean
+                },
+                updateByFilter: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    limit: Number,
+                    returnResult: Boolean
+                },
+                migrateHistory: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    returnResult: Boolean
+                },
+                hisDeleteByFilter: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number,
+                    returnResult: Boolean,
+                    limit: Number
+                },
+                updateOrCreate: {
+                    batchSize: Number,
+                    batchDelay: Number,
+                    parallel: Number,
+                    parallelDelay: Number
+                }
+            },
+            performOpInBatch: {
+                batchSize: Number,
+                batchDelay: Number,
+                parallel: Number,
+                parallelDelay: Number,
+                returnResult: Boolean
+            }
+        }
+         */
     }
 
     /**
