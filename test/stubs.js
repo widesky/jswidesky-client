@@ -134,19 +134,19 @@ const authHandler = function(opts) {
 
 /* Exported symbols */
 module.exports = Object.freeze({
-    StubLogger: StubLogger,
-    StubHTTPClient: StubHTTPClient,
-    StubHTTPStatusCodeError: StubHTTPStatusCodeError,
-    getInstance: getInstance,
-    authHandler: authHandler,
+    StubLogger,
+    StubHTTPClient,
+    StubHTTPStatusCodeError,
+    getInstance,
+    authHandler,
     /* Constants */
-    WS_URI: WS_URI,
-    WS_USER: WS_USER,
-    WS_PASSWORD: WS_PASSWORD,
-    WS_CLIENT_ID: WS_CLIENT_ID,
-    WS_CLIENT_SECRET: WS_CLIENT_SECRET,
-    WS_ACCESS_TOKEN: WS_ACCESS_TOKEN,
-    WS_REFRESH_TOKEN: WS_REFRESH_TOKEN,
-    WS_ACCESS_TOKEN2: WS_ACCESS_TOKEN2,
-    WS_REFRESH_TOKEN2: WS_REFRESH_TOKEN2
+    WS_URI,
+    WS_USER,
+    WS_PASSWORD,
+    WS_CLIENT_ID,
+    WS_CLIENT_SECRET,
+    WS_ACCESS_TOKEN,
+    WS_REFRESH_TOKEN,
+    WS_ACCESS_TOKEN2,
+    WS_REFRESH_TOKEN2
 });
