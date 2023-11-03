@@ -13,9 +13,10 @@ class RequestError extends Error {
     static make(reqError) {
         if (lodash.has(reqError, "response.data")) {
             const { data } = reqError.response;
-            if (data.meta) {
-                return new HaystackError(reqError.response.data.meta.dis.substring(2), reqError);
-            } else {
+            if (lodash.has(data, "meta.dis")) {
+                return new HaystackError(data.meta.dis.substring(2), reqError);
+            }
+            else if (data.errors !== undefined && Array.isArray(data.errors) && data.errors.length > 0) {
                 let errMsg = "More than 1 error encountered";
                 if (data.errors.length === 1) {
                     errMsg = data.errors[0].message;
@@ -23,7 +24,12 @@ class RequestError extends Error {
 
                 return new GraphQLError(errMsg.replace(/\n/g, ""), reqError);
             }
-        } else {
+            else {
+                // Neither a valid Haystack of GraphQL error
+                return reqError;
+            }
+        }
+        else {
             return reqError;
         }
     }
