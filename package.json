@@ -5,7 +5,7 @@
   "main": "index.js",
   "private": false,
   "scripts": {
-    "test": "JUNIT_REPORT_PATH=report.xml npx mocha --colors --reporter mocha-jenkins-reporter test/*/**.js",
+    "test": "JUNIT_REPORT_PATH=report.xml npx mocha --colors --reporter mocha-jenkins-reporter $(find test -name \"*.js\")",
     "coverage": "npx nyc --reporter=html --reporter=text mocha test/*/**.js",
     "build:bundlejs:prd": "webpack --config webpack.config.js --mode production",
     "build:bundlejs:dev": "webpack --config webpack.config.js --mode development",
