@@ -320,7 +320,15 @@ class WideSkyClient {
     };
 
     impersonateAs(userId) {
-        this._impersonate = userId;
+        if (!this.initialised) {
+            const oldPromise = this.initWaitFor;
+            this.initWaitFor = new Promise(async (resolve) => {
+                await oldPromise;
+                this._impersonate = userId;
+            });
+        } else {
+            this._impersonate = userId;
+        }
     };
 
     isImpersonating() {

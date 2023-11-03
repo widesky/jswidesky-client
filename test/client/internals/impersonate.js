@@ -33,11 +33,10 @@ describe('client', () => {
             let ws;
             let targetUser = 'a_user_id';
 
-            beforeEach(() => {
+            beforeEach(async () => {
                 http = new stubs.StubHTTPClient();
                 log = new stubs.StubLogger();
                 ws = getInstance(http, log);
-
                 ws.impersonateAs(targetUser);
                 ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                     if (uri === "/oauth2/token") {
@@ -128,8 +127,6 @@ describe('client', () => {
                     });
                 });
             });
-
-
         });
     });
 });
