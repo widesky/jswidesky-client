@@ -5,7 +5,7 @@
  */
 "use strict";
 
-const stubs = require('../stubs'),
+const stubs = require('../../stubs'),
     sinon = require('sinon'),
     expect = require('chai').expect,
     WS_USER = stubs.WS_USER,
@@ -22,8 +22,8 @@ const {
     verifyTokenCall,
     verifyRequestCall,
     sleep
-} = require("./utils");
-const { HaystackError, GraphQLError } = require("../../src/errors");
+} = require("./../utils");
+const { HaystackError, GraphQLError } = require("../../../src/errors");
 
 describe('client', () => {
     describe('internals', () => {
@@ -96,7 +96,7 @@ describe('client', () => {
                 ];
 
                 for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
-                    const { method, uri, body, config } = expectedArgs[i];
+                    const {method, uri, body, config} = expectedArgs[i];
                     verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
                 }
             });
@@ -177,7 +177,7 @@ describe('client', () => {
                 ];
 
                 for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
-                    const { method, uri, body, config } = expectedArgs[i];
+                    const {method, uri, body, config} = expectedArgs[i];
                     verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
                 }
             });
@@ -275,7 +275,7 @@ describe('client', () => {
                 ];
 
                 for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
-                    const { method, uri, body, config } = expectedArgs[i];
+                    const {method, uri, body, config} = expectedArgs[i];
                     verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
                 }
             });
@@ -345,7 +345,7 @@ describe('client', () => {
                     ];
 
                     for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
-                        const { method, uri, body, config } = expectedArgs[i];
+                        const {method, uri, body, config} = expectedArgs[i];
                         verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
                     }
                 });
@@ -439,7 +439,7 @@ describe('client', () => {
                 ];
 
                 for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
-                    const { method, uri, body, config } = expectedArgs[i];
+                    const {method, uri, body, config} = expectedArgs[i];
                     verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
                 }
             });
@@ -634,213 +634,6 @@ describe('client', () => {
                             "required but not provided."
                         );
                     }
-                });
-            });
-        });
-
-        describe('login', () => {
-            it('should obtain a token then return', () => {
-                let http = new stubs.StubHTTPClient(),
-                    ws = getInstance(http);
-
-                // overwrite spy function
-                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
-                    if (uri === "/oauth2/token") {
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 2000
-                        });
-                    } else {
-                        return Promise.resolve("default response");
-                    }
-                });
-
-                return ws.login().then((res) => {
-                    expect(res.access_token).to.equal(stubs.WS_ACCESS_TOKEN);
-                    expect(res.refresh_token).to.equal(stubs.WS_REFRESH_TOKEN);
-                    expect(res.expires_in).to.above(0);
-                });
-            });
-        });
-
-        describe('acceptEncoding', () => {
-            let http;
-            let log;
-            let ws;
-
-            beforeEach(() => {
-                http = new stubs.StubHTTPClient();
-                log = new stubs.StubLogger();
-                ws = getInstance(http, log);
-                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
-                    if (uri === "/oauth2/token") {
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 2000
-                        });
-                    } else {
-                        return Promise.resolve("default response");
-                    }
-                });
-            });
-
-            afterEach(() => {
-                ws._wsRawSubmit.reset();
-            })
-
-            describe('isAcceptingGzip=true', () => {
-                it('should set the Accept-Encoding header', async () => {
-                    const res = await ws.deleteByFilter('myTag=="my value"');
-                    expect(res).to.equal("default response");
-                    expect(ws._wsRawSubmit.callCount).to.equal(2);
-                    verifyRequestCall(
-                        ws._wsRawSubmit.secondCall.args,
-                        "GET",
-                        "/api/deleteRec",
-                        {},
-                        {
-                            headers: {
-                                "Accept": "application/json",
-                                "Authorization": "Bearer an access token"
-                            },
-                            params: {
-                                filter: 'myTag=="my value"',
-                                limit: 0
-                            },
-                            decompress: true
-                        }
-                    );
-                });
-            });
-
-            describe('isAcceptingGzip=false', () => {
-                it('should not set the Accept-Encoding header', async () => {
-                    ws.setAcceptGzip(false);
-
-                    const res = await ws.deleteByFilter('myTag=="my value"');
-                    expect(res).to.equal("default response");
-                    expect(ws._wsRawSubmit.callCount).to.equal(2);
-                    verifyRequestCall(
-                        ws._wsRawSubmit.secondCall.args,
-                        "GET",
-                        "/api/deleteRec",
-                        {},
-                        {
-                            headers: {
-                                "Accept": "application/json",
-                                "Authorization": "Bearer an access token"
-                            },
-                            params: {
-                                filter: 'myTag=="my value"',
-                                limit: 0
-                            }
-                        }
-                    );
-                });
-            });
-        });
-
-        describe('impersonate', () => {
-            let http;
-            let log;
-            let ws;
-            let targetUser = 'a_user_id';
-
-            beforeEach(() => {
-                http = new stubs.StubHTTPClient();
-                log = new stubs.StubLogger();
-                ws = getInstance(http, log);
-
-                ws.impersonateAs(targetUser);
-                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
-                    if (uri === "/oauth2/token") {
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 2000
-                        });
-                    } else {
-                        return Promise.resolve("default response");
-                    }
-                });
-            });
-
-            afterEach(() => {
-                ws._wsRawSubmit.reset();
-            })
-
-            describe('impersonateAs', () => {
-                it('should set the X-IMPERSONATE header', async () => {
-                    ws.impersonateAs(targetUser);
-
-                    const res = await ws.deleteByFilter('myTag=="my value"', 30);
-                    expect(res).to.equal("default response");
-                    expect(ws._wsRawSubmit.callCount).to.equal(2);
-                    verifyRequestCall(
-                        ws._wsRawSubmit.secondCall.args,
-                        "GET",
-                        "/api/deleteRec",
-                        {},
-                        {
-                            headers: {
-                                "Accept": "application/json",
-                                "Authorization": "Bearer an access token",
-                                "X-IMPERSONATE": targetUser
-                            },
-                            params: {
-                                filter: 'myTag=="my value"',
-                                limit: 30
-                            },
-                            decompress: true
-                        }
-                    );
-                });
-            });
-
-            describe('unsetImpersonate', () => {
-                it('should omit the X-IMPERSONATE attribute in header', async () => {
-                    ws.unsetImpersonate();
-
-                    const res = await ws.deleteByFilter('myTag=="my value"', 30);
-                    expect(res).to.equal("default response");
-                    expect(ws._wsRawSubmit.callCount).to.equal(2);
-                    verifyRequestCall(
-                        ws._wsRawSubmit.secondCall.args,
-                        "GET",
-                        "/api/deleteRec",
-                        {},
-                        {
-                            headers: {
-                                "Accept": "application/json",
-                                "Authorization": "Bearer an access token"
-                            },
-                            params: {
-                                filter: 'myTag=="my value"',
-                                limit: 30
-                            },
-                            decompress: true
-                        }
-                    );
-                });
-            });
-
-            describe('isImpersonating', () => {
-                describe('and impersonateAs() was called', () => {
-                    it('should return true', () => {
-                        expect(ws.isImpersonating()).to.equal(true);
-                    });
-                });
-
-                describe('and unsetImpersonate was called', () => {
-                    beforeEach(() => {
-                        ws.unsetImpersonate();
-                    });
-
-                    it('should return false', () => {
-                        expect(ws.isImpersonating()).to.equal(false);
-                    });
                 });
             });
         });
