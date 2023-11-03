@@ -15,6 +15,7 @@ const LIMIT_PROPERTY = {
         .nullable()
         .notRequired()
         .default(0)
+        .strict()
         .min(0)
 };
 
@@ -23,6 +24,7 @@ const getBatchProp = (defaultSize) => {
         batchSize: yup.number()
             .notRequired()
             .nullable()
+            .strict()
             .default(defaultSize)
     }
 };
@@ -30,6 +32,7 @@ const getBatchProp = (defaultSize) => {
 const getReturnResultProp = (defaultVal) => {
     return {
         returnResult: yup.boolean()
+            .strict()
             .default(defaultVal)
     }
 }
@@ -41,16 +44,20 @@ const PERFORM_OP_IN_BATCH_ObJ = {
     progress: yup.boolean()
         .nullable()
         .notRequired()
+        .strict()
         .default(false),
     batchDelay: yup.number()
         .notRequired()
         .nullable()
+        .strict()
         .default(0),
     parallel: yup.number()
+        .strict()
         .default(1),
     parallelDelay: yup.number()
         .notRequired()
         .nullable()
+        .strict()
         .default(0)
 };
 
@@ -127,10 +134,12 @@ const PROGRESS_SCHEMA = yup.object({
     enabled: yup.boolean()
         .nullable()
         .notRequired()
+        .strict()
         .default(false),
     instance: yup.object()
         .nullable()
         .notRequired()
+        .strict()
         .when("enabled", {
             is: true,
             then: (schema) => schema.default(
@@ -144,6 +153,7 @@ const PROGRESS_SCHEMA = yup.object({
     increment: yup.string()
         .nullable()
         .notRequired()
+        .strict()
         .when("enabled", {
             is: true,
             then: (schema) => schema.default("increment"),
@@ -152,6 +162,7 @@ const PROGRESS_SCHEMA = yup.object({
     create: yup.string()
         .nullable()
         .notRequired()
+        .strict()
         .when("enabled", {
             is: true,
             then: (schema) => schema.default("create"),
@@ -163,10 +174,12 @@ const CLIENT_SCHEMA = yup.object({
     impersonateAs: yup.string()
         .nullable()
         .notRequired()
+        .strict()
         .default(null),
     acceptGzip: yup.boolean()
         .nullable()
         .notRequired()
+        .strict()
         .default(true),
     progress: PROGRESS_SCHEMA,
     batch: yup.object({
