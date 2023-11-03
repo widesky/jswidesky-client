@@ -23,6 +23,7 @@ const {
     verifyRequestCall,
     sleep
 } = require("./utils");
+const { HaystackError, GraphQLError } = require("../../src/errors");
 
 describe('client', () => {
     describe('internals', () => {
@@ -503,7 +504,12 @@ describe('client', () => {
 
                 ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                     if (config === WS_ACCESS_TOKEN) {
-                        return Promise.reject({response: {status: 401}});
+                        return Promise.reject({
+                            isAxiosError: true,
+                            response: {
+                                status: 401
+                            }
+                        });
                     } else if (config === WS_ACCESS_TOKEN2) {
                         return Promise.resolve("success");
                     } else {
@@ -570,7 +576,7 @@ describe('client', () => {
                     }
                 });
 
-                it("should throw response as error if response received", async () => {
+                it("should throw response as Haystack error if suitable", async () => {
                     let err;
                     ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                         err = new Error("Pretend Axios Error");
@@ -589,13 +595,44 @@ describe('client', () => {
                         await ws.submitRequest("GET", "URI", null, null);
                         throw new Error("Did not work");
                     } catch (error) {
+                        expect(error).to.be.instanceof(HaystackError);
                         expect(error.message).to.equal("A WideSky API server error");
-                        expect(error.stack).to.equal(
-                            "Error: A WideSky API server error\n" +
-                            "    at WideSkyClient.submitRequest (/home/daniel/Documents/WideSky/repos/jswidesky-client/src/client.js:232:41)\n" +
-                            "    at async Context.<anonymous> (/home/daniel/Documents/WideSky/repos/jswidesky-client/test/client/internal.js:589:25)" +
-                            err.stack.substring(err.stack.indexOf("\n", 3))
-                        )
+                    }
+                });
+
+                it("should throw response as GraphQL error if suitable", async () => {
+                    let err;
+                    ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                        err = new Error("Pretend Axios Error");
+                        err.isAxiosError = true;
+                        err.response = {
+                            data: {
+                                errors: [
+                                    {
+                                        "message": "Field \"search\" argument \"whereTag\" of type \"String!\" is " +
+                                            "required but not provided.",
+                                        "locations": [
+                                            {
+                                                "line": 5,
+                                                "column": 5
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        };
+                        throw err;
+                    });
+
+                    try {
+                        await ws.submitRequest("GET", "URI", null, null);
+                        throw new Error("Did not work");
+                    } catch (error) {
+                        expect(error).to.be.instanceof(GraphQLError);
+                        expect(error.message).to.equal(
+                            "Field \"search\" argument \"whereTag\" of type \"String!\" is " +
+                            "required but not provided."
+                        );
                     }
                 });
             });

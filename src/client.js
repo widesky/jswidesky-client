@@ -11,7 +11,7 @@ const moment = require('moment-timezone');
 const fs = require('fs');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
-const {RequestError} = require("./errors");
+const { RequestError } = require("./errors");
 let axios;
 
 // Browser/Node axios import
@@ -226,11 +226,9 @@ class WideSkyClient {
                         // If error is 401, then get new token
                         this._ws_token = null;
                         config = await this._attachReqConfig(config);
-
                         return this._wsRawSubmit(method, uri, body, config);
                     }
                     else {
-                        // throw err;
                         throw RequestError.make(err);
                     }
                 }
