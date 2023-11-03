@@ -58,6 +58,13 @@ class WideSkyClient {
     #clientSecret
     #accessToken
     #logger
+    /**
+     * If this is true (default) then all http requests made by the client
+     * will have the 'Accept-Encoding' header with value of 'gzip, deflate'
+     * append to it.
+     */
+    _acceptGzipEncoding
+    _impersonate        // The user id which the original user is impersonating as.
 
     /**
      * Constructor for WideSky Client
@@ -88,15 +95,9 @@ class WideSkyClient {
         this.#logger = logger;
         this.options = options;
         this.clientOptions = null;
-        this._impersonate = null;       // The user id which the original user is impersonating as.
+        this._impersonate = null;
+        this._acceptGzipEncoding  = true;
         this.initialised = false;
-
-        /**
-         * If this is true (default) then all http requests made by the client
-         * will have the 'Accept-Encoding' header with value of 'gzip, deflate'
-         * append to it.
-         */
-        this._acceptGzipEncoding = true;
 
         this.initAccessToken();
         this.initAxios();

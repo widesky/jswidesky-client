@@ -167,7 +167,7 @@ const CLIENT_SCHEMA = yup.object({
     acceptGzip: yup.boolean()
         .nullable()
         .notRequired()
-        .default(false),
+        .default(true),
     progress: PROGRESS_SCHEMA,
     batch: yup.object({
         hisRead: BATCH_HIS_READ_SCHEMA,
