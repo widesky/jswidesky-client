@@ -4,7 +4,7 @@
  * @returns {String|string} Value without Haystack prefix.
  */
 function removePrefix(value) {
-    if (typeof value !== 'string' || !(value instanceof String)) {
+    if (typeof value !== 'string' && !(value instanceof String)) {
         throw new Error("Value is not of type String");
     }
 

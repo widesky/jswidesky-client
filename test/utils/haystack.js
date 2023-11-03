@@ -40,6 +40,51 @@ describe("Haystack tools", () => {
         it("should not remove prefix if not found", () => {
             expect(removePrefix(TEST_ENTITY_2.jaffa)).to.equal("affaj");
         });
+
+        it("should reject if value is of type number", () => {
+            try {
+                removePrefix(12);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect("Value is not of type String");
+            }
+        });
+
+        it("should reject if value is of type object", () => {
+            try {
+                removePrefix({});
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect("Value is not of type String");
+            }
+        });
+
+        it("should reject if value is of type boolean", () => {
+            try {
+                removePrefix(true);
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect("Value is not of type String");
+            }
+        });
+
+        it("should accept if value is of type string", () => {
+            try {
+                removePrefix("12");
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect("Value is not of type String");
+            }
+        });
+
+        it("should accept if value is of type String", () => {
+            try {
+                removePrefix(new String("12"));
+                throw new Error("Should not have worked");
+            } catch (error) {
+                expect("Value is not of type String");
+            }
+        });
     });
 
     describe("getId", () => {
