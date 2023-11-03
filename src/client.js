@@ -13,6 +13,7 @@ const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./errors");
 const bunyan = require("bunyan");
+const {CLIENT_SCHEMA} = require("./utils/evaluator");
 let axios;
 
 // Browser/Node axios import
@@ -86,7 +87,9 @@ class WideSkyClient {
         this.#accessToken = accessToken;
         this.#logger = logger;
         this.options = options;
+        this.clientOptions = null;
         this._impersonate = null;       // The user id which the original user is impersonating as.
+        this.initialised = false;
 
         /**
          * If this is true (default) then all http requests made by the client
@@ -97,7 +100,8 @@ class WideSkyClient {
 
         this.initAccessToken();
         this.initAxios();
-        this.initClientOptions();
+        // Client option initiator is async. Wait for this to complete before submitting requests
+        this.initWaitFor = this.initClientOptions();
     }
 
     /**
@@ -171,7 +175,7 @@ class WideSkyClient {
         }, this.options.axios || {}));
     }
 
-    initClientOptions() {
+    async initClientOptions() {
         /*
         Client options to have structure
         {
@@ -290,6 +294,20 @@ class WideSkyClient {
             }
         }
          */
+
+        try {
+            await CLIENT_SCHEMA.validate(this.options.client);
+            this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
+            this.setAcceptGzip(this.clientOptions.acceptGzip);
+
+            if (this.clientOptions.impersonateAs === null) {
+                this.impersonateAs(this.clientOptions.impersonateAs);
+            }
+
+            this.initialised = true;
+        } catch (error) {
+            throw new Error(error.message);
+        }
     }
 
     /**
@@ -330,6 +348,11 @@ class WideSkyClient {
      * @returns Data from response of request.
      */
     async _wsRawSubmit(method, uri, body, config) {
+        if (!this.initialised) {
+            this.#logger.info("Not finished initialising. Waiting...");
+            await this.initWaitFor;
+        }
+
         /* istanbul ignore next */
         if (this.#logger) {
             this.#logger.trace(config, 'Raw request');

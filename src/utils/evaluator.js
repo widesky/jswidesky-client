@@ -9,27 +9,13 @@ const CREATE_BATCH_SIZE = 2000;
 const UPDATE_BATCH_SIZE = 2000;
 const DELETE_BATCH_SIZE = 30;
 
-/**
- * Validate an input against a given schema.
- * @param schema Schema to validate input against.
- * @param input Input to be validated.
- * @returns {Promise<*>} Input with cast values from schema.
- */
-export async function validate(schema, input) {
-    try {
-        await schema.validate(input);
-        return schema.cast(input)
-    } catch (error) {
-        throw new Error(error.message);
-    }
-}
-
 // Properties
 const LIMIT_PROPERTY = {
     limit: yup.number()
         .nullable()
         .notRequired()
         .default(0)
+        .min(0)
 };
 
 const getBatchProp = (defaultSize) => {
