@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+### ADDED
+- Added Haystack utility functions for ease of use. These include:
+  - `removePrefix(value)`: Remove the Haystack prefix from the given String value if applied.
+  - `getId(entity, tag)`: Get a UUID from the entity, or the Haystack reference tag is specified.
+  - `getReadableName(entity)`: Get the `fqname` or `id` tag of the entity.
+
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
   Instead, the error found in the response as received from a WideSky API server is used as the error message. 
