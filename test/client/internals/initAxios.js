@@ -20,7 +20,7 @@ const {
     WS_CLIENT_SECRET
 } = require("../../stubs");
 
-describe("initAxios", () => {
+describe("client", () => {
     let log;
     let ws;
 
@@ -31,16 +31,18 @@ describe("initAxios", () => {
         );
     });
 
-    it("should pass options to axios client if specified", () => {
-        ws.options = {
-            axios: {
+    describe("initAxios", () => {
+        it("should pass options to axios client if specified", () => {
+            ws.options = {
+                axios: {
+                    test: 123
+                }
+            };
+            ws.initAxios();
+            expect(passedAxiosOptions).to.eql({
+                baseURL: WS_URI,
                 test: 123
-            }
-        };
-        ws.initAxios();
-        expect(passedAxiosOptions).to.eql({
-            baseURL: WS_URI,
-            test: 123
+            });
         });
     });
 });

@@ -26,8 +26,7 @@ const {
 const { HaystackError, GraphQLError } = require("../../../src/errors");
 
 describe('client', () => {
-    describe('internals', () => {
-        describe('submitRequest', () => {
+    describe('submitRequest', () => {
             it('should obtain a token before sending request', async () => {
                 let http = new stubs.StubHTTPClient(),
                     ws = getInstance(http);
@@ -637,5 +636,4 @@ describe('client', () => {
                 });
             });
         });
-    });
 });

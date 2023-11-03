@@ -26,30 +26,28 @@ const {
 const { HaystackError, GraphQLError } = require("../../../src/errors");
 
 describe('client', () => {
-    describe('internals', () => {
-        describe('login', () => {
-            it('should obtain a token then return', () => {
-                let http = new stubs.StubHTTPClient(),
-                    ws = getInstance(http);
+    describe('login', () => {
+        it('should obtain a token then return', () => {
+            let http = new stubs.StubHTTPClient(),
+                ws = getInstance(http);
 
-                // overwrite spy function
-                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
-                    if (uri === "/oauth2/token") {
-                        return Promise.resolve({
-                            access_token: WS_ACCESS_TOKEN,
-                            refresh_token: WS_REFRESH_TOKEN,
-                            expires_in: Date.now() + 2000
-                        });
-                    } else {
-                        return Promise.resolve("default response");
-                    }
-                });
+            // overwrite spy function
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                if (uri === "/oauth2/token") {
+                    return Promise.resolve({
+                        access_token: WS_ACCESS_TOKEN,
+                        refresh_token: WS_REFRESH_TOKEN,
+                        expires_in: Date.now() + 2000
+                    });
+                } else {
+                    return Promise.resolve("default response");
+                }
+            });
 
-                return ws.login().then((res) => {
-                    expect(res.access_token).to.equal(stubs.WS_ACCESS_TOKEN);
-                    expect(res.refresh_token).to.equal(stubs.WS_REFRESH_TOKEN);
-                    expect(res.expires_in).to.above(0);
-                });
+            return ws.login().then((res) => {
+                expect(res.access_token).to.equal(stubs.WS_ACCESS_TOKEN);
+                expect(res.refresh_token).to.equal(stubs.WS_REFRESH_TOKEN);
+                expect(res.expires_in).to.above(0);
             });
         });
     });
