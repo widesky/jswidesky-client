@@ -8,6 +8,7 @@ const HIS_DELETE_ENTITY_BATCH_SIZE = 100;
 const CREATE_BATCH_SIZE = 2000;
 const UPDATE_BATCH_SIZE = 2000;
 const DELETE_BATCH_SIZE = 30;
+const PERFORM_OP_IN_BATCH_BATCH_SIZE = 100;
 
 // Properties
 const LIMIT_PROPERTY = {
@@ -39,7 +40,7 @@ const getReturnResultProp = (defaultVal) => {
 
 // Shared Objects
 const PERFORM_OP_IN_BATCH_ObJ = {
-    ...getBatchProp(100),
+    ...getBatchProp(PERFORM_OP_IN_BATCH_BATCH_SIZE),
     ...getReturnResultProp(false),
     progress: yup.boolean()
         .nullable()
@@ -127,7 +128,7 @@ const BATCH_MIGRATE_HISTORY_SCHEMA = yup.object({
 const BATCH_UPDATE_OR_CREATE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_ObJ,
     ...getBatchProp(Math.min(CREATE_BATCH_SIZE, UPDATE_BATCH_SIZE)),
-    ...getReturnResultProp(false)
+    ...getReturnResultProp(true)
 });
 
 const PROGRESS_SCHEMA = yup.object({

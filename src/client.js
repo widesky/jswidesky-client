@@ -75,8 +75,8 @@ class WideSkyClient {
      * @param clientSecret Client secret for OAuth 2.0 authentication.
      * @param logger A Bunyan logging instance.
      * @param accessToken A valid WideSky access token.
-     * @param options A Object containing attributes axios and client for configuring the axios and WideSky client
-     *                respectively.
+     * @param options A Object containing attributes "axios" and "client" for configuring the axios and WideSky client
+     *                respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults.
      */
     constructor(baseUri,
                 username,
@@ -113,16 +113,29 @@ class WideSkyClient {
      * @returns {WideSkyClient} A WideSky client instance.
      */
     static makeFromConfig(config={}) {
-        let {
+        const requiredProps = [
+            "serverURL",
+            "username",
+            "password",
+            "clientId",
+            "clientSecret"
+        ];
+        for (const prop of requiredProps) {
+            if (config[prop] === undefined) {
+                throw new Error(`Configuration parameter requires properties ${requiredProps.join(", ")}`);
+            }
+        }
+
+        const {
             serverURL,
             username,
             password,
             clientId,
             clientSecret,
-            logger,
             accessToken,
             options
         } = config;
+        let { logger } = config;
 
         if (logger === undefined) {
             logger = bunyan.createLogger({
@@ -176,6 +189,10 @@ class WideSkyClient {
         }, this.options.axios || {}));
     }
 
+    /**
+     * Initialise the WideSkyClient with the user configurations.
+     * @returns {Promise<void>}
+     */
     async initClientOptions() {
         try {
             await CLIENT_SCHEMA.validate(this.options.client);
