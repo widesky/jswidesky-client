@@ -263,6 +263,26 @@ describe("client", () => {
                                 "batch.hisRead.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisRead: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisRead.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -338,6 +358,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisRead.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisRead: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisRead.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -417,6 +457,26 @@ describe("client", () => {
                                 "batch.hisRead.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisRead: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisRead.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -492,6 +552,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisRead.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisRead: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisRead.parallelDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -589,6 +669,26 @@ describe("client", () => {
                                 "batch.hisWrite.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisWrite: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisWrite.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -664,6 +764,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisWrite.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisWrite: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisWrite.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -743,6 +863,26 @@ describe("client", () => {
                                 "batch.hisWrite.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisWrite: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisWrite.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -818,6 +958,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisWrite.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisWrite: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisWrite.parallelDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -992,6 +1152,26 @@ describe("client", () => {
                                 "batch.hisDelete.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisDelete: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisDelete.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -1067,6 +1247,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisDelete.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisWrite: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisWrite.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -1146,6 +1346,26 @@ describe("client", () => {
                                 "batch.hisDelete.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisDelete: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisDelete.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -1221,6 +1441,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisDelete.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisDelete: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisDelete.parallelDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -1395,6 +1635,26 @@ describe("client", () => {
                                 "batch.create.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    create: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.create.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -1470,6 +1730,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.create.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    create: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.create.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -1549,6 +1829,26 @@ describe("client", () => {
                                 "batch.create.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    create: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.create.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -1624,6 +1924,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.create.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    create: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.create.parallelDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -1798,6 +2118,26 @@ describe("client", () => {
                                 "batch.update.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    update: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.update.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -1873,6 +2213,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.update.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    update: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.update.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -1952,6 +2312,26 @@ describe("client", () => {
                                 "batch.update.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    update: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.update.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -2027,6 +2407,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.update.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    update: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.update.parallelDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -2201,6 +2601,26 @@ describe("client", () => {
                                 "batch.deleteById.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    deleteById: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.deleteById.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -2276,6 +2696,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.deleteById.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    deleteById: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.deleteById.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -2355,6 +2795,26 @@ describe("client", () => {
                                 "batch.deleteById.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    deleteById: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.deleteById.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -2430,6 +2890,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.deleteById.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    deleteById: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.deleteById.parallelDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -2604,6 +3084,26 @@ describe("client", () => {
                                 "batch.deleteByFilter.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    deleteByFilter: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.deleteByFilter.batchSize must be greater than or equal to 1");
+                        }
+                    });
+
                 });
 
                 describe("batchDelay", () => {
@@ -2679,6 +3179,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.deleteByFilter.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    deleteByFilter: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.deleteByFilter.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -2758,6 +3278,26 @@ describe("client", () => {
                                 "batch.deleteByFilter.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    deleteByFilter: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.deleteByFilter.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -2833,6 +3373,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.deleteByFilter.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    deleteByFilter: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.deleteByFilter.parallelDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -3007,6 +3567,26 @@ describe("client", () => {
                                 "batch.hisReadByFilter.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisReadByFilter: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisReadByFilter.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -3082,6 +3662,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisReadByFilter.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisReadByFilter: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisReadByFilter.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -3161,6 +3761,26 @@ describe("client", () => {
                                 "batch.hisReadByFilter.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisReadByFilter: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisReadByFilter.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -3238,6 +3858,26 @@ describe("client", () => {
                                 "batch.hisReadByFilter.parallelDelay must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisReadByFilter: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisReadByFilter.parallelDelay must be greater than or equal to 0");
+                        }
+                    });
                 });
 
                 describe("limit", () => {
@@ -3313,6 +3953,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisReadByFilter.limit must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisReadByFilter: {
+                                        limit: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisReadByFilter.limit must be greater than or equal to 0");
                         }
                     });
                 });
@@ -3410,6 +4070,26 @@ describe("client", () => {
                                 "batch.addChildrenByFilter.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    addChildrenByFilter: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.addChildrenByFilter.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -3485,6 +4165,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.addChildrenByFilter.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    addChildrenByFilter: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.addChildrenByFilter.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -3564,6 +4264,26 @@ describe("client", () => {
                                 "batch.addChildrenByFilter.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    addChildrenByFilter: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.addChildrenByFilter.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -3641,6 +4361,26 @@ describe("client", () => {
                                 "batch.addChildrenByFilter.parallelDelay must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    addChildrenByFilter: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.addChildrenByFilter.parallelDelay must be greater than or equal to 0");
+                        }
+                    });
                 });
 
                 describe("limit", () => {
@@ -3716,6 +4456,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.addChildrenByFilter.limit must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    addChildrenByFilter: {
+                                        limit: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.addChildrenByFilter.limit must be greater than or equal to 0");
                         }
                     });
                 });
@@ -3890,6 +4650,26 @@ describe("client", () => {
                                 "batch.updateByFilter.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    updateByFilter: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.updateByFilter.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -3965,6 +4745,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.updateByFilter.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    updateByFilter: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.updateByFilter.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -4044,6 +4844,26 @@ describe("client", () => {
                                 "batch.updateByFilter.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    updateByFilter: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.updateByFilter.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -4121,6 +4941,26 @@ describe("client", () => {
                                 "batch.updateByFilter.parallelDelay must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    updateByFilter: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.updateByFilter.parallelDelay must be greater than or equal to 0");
+                        }
+                    });
                 });
 
                 describe("limit", () => {
@@ -4196,6 +5036,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.updateByFilter.limit must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    updateByFilter: {
+                                        limit: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.updateByFilter.limit must be greater than or equal to 0");
                         }
                     });
                 });
@@ -4370,6 +5230,26 @@ describe("client", () => {
                                 "batch.migrateHistory.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    migrateHistory: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.migrateHistory.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -4445,6 +5325,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.migrateHistory.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    migrateHistory: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.migrateHistory.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -4524,6 +5424,26 @@ describe("client", () => {
                                 "batch.migrateHistory.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    migrateHistory: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.migrateHistory.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -4599,6 +5519,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.migrateHistory.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    migrateHistory: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.migrateHistory.parallelDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -4773,6 +5713,26 @@ describe("client", () => {
                                 "batch.hisDeleteByFilter.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisDeleteByFilter: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisDeleteByFilter.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -4848,6 +5808,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisDeleteByFilter.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisDeleteByFilter: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisDeleteByFilter.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -4927,6 +5907,26 @@ describe("client", () => {
                                 "batch.hisDeleteByFilter.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisDeleteByFilter: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisDeleteByFilter.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -5004,6 +6004,26 @@ describe("client", () => {
                                 "batch.hisDeleteByFilter.parallelDelay must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisDeleteByFilter: {
+                                        parallelDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisDeleteByFilter.parallelDelay must be greater than or equal to 0");
+                        }
+                    });
                 });
 
                 describe("limit", () => {
@@ -5079,6 +6099,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.hisDeleteByFilter.limit must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    hisDeleteByFilter: {
+                                        limit: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.hisDeleteByFilter.limit must be greater than or equal to 0");
                         }
                     });
                 });
@@ -5253,6 +6293,26 @@ describe("client", () => {
                                 "batch.updateOrCreate.batchSize must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    updateOrCreate: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.updateOrCreate.batchSize must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("batchDelay", () => {
@@ -5328,6 +6388,26 @@ describe("client", () => {
                         } catch (error) {
                             expect(error.message).to.equal(
                                 "batch.updateOrCreate.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    updateOrCreate: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.updateOrCreate.batchDelay must be greater than or equal to 0");
                         }
                     });
                 });
@@ -5407,6 +6487,26 @@ describe("client", () => {
                                 "batch.updateOrCreate.parallel must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    updateOrCreate: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.updateOrCreate.parallel must be greater than or equal to 1");
+                        }
+                    });
                 });
 
                 describe("parallelDelay", () => {
@@ -5484,6 +6584,26 @@ describe("client", () => {
                                 "batch.updateOrCreate.parallelDelay must be a `number` type, but the final value was: `{}`.");
                         }
                     });
+                });
+
+                it("should reject if below 0", async () => {
+                    ws.options = {
+                        client: {
+                            batch: {
+                                updateOrCreate: {
+                                    parallelDelay: -1
+                                }
+                            }
+                        }
+                    };
+
+                    try {
+                        await ws.initClientOptions();
+                        throw new Error("Should not have worked");
+                    } catch (error) {
+                        expect(error.message).to.equal(
+                            "batch.updateOrCreate.parallelDelay must be greater than or equal to 0");
+                    }
                 });
             });
         });
@@ -5570,6 +6690,24 @@ describe("client", () => {
                             "performOpInBatch.batchSize must be a `number` type, but the final value was: `{}`.");
                     }
                 });
+
+                it("should reject if below 1", async () => {
+                    ws.options = {
+                        client: {
+                            performOpInBatch: {
+                                batchSize: 0
+                            }
+                        }
+                    };
+
+                    try {
+                        await ws.initClientOptions();
+                        throw new Error("Should not have worked");
+                    } catch (error) {
+                        expect(error.message).to.equal(
+                            "performOpInBatch.batchSize must be greater than or equal to 1");
+                    }
+                });
             });
 
             describe("batchDelay", () => {
@@ -5637,6 +6775,24 @@ describe("client", () => {
                     } catch (error) {
                         expect(error.message).to.equal(
                             "performOpInBatch.batchDelay must be a `number` type, but the final value was: `{}`.");
+                    }
+                });
+
+                it("should reject if below 0", async () => {
+                    ws.options = {
+                        client: {
+                            performOpInBatch: {
+                                batchDelay: -1
+                            }
+                        }
+                    };
+
+                    try {
+                        await ws.initClientOptions();
+                        throw new Error("Should not have worked");
+                    } catch (error) {
+                        expect(error.message).to.equal(
+                            "performOpInBatch.batchDelay must be greater than or equal to 0");
                     }
                 });
             });
@@ -5708,6 +6864,24 @@ describe("client", () => {
                             "performOpInBatch.parallel must be a `number` type, but the final value was: `{}`.");
                     }
                 });
+
+                it("should reject if below 1", async () => {
+                    ws.options = {
+                        client: {
+                            performOpInBatch: {
+                                parallel: 0
+                            }
+                        }
+                    };
+
+                    try {
+                        await ws.initClientOptions();
+                        throw new Error("Should not have worked");
+                    } catch (error) {
+                        expect(error.message).to.equal(
+                            "performOpInBatch.parallel must be greater than or equal to 1");
+                    }
+                });
             });
 
             describe("parallelDelay", () => {
@@ -5775,6 +6949,24 @@ describe("client", () => {
                     } catch (error) {
                         expect(error.message).to.equal(
                             "performOpInBatch.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                    }
+                });
+
+                it("should reject if below 0", async () => {
+                    ws.options = {
+                        client: {
+                            performOpInBatch: {
+                                parallelDelay: -1
+                            }
+                        }
+                    };
+
+                    try {
+                        await ws.initClientOptions();
+                        throw new Error("Should not have worked");
+                    } catch (error) {
+                        expect(error.message).to.equal(
+                            "performOpInBatch.parallelDelay must be greater than or equal to 0");
                     }
                 });
             });

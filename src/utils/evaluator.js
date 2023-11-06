@@ -35,6 +35,7 @@ const getBatchProp = (defaultSize) => {
             .notRequired()
             .nullable()
             .strict()
+            .min(1)
             .default(defaultSize)
     }
 };
@@ -55,14 +56,17 @@ const PERFORM_OP_IN_BATCH_ObJ = {
         .notRequired()
         .nullable()
         .strict()
+        .min(0)
         .default(0),
     parallel: yup.number()
         .strict()
+        .min(1)
         .default(1),
     parallelDelay: yup.number()
         .notRequired()
         .nullable()
         .strict()
+        .min(0)
         .default(0)
 };
 
