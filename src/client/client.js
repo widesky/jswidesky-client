@@ -13,8 +13,11 @@ const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
 const bunyan = require("bunyan");
-const {CLIENT_SCHEMA} = require("./../utils/evaluator");
+const { CLIENT_SCHEMA, deriveFromDefaults } = require("./../utils/evaluator");
 const clientV2Functions = require("./functions/v2");
+const clientBatchFunctions = require("./functions/batch");
+const { sleep } = require("../utils/tools");
+const {PERFORM_OP_IN_BATCH_SCHEMA} = require("../utils/evaluator");
 let axios;
 
 // Browser/Node axios import
@@ -106,18 +109,6 @@ class WideSkyClient {
         this.assignSubFunctions();
     }
 
-    assignSubFunctions() {
-        const assignPrototype = (thisProp, functions) => {
-            for (const [name, func] of Object.entries(functions)) {
-                thisProp[name] = func.bind(this);
-            }
-        }
-
-        // Add function for v2
-        this.v2 = {};
-        assignPrototype(this.v2, clientV2Functions);
-    }
-
     /**
      * Create a WideSky client from a given set of configurations
      * @param config An Object defining the configurations for the WideSkyClient. Requires attributes serverURL,
@@ -168,6 +159,20 @@ class WideSkyClient {
         );
     }
 
+    assignSubFunctions() {
+        const assignPrototype = (thisProp, functions) => {
+            for (const [name, func] of Object.entries(functions)) {
+                thisProp[name] = func.bind(this);
+            }
+        }
+
+        // Add function for v2
+        this.v2 = {};
+        assignPrototype(this.v2, clientV2Functions);
+        this.batch = {};
+        assignPrototype(this.batch, clientBatchFunctions);
+    }
+
     /**
      * Initialise the Client access token
      */
@@ -216,6 +221,14 @@ class WideSkyClient {
                 this.impersonateAs(this.clientOptions.impersonateAs);
             }
 
+            if (this.isProgressEnabled) {
+                const cliProgress = require("cli-progress");
+                this.clientOptions.progress.instance = new cliProgress.MultiBar({
+                        clearOnComplete: false,
+                        hideCursor: true
+                    }, cliProgress.Presets.shades_classic);
+            }
+
             this.initialised = true;
         } catch (error) {
             throw new Error(error.message);
@@ -256,6 +269,20 @@ class WideSkyClient {
 
     isAcceptingGzip() {
         return this._acceptGzipEncoding;
+    }
+
+    get isProgressEnabled() {
+        return this.clientOptions.progress.enabled;
+    }
+
+    /**
+     * Create a progress instance
+     * @param size Highest value for the progress counter.
+     * @param initialValue Initial value for the progress counter.
+     * @returns {*}
+     */
+    progressCreate(size, initialValue=0) {
+        return this.options.client.progress[this.options.client.progress.create](size, initialValue);
     }
 
     /**
@@ -1566,6 +1593,152 @@ class WideSkyClient {
         }
 
         return this.submitRequest('POST', '/api/hisDelete', payload, {});
+    }
+
+    /**
+     * Perform a WideSky client operation in batches or in parallel.
+     * @param op Function to be called on the client instance.
+     * @param args An Array of arguments to be passed to the client. The first index must be the batch'able payload.
+     * @param options A Object of options available to configure the operation. These include:
+     *                - batchSize: Size of each batch sent to API server. For a payload of type Object, this is the \
+     *                             number of keys.
+     *                - batchDelay: Delay in milliseconds between the completion of a request and the next request to be
+     *                              made.
+     *                - parallel: Number of batched requests to run in parallel.
+     *                - parallelDelay: Delay in milliseconds between each set of parallel requests.
+     *                - progress: Enable progress reporting to command interface.
+     *                - returnResult: Enable or disable returning the result of the queries sent.
+     *                - transformer: A function to transform the payload to be passed to the client operation.
+     */
+    async performOpInBatch(op, args, options) {
+        if (!this.initialised) {
+            await this.initWaitFor;
+        }
+
+        // evaluate options
+        await PERFORM_OP_IN_BATCH_SCHEMA.validate(options);
+        const {
+            batchSize,
+            batchDelay,
+            returnResult,
+            parallel,
+            parallelDelay
+        } = deriveFromDefaults(this.clientOptions.performOpInBatch, options)
+
+        let { transformer } = options;
+        if (transformer == null) {
+            // no transformation
+            transformer = (val) => val;
+        }
+
+        // Evaluate given args to be batched
+        if (!Array.isArray(args) || args.length === 0) {
+            throw new Error("args parameter must be an array consisting of at least the payload to be batched");
+        }
+        const payload = args[0];
+        const clientArgs = args.slice(1);
+
+        const result = {
+            errors: [],
+            success: []
+        };
+        let added = 0;
+        let getNext, hasMore, p1, payloadKeys;
+        if (Array.isArray(payload)) {
+            getNext = () => {
+                const next = payload.splice(0, batchSize);
+                if (op === "hisDelete") {
+                    // special case due to the arguments required
+                    return {
+                        next: transformer(next),
+                        size: next.length
+                    };
+                } else {
+                    return {
+                        next: [transformer(next), ...clientArgs],
+                        size: next.length
+                    };
+                }
+            };
+            hasMore = () => payload.length > 0;
+
+            if (this.isProgressEnabled) {
+                p1 = this.progressCreate(payload.length);
+            }
+        } else {
+            payloadKeys = Object.keys(payload);
+            getNext = () => {
+                const nextKeys = payloadKeys.splice(0, batchSize);
+                const next = {};
+                for (const key of nextKeys) {
+                    next[key] = payload[key];
+                }
+                return {
+                    next: [transformer(next), ...clientArgs],
+                    size: nextKeys.length
+                };
+            }
+            hasMore = () => payloadKeys.length > 0;
+
+            if (this.isProgressEnabled) {
+                p1 = this.progressCreate(Object.keys(payload).length);
+            }
+        }
+
+        if (!hasMore()) {
+            this.#logger.info("Empty payload given for client function %s.", op);
+        }
+
+        /**
+         * Create a request with success and error handlers.
+         * @param args Arguments to be called for the client operation.
+         * @returns {Promise<unknown>}
+         */
+        const createRequest = (args) => {
+            return new Promise(async (resolve) => {
+                try {
+                    const res = await this[op](...args);
+                    if (returnResult) {
+                        result.success.push(res);
+                    }
+                } catch (error) {
+                    this.#logger.error(`Encountered error in %s batch operation`, op);
+                    this.#logger.error(error);
+                    result.errors.push({
+                        error: error.message,
+                        args
+                    });
+                } finally {
+                    resolve();
+                }
+            });
+        };
+
+        while (hasMore()) {
+            let sizeTotal = 0;
+            const requests = [];
+
+            // queue parallel requests
+            for (let i = 0; i < parallel && hasMore(); i++) {
+                const { next, size } = getNext();
+                sizeTotal += size;
+                requests.push(createRequest(next));
+                if (batchDelay > 0) {
+                    await sleep(batchDelay);
+                }
+            }
+            await Promise.all(requests);
+
+            if (this.isProgressEnabled) {
+                p1.update(added += sizeTotal);
+            }
+
+            if (parallelDelay > 0)  {
+                await sleep(parallelDelay);
+            }
+        }
+
+        return result;
     }
 }
 
