@@ -108,6 +108,7 @@
   "progress": {
     "create": "create",
     "enable": false,
-    "increment": "increment"
+    "increment": "increment",
+    "update": "update"
   }
 }

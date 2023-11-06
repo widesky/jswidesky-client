@@ -151,7 +151,12 @@ const PROGRESS_OBJ = {
         .nullable()
         .notRequired()
         .strict()
-        .default("create")
+        .default("create"),
+    update: yup.string()
+        .nullable()
+        .notRequired()
+        .strict()
+        .default("update")
 };
 
 const CLIENT_SCHEMA = yup.object({

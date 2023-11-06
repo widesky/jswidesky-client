@@ -18,6 +18,7 @@ const clientV2Functions = require("./functions/v2");
 const clientBatchFunctions = require("./functions/batch");
 const { sleep } = require("../utils/tools");
 const {PERFORM_OP_IN_BATCH_SCHEMA} = require("../utils/evaluator");
+const cliProgress = require("cli-progress");
 let axios;
 
 // Browser/Node axios import
@@ -222,11 +223,13 @@ class WideSkyClient {
             }
 
             if (this.isProgressEnabled) {
-                const cliProgress = require("cli-progress");
-                this.clientOptions.progress.instance = new cliProgress.MultiBar({
+                if (this.clientOptions.progress.instance === undefined) {
+                    const cliProgress = require("cli-progress");
+                    this.clientOptions.progress.instance = new cliProgress.MultiBar({
                         clearOnComplete: false,
                         hideCursor: true
                     }, cliProgress.Presets.shades_classic);
+                }
             }
 
             this.initialised = true;
@@ -272,7 +275,7 @@ class WideSkyClient {
     }
 
     get isProgressEnabled() {
-        return this.clientOptions.progress.enabled;
+        return this.clientOptions.progress.enable;
     }
 
     /**
@@ -282,7 +285,7 @@ class WideSkyClient {
      * @returns {*}
      */
     progressCreate(size, initialValue=0) {
-        return this.options.client.progress[this.options.client.progress.create](size, initialValue);
+        return this.clientOptions.progress.instance[this.clientOptions.progress.create](size, initialValue);
     }
 
     /**
@@ -1730,7 +1733,7 @@ class WideSkyClient {
             await Promise.all(requests);
 
             if (this.isProgressEnabled) {
-                p1.update(added += sizeTotal);
+                p1[this.clientOptions.progress.update](added += sizeTotal);
             }
 
             if (parallelDelay > 0)  {
