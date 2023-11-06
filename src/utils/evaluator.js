@@ -1,5 +1,4 @@
 const yup = require("yup");
-const cliProgress = require("cli-progress");
 
 const HIS_READ_BATCH_SIZE = 100;
 const HIS_WRITE_BATCH_SIZE  = 2000;
@@ -9,6 +8,16 @@ const CREATE_BATCH_SIZE = 2000;
 const UPDATE_BATCH_SIZE = 2000;
 const DELETE_BATCH_SIZE = 30;
 const PERFORM_OP_IN_BATCH_BATCH_SIZE = 100;
+
+function deriveFromDefaults(defaultConfig, passedConfig) {
+    for (const [key, value] of Object.entries(defaultConfig)) {
+        if (passedConfig[key] === undefined) {
+            passedConfig[key] = value;
+        }
+    }
+
+    return passedConfig;
+}
 
 // Properties
 const LIMIT_PROPERTY = {
@@ -42,11 +51,6 @@ const getReturnResultProp = (defaultVal) => {
 const PERFORM_OP_IN_BATCH_ObJ = {
     ...getBatchProp(PERFORM_OP_IN_BATCH_BATCH_SIZE),
     ...getReturnResultProp(false),
-    progress: yup.boolean()
-        .nullable()
-        .notRequired()
-        .strict()
-        .default(false),
     batchDelay: yup.number()
         .notRequired()
         .nullable()
@@ -130,46 +134,25 @@ const BATCH_UPDATE_OR_CREATE_SCHEMA = yup.object({
     ...getBatchProp(Math.min(CREATE_BATCH_SIZE, UPDATE_BATCH_SIZE)),
     ...getReturnResultProp(true)
 });
+const PERFORM_OP_IN_BATCH_SCHEMA = yup.object(PERFORM_OP_IN_BATCH_ObJ);
 
-const PROGRESS_SCHEMA = yup.object({
-    enabled: yup.boolean()
+const PROGRESS_OBJ = {
+    enable: yup.boolean()
         .nullable()
         .notRequired()
         .strict()
         .default(false),
-    instance: yup.object()
-        .nullable()
-        .notRequired()
-        .strict()
-        .when("enabled", {
-            is: true,
-            then: (schema) => schema.default(
-                new cliProgress.MultiBar({
-                    clearOnComplete: false,
-                    hideCursor: true
-                }, cliProgress.Presets.shades_classic)
-            ),
-            otherwise: (schema) => schema.default(null)
-        }),
     increment: yup.string()
         .nullable()
         .notRequired()
         .strict()
-        .when("enabled", {
-            is: true,
-            then: (schema) => schema.default("increment"),
-            otherwise: (schema) => schema.default(null)
-        }),
+        .default("increment"),
     create: yup.string()
         .nullable()
         .notRequired()
         .strict()
-        .when("enabled", {
-            is: true,
-            then: (schema) => schema.default("create"),
-            otherwise: (schema) => schema.default(null)
-        })
-});
+        .default("create")
+};
 
 const CLIENT_SCHEMA = yup.object({
     impersonateAs: yup.string()
@@ -182,7 +165,7 @@ const CLIENT_SCHEMA = yup.object({
         .notRequired()
         .strict()
         .default(true),
-    progress: PROGRESS_SCHEMA,
+    progress: yup.object(PROGRESS_OBJ),
     batch: yup.object({
         hisRead: BATCH_HIS_READ_SCHEMA,
         hisWrite: BATCH_HIS_WRITE_SCHEMA,
@@ -202,5 +185,7 @@ const CLIENT_SCHEMA = yup.object({
 });
 
 module.exports = {
-    CLIENT_SCHEMA
+    CLIENT_SCHEMA,
+    PERFORM_OP_IN_BATCH_SCHEMA,
+    deriveFromDefaults
 }
