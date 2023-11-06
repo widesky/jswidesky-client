@@ -1,0 +1,183 @@
+{
+  "meta": {
+    "ver": "3.0"
+  },
+  "cols": [
+    {
+      "name": "id"
+    },
+    {
+      "name": "commissionDate"
+    },
+    {
+      "name": "commissioned"
+    },
+    {
+      "name": "commissionedBy"
+    },
+    {
+      "name": "cur"
+    },
+    {
+      "name": "curErr"
+    },
+    {
+      "name": "curStatus"
+    },
+    {
+      "name": "curVal"
+    },
+    {
+      "name": "device"
+    },
+    {
+      "name": "dis"
+    },
+    {
+      "name": "elec"
+    },
+    {
+      "name": "enable"
+    },
+    {
+      "name": "equip"
+    },
+    {
+      "name": "equipRef"
+    },
+    {
+      "name": "export"
+    },
+    {
+      "name": "fqname"
+    },
+    {
+      "name": "his"
+    },
+    {
+      "name": "humidity"
+    },
+    {
+      "name": "import"
+    },
+    {
+      "name": "installationDate"
+    },
+    {
+      "name": "kind"
+    },
+    {
+      "name": "lastHisTime"
+    },
+    {
+      "name": "lastHisVal"
+    },
+    {
+      "name": "make"
+    },
+    {
+      "name": "modbusRegAddr"
+    },
+    {
+      "name": "modbusRegFormat"
+    },
+    {
+      "name": "modbusRegType"
+    },
+    {
+      "name": "modbusScale"
+    },
+    {
+      "name": "modbusUnitId"
+    },
+    {
+      "name": "modbusZeroBasedRegs"
+    },
+    {
+      "name": "model"
+    },
+    {
+      "name": "name"
+    },
+    {
+      "name": "nemMdmDataStreamId"
+    },
+    {
+      "name": "nemNmiConfiguration"
+    },
+    {
+      "name": "nemRolloverVal"
+    },
+    {
+      "name": "nmi"
+    },
+    {
+      "name": "panelRef"
+    },
+    {
+      "name": "point"
+    },
+    {
+      "name": "primaryFunction"
+    },
+    {
+      "name": "serialNumber"
+    },
+    {
+      "name": "siteRef"
+    },
+    {
+      "name": "solar"
+    },
+    {
+      "name": "spaceRef"
+    },
+    {
+      "name": "temp"
+    },
+    {
+      "name": "tz"
+    },
+    {
+      "name": "wsgBackfill"
+    },
+    {
+      "name": "wsgHistoricalInterval"
+    },
+    {
+      "name": "wsgRealTimeChangeOfState"
+    },
+    {
+      "name": "wsgRealTimeInterval"
+    },
+    {
+      "name": "wsgRealTimeOffset"
+    },
+    {
+      "name": "wsgSamplerRef"
+    },
+    {
+      "name": "wsgStorageRef"
+    },
+    {
+      "name": "wshHubRef"
+    }
+  ],
+  "rows": [
+    {
+      "id": "r:74698f7e-5a8d-11e9-ac83-0242ac12000a MSSB 01",
+      "device": "m:",
+      "dis": "s:MSSB 01",
+      "elec": "m:",
+      "equip": "m:",
+      "fqname": "s:jordan-springs.mssb01",
+      "modbusUnitId": "n:3",
+      "modbusZeroBasedRegs": "m:",
+      "name": "s:mssb01",
+      "siteRef": "r:131d5888-5a8b-11e9-99ef-0242ac120004 Jordan Springs Community Centre",
+      "tz": "s:GMT-10",
+      "wsgHistoricalInterval": "n:60",
+      "wsgRealTimeInterval": "n:60"
+    }
+  ]
+}

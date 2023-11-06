@@ -50,7 +50,6 @@ const AUTH_METHOD = Object.freeze({
     SCRAM: 'scram'
 });
 
-
 class WideSkyClient {
     base_uri
     #username
@@ -104,9 +103,19 @@ class WideSkyClient {
         this.initAxios();
         // Client option initiator is async. Wait for this to complete before submitting requests
         this.initWaitFor = this.initClientOptions();
+        this.assignSubFunctions();
+    }
+
+    assignSubFunctions() {
+        const assignPrototype = (thisProp, functions) => {
+            for (const [name, func] of Object.entries(functions)) {
+                thisProp[name] = func.bind(this);
+            }
+        }
 
         // Add function for v2
-        this.v2 = clientV2Functions;
+        this.v2 = {};
+        assignPrototype(this.v2, clientV2Functions);
     }
 
     /**
