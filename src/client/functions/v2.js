@@ -4,7 +4,7 @@
  * @param limit Maximum number of entities to be returned.
  * @returns {Promise<*>}
  */
-const find = async (filter, limit=0) => {
+async function find(filter, limit=0){
     return (await this.find(filter, limit)).rows;
 }
 
