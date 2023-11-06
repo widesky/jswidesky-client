@@ -107,7 +107,7 @@
       "parallel": 1,
       "parallelDelay": 0,
       "progress": false,
-      "returnResult": false
+      "returnResult": true
     }
   },
   "impersonateAs": null,
