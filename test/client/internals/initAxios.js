@@ -1,7 +1,7 @@
 const proxyquire = require("proxyquire");
 let passedAxiosOptions;
 const WideSkyClient = proxyquire(
-    "../../../src/client",
+    "../../../src/client/client",
     {
         "axios": {
             create: (config) => {

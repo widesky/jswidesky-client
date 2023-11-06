@@ -7,7 +7,7 @@
 
 const sinon = require('sinon'),
     expect = require('chai').expect,
-    WideSkyClient = require('../src/client');
+    WideSkyClient = require('../src/client/client');
 
 const WS_URI = 'http://localhost:3000',
     WS_USER = 'user@example.com',
