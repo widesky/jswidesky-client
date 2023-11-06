@@ -25,6 +25,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
     [Client Options](./docs/client/options.md).
 - Added new set of functions under property `v2` of the `WideSkyClient` instance. `v2` consists of client functions:
   - `find`: Same functionality as the existing `WideSkyClient.find` but returns only the rows.
+- Added new `HisWritePayload` to more easily create payloads suitable for the `hisWrite` function.
 
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
