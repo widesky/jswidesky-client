@@ -5,8 +5,8 @@ class HisWritePayload {
 
     /**
      * Add data to the hisWrite payload.
-     * @param id Entity id.
-     * @param data Data of the format of [{ts: Date, val: Number | String | Boolean}]
+     * @param id Entity id with Haystack prefix applied.
+     * @param data Data of the format of [{ts: String, val: String}] with the Haystack prefix applied.
      */
     add(id, data) {
         for (const {ts, val} of data) {
