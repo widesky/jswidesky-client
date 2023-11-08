@@ -96,7 +96,6 @@ function createBatchRequest(op, args, result, returnResult) {
  *                              made.
  *                - parallel: Number of batched requests to run in parallel.
  *                - parallelDelay: Delay in milliseconds between each set of parallel requests.
- *                - progress: Enable progress reporting to command interface.
  *                - returnResult: Enable or disable returning the result of the queries sent.
  *                - transformer: A function to transform the payload to be passed to the client operation.
  */
