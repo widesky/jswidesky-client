@@ -1693,6 +1693,7 @@ class WideSkyClient {
 
         if (!hasMore()) {
             this.#logger.info("Empty payload given for client function %s.", op);
+            return result;
         }
 
         /**
