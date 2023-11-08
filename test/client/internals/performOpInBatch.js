@@ -47,42 +47,67 @@ describe('client', () => {
             await ws.initWaitFor;
         });
 
-        it("rejects if args parameter is not Array", async () => {
-            try {
-                await ws.performOpInBatch("test", {});
-                throw new Error("Should not have worked");
-            } catch (error) {
-                expect(error.message).to.equal(
-                    "args parameter must be an array consisting of at least the payload to be batched");
-            }
-        });
+        describe("'args' parameter", () => {
+            beforeEach(() => {
+                ws.test = sinon.stub();
+            });
 
-        it("reject if args parameter is empty Array", async () => {
-            try {
-                await ws.performOpInBatch("test", []);
-                throw new Error("Should not have worked");
-            } catch (error) {
-                expect(error.message).to.equal(
-                    "args parameter must be an array consisting of at least the payload to be batched");
-            }
-        });
+            it("rejects if args parameter is not Array", async () => {
+                try {
+                    await ws.performOpInBatch("test", {});
+                    throw new Error("Should not have worked");
+                } catch (error) {
+                    expect(error.message).to.equal(
+                        "args parameter must be an array consisting of at least the payload to be batched");
+                } finally {
+                    expect(ws.test.notCalled).to.be.true;
+                }
+            });
 
-        it("rejects if payload in args parameter is not of type Object or Array", async () => {
-            try {
-                await ws.performOpInBatch("test", [1, 2, 3]);
-                throw new Error("Should not have worked");
-            } catch (error) {
-                expect(error.message).to.equal(
-                    "First element of parameter should be of type Array or Object");
-            }
-        });
+            it("reject if args parameter is empty Array", async () => {
+                try {
+                    await ws.performOpInBatch("test", []);
+                    throw new Error("Should not have worked");
+                } catch (error) {
+                    expect(error.message).to.equal(
+                        "args parameter must be an array consisting of at least the payload to be batched");
+                } finally {
+                    expect(ws.test.notCalled).to.be.true;
+                }
+            });
 
-        it("element in array following first index of args parameter are passed as args to client function",
+            it("rejects if payload in args parameter is not of type Object or Array", async () => {
+                try {
+                    await ws.performOpInBatch("test", [1, 2, 3]);
+                    throw new Error("Should not have worked");
+                } catch (error) {
+                    expect(error.message).to.equal(
+                        "First element of parameter should be of type Array or Object");
+                } finally {
+                    expect(ws.test.notCalled).to.be.true;
+                }
+            });
+
+            it("element in array following first index of args parameter are passed as args to client function",
                 async () => {
-            ws.test = sinon.stub();
-            await ws.performOpInBatch("test", [[1, 2, 3], "a", "b", "c"]);
-            expect(ws.test.calledOnce).to.be.true;
-            expect(ws.test.args[0]).to.eql([[1, 2, 3], "a", "b", "c"]);
+                    await ws.performOpInBatch("test", [[1, 2, 3], "a", "b", "c"]);
+                    expect(ws.test.calledOnce).to.be.true;
+                    expect(ws.test.args[0]).to.eql([[1, 2, 3], "a", "b", "c"]);
+                });
+
+            it("should return immediately if an empty Array payload given", async () => {
+                const { success, errors } = await ws.performOpInBatch("test", [[], "a", "b", "c"]);
+                expect(ws.test.notCalled).to.be.true;
+                expect(success.length).to.equal(0);
+                expect(errors.length).to.equal(0);
+            });
+
+            it("should return immediately if an empty Object payload given", async () => {
+                const { success, errors } = await ws.performOpInBatch("test", [{}, "a", "b", "c"]);
+                expect(ws.test.notCalled).to.be.true;
+                expect(success.length).to.equal(0);
+                expect(errors.length).to.equal(0);
+            });
         });
 
         describe("function call errors", () => {
