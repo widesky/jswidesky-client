@@ -252,6 +252,7 @@ class WideSkyClient {
             this.initWaitFor = new Promise(async (resolve) => {
                 await oldPromise;
                 this._impersonate = userId;
+                resolve();
             });
         } else {
             this._impersonate = userId;
@@ -1613,7 +1614,7 @@ class WideSkyClient {
      *                - returnResult: Enable or disable returning the result of the queries sent.
      *                - transformer: A function to transform the payload to be passed to the client operation.
      */
-    async performOpInBatch(op, args, options) {
+    async performOpInBatch(op, args, options={}) {
         if (!this.initialised) {
             await this.initWaitFor;
         }
