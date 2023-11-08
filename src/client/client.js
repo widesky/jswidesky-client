@@ -1669,7 +1669,7 @@ class WideSkyClient {
             if (this.isProgressEnabled) {
                 p1 = this.progressCreate(payload.length);
             }
-        } else {
+        } else if (typeof payload === "object") {
             payloadKeys = Object.keys(payload);
             getNext = () => {
                 const nextKeys = payloadKeys.splice(0, batchSize);
@@ -1687,6 +1687,8 @@ class WideSkyClient {
             if (this.isProgressEnabled) {
                 p1 = this.progressCreate(Object.keys(payload).length);
             }
+        } else {
+            throw new Error("First element of parameter should be of type Array or Object");
         }
 
         if (!hasMore()) {
