@@ -218,7 +218,7 @@ class WideSkyClient {
             this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
             this.setAcceptGzip(this.clientOptions.acceptGzip);
 
-            if (this.clientOptions.impersonateAs === null) {
+            if (this.clientOptions.impersonateAs !== null) {
                 this.impersonateAs(this.clientOptions.impersonateAs);
             }
 

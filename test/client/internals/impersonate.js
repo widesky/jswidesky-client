@@ -48,6 +48,7 @@ describe('client', () => {
                     return Promise.resolve("default response");
                 }
             });
+            await ws.initWaitFor;
         });
 
         afterEach(() => {
