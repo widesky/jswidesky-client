@@ -75,8 +75,6 @@ function createBatchRequest(op, args, result, returnResult) {
                 result.success.push(res);
             }
         } catch (error) {
-            // this.#logger.error(`Encountered error in %s batch operation`, op);
-            // this.#logger.error(error);
             result.errors.push({
                 error: error.message,
                 args
@@ -135,7 +133,6 @@ async function performOpInBatch(op, args, options={}) {
     };
     const { getNext, hasMore, p1 } = createBatchIterator.call(this, op, payload, clientArgs, batchSize, transformer);
     if (!hasMore()) {
-        // this.#logger.info("Empty payload given for client function %s.", op);
         return result;
     }
 
