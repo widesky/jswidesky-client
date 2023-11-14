@@ -7,12 +7,20 @@
 
 const stubs = require('../../../stubs');
 const sinon = require('sinon');
-const HisWritePayload = require("../../../../src/utils/hisWritePayload");
-const SMALL_DATA_1000 = require("./files/hisWrite_smallBatch.json");
 const expect = require('chai').expect;
 const getInstance = stubs.getInstance;
 
 const HIS_READ_BATCH_SIZE = 100;
+const HIS_READ_RESPONSE_SINGLE = require("./files/hisRead_smallSingle.json");
+const HIS_READ_RESPONSE_SINGLE_IDS = ["0e6562a0-05bc-11ee-8644-ab3fe7a960b1"];
+const HIS_READ_RESPONSE_MULTI = require("./files/hisRead_smallMulti.json");
+const HIS_READ_RESPONSE_MULTI_IDS = [
+    '0df080c0-05bc-11ee-8644-ab3fe7a960b1',
+    '0c1f66e3-7666-4cb6-8f7a-62b48101cc64',
+    '0bf95511-ec6c-4990-8555-b98ef44ec22b',
+    '0eddc6f0-05bc-11ee-8644-ab3fe7a960b1',
+    '0eb61ab0-05bc-11ee-8644-ab3fe7a960b1'
+];
 
 describe("client.batch.hisRead", () => {
     let ws, http, log;
@@ -135,5 +143,57 @@ describe("client.batch.hisRead", () => {
             expect(error).to.equal("Test error");
             expect(args).to.eql([["id1"], "start", "end", 100]);
         });
-    })
+    });
+
+    describe("2D transformation", () => {
+        beforeEach(() => {
+            ws.hisRead = sinon.stub().callsFake(() => {
+                return HIS_READ_RESPONSE_SINGLE;
+            });
+        });
+
+        describe("with 1 entity", () => {
+            it("Should return a 2D array of hisRead data", async () => {
+                const result = await ws.batch.hisRead(
+                    HIS_READ_RESPONSE_SINGLE_IDS,
+                    new Date(0),
+                    new Date()
+                );
+                expect(result.length).to.equal(1);
+                const dataSet = result[0];
+                for (let t = 0; t < dataSet.length; t++) {
+                    expect(dataSet[t]).to.eql({
+                        ts: `t:${(new Date(t)).toISOString()}`,
+                        val: `n:${0}`
+                    });
+                }
+            });
+        });
+
+        describe("with more than 1 entity", () => {
+            beforeEach(() => {
+                ws.hisRead = sinon.stub().callsFake(() => {
+                    return HIS_READ_RESPONSE_MULTI;
+                });
+            });
+
+            it("Should return a 2D array of hisRead data", async () => {
+                const result = await ws.batch.hisRead(
+                    HIS_READ_RESPONSE_MULTI_IDS,
+                    new Date(0),
+                    new Date()
+                );
+                expect(result.length).to.equal(5);
+                for (let i = 0; i < result.length; i++) {
+                    const dataSet = result[i];
+                    for (let t = 0; t < dataSet.length; t++) {
+                        expect(dataSet[t]).to.eql({
+                            ts: `t:${(new Date(t)).toISOString()}`,
+                            val: `n:${i}`
+                        });
+                    }
+                }
+            });
+        });
+    });
 });
