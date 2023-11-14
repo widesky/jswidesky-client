@@ -28,6 +28,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added new `HisWritePayload` to more easily create payloads suitable for the `hisWrite` function.
 - Added new function `performOpInBatch` to perform client operations in a batched and parallel manner. Will be used
   as the basis for all new batch functions added.
+- Add new batch functions:
+  - `client.batch.hisWrite(payload, options)`
 
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
