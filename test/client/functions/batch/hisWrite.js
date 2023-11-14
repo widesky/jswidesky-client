@@ -238,5 +238,5 @@ describe("client.batch.hisWrite", () => {
             expect(error).to.equal("Test error");
             expect(args).to.eql([SMALL_DATA_1000]);
         });
-    })
+    });
 });
