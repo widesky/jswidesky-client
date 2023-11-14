@@ -1544,7 +1544,7 @@ class WideSkyClient {
                 const ranges = range_val.split(',');
 
                 // Should not be more or less than 2 date(time) values in a range.
-                if (ranges.length != 2) {
+                if (ranges.length !== 2) {
                     throw new Error(range_err + 'Number of timestamps cannot exceed 2.');
                 }
 
