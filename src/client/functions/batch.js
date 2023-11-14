@@ -234,17 +234,52 @@ async function hisWrite(hisWriteData, options={}) {
  * @param   from Haystack read range or a Date Object representing where to grab historical data from.
  * @param   to  Date Object representing where to grab historical data to (not inclusive).
  * @param   options A Object defining batch configurations to be used. See README.md for more information.
- * @returns
+ * @returns A 2D array of time series data in the order of ids queried.
  */
 async function hisRead(ids, from, to, options={}) {
     await BATCH_HIS_READ_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisRead, options);
 
-    return this.performOpInBatch(
+    const result = (await this.performOpInBatch(
         "hisRead",
         [[...ids], from, to, options.batchSize],
         options
-    );
+    )).success;
+
+    // prepare 2D array
+    const resultByEntity = [];
+    for (let i = 0; i < ids.length; i++) {
+        resultByEntity.push([]);
+    }
+
+    // process hisRead data
+    let lastIndex  = 0;
+    for (let i = 0; i < result.length; i++) {
+        const res = result[i];
+        if (options.batchSize === 1) {
+            resultByEntity[i] = res.rows;
+        } else {
+            for (const row of res.rows) {
+                const { ts } = row;
+                for (const [vId, val] of Object.entries(row)) {
+                    if (vId === "ts") {
+                        continue;
+                    }
+
+                    let index;
+                    if (ids.length === 1) {
+                        index = 0;
+                    } else {
+                        index = lastIndex + Number(vId.slice(1));
+                    }
+                    resultByEntity[index].push({ts, val});
+                }
+            }
+            lastIndex += res.cols.length - 1;
+        }
+    }
+
+    return resultByEntity;
 }
 
 module.exports = {
