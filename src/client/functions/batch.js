@@ -2,10 +2,12 @@ const {
     deriveFromDefaults,
     PERFORM_OP_IN_BATCH_SCHEMA,
     BATCH_HIS_WRITE_SCHEMA,
-    BATCH_HIS_READ_SCHEMA
+    BATCH_HIS_READ_SCHEMA,
+    BATCH_HIS_DELETE_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
+const Hs = require("../../utils/haystack");
 
 /**
  * Create a Iterator Object for the given payload.
@@ -229,7 +231,7 @@ async function hisWrite(hisWriteData, options={}) {
 }
 
 /**
- * Perform a history read request.
+ * Perform a history read request using batch functionality.
  * @param   ids Entities to read.
  * @param   from Haystack read range or a Date Object representing where to grab historical data from.
  * @param   to  Date Object representing where to grab historical data to (not inclusive).
@@ -284,8 +286,158 @@ async function hisRead(ids, from, to, options={}) {
     };
 }
 
+/**
+ * Get the end time and index in the data set that has at most the given batchSize records.
+ * @param dataSet Data set to search in.
+ * @param grabFromIndex A start index to signify what will be batched next.
+ * @returns {{endRange: number, index: number}|{endRange: null, index: null}}
+ *      endRange: The epoch time that is either the end of the data set or batchSize indexes from the given
+ *                grabFromIndex. If data set is empty, null is returned.
+ *      index: The index of the endRange time found. If data set is empty, null is returned.
+ */
+function endTimeRange(dataSet, grabFromIndex, batchSize) {
+    if (dataSet.length === 0) {
+        return {
+            endRange: null,
+            index: null
+        };
+    }
+
+    let i = grabFromIndex;
+    while (i < dataSet.length - 1 && i < grabFromIndex + batchSize) {
+        i++;
+    }
+
+    if (i > dataSet.length - 1) {
+        // gone over. Select the end
+        i = dataSet.length - 1
+    }
+
+    return {
+        endRange: Date.parse(Hs.removePrefix(dataSet[i].ts)),
+        index: i
+    };
+}
+
+/**
+ * Find the index in a given Array of Objects with property "endRange" which is an epoch time stamp
+ * that is the smallest in the Array.
+ * @param values Array of Objects with property "endRange".
+ * @returns {null, number} Return the index in the Array given in values that has the earliest time stamp.
+ */
+function minWithIndex(values) {
+    let minIndex = null;
+    for (let i = 0; i < values.length; i++) {
+        if (values[i].endRange === null) {
+            continue;
+        } else if (minIndex === null) {
+            minIndex = i;
+            continue;
+        }
+
+        if (values[i].endRange < values[minIndex].endRange) {
+            minIndex = i;
+        }
+    }
+
+    return minIndex;
+};
+/**
+ * Determine if all time series data has been accounted for.
+ * @returns {boolean} True if there is more data to work with. False if not.
+ */
+function allAccountedFor(data, recordIndexes) {
+    for (let i = 0; i < recordIndexes.length; i++) {
+        if (data[i].length - 1 > recordIndexes[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Perform a history delete request using batch functionality.
+ * @param ids An array of point entity UUIDs for the delete operations or a single string.
+ * @param range A valid hisRead range string.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<void>}
+ */
+async function hisDelete(ids, range, options={}) {
+    await BATCH_HIS_DELETE_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.hisDelete, options);
+    const { batchSize } = options;
+
+    // TODO
+    const [timeStart, timeEnd] = range.split(",")
+        .map((timeStr) => new Date(Date.parse(timeStr.trim())));
+    const data = await this.batch.hisRead(ids, timeStart, timeEnd);
+    if (data.filter((dataSet) => dataSet.rows.length > 0).length === 0) {
+        // no data to delete
+        return;
+    }
+
+    // find start point
+    let startTime = null;
+    for (const dataSet of data) {
+        if (dataSet.length > 0) {
+            if (startTime === null) {
+                startTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
+                continue;
+            }
+            const firstTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
+            if (firstTime.getTime() < startTime.getTime()) {
+                startTime = firstTime;
+            }
+        }
+    }
+    let grabFrom = startTime;
+    const recordIndexes = new Array(ids.length).fill(0);
+
+    // Create the time ranges to be batched for hisDeletion
+    const batches = [];
+    const indexes = ids.map((_) => 0);
+    while (!allAccountedFor(data, recordIndexes)) {
+        const timeRanges = recordIndexes.map((_, index) =>
+            endTimeRange(data[index], recordIndexes[index], batchSize));
+        const minIndex = minWithIndex(timeRanges);
+        const grabTo = new Date(timeRanges[minIndex].endRange);
+
+        if (grabTo.getTime() > timeEnd.getTime()) {
+            // end of the line
+            batches.push(`s:${grabFrom.toISOString()},${timeEnd.toISOString()}`);
+            break;
+        } else {
+            batches.push(`s:${grabFrom.toISOString()},${grabTo.toISOString()}`);
+        }
+        grabFrom = grabTo;
+
+        // increment indexes
+        for (let i = 0; i < recordIndexes.length; i++) {
+            recordIndexes[i] = timeRanges[minIndex].index;
+        }
+    }
+
+    // ensure last time range is inclusive so add 1ms
+    const lastRangeStr = Hs.removePrefix(batches[batches.length - 1]);
+    const split = lastRangeStr.split(",");
+    const lastRange = new Date(Date.parse(split[1]) + 1);
+    batches[batches.length - 1] = `s:${split[0]},${lastRange.toISOString()}`;
+
+    return this.performOpInBatch(
+        "hisDelete",
+        [batches],
+        {
+            ...options,
+            batchSize: 1,           // batches are based on the time ranges to be deleted
+            transformer: (batch) => [ids, batch[0]]
+        }
+    );
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
-    hisRead
+    hisRead,
+    hisDelete
 };
