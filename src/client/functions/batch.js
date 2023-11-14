@@ -1,7 +1,8 @@
 const {
     deriveFromDefaults,
     PERFORM_OP_IN_BATCH_SCHEMA,
-    BATCH_HIS_WRITE_SCHEMA
+    BATCH_HIS_WRITE_SCHEMA,
+    BATCH_HIS_READ_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -227,7 +228,27 @@ async function hisWrite(hisWriteData, options={}) {
     );
 }
 
+/**
+ * Perform a history read request.
+ * @param   ids Entities to read.
+ * @param   from Haystack read range or a Date Object representing where to grab historical data from.
+ * @param   to  Date Object representing where to grab historical data to (not inclusive).
+ * @param   options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns
+ */
+async function hisRead(ids, from, to, options={}) {
+    await BATCH_HIS_READ_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.hisRead, options);
+
+    return this.performOpInBatch(
+        "hisRead",
+        [[...ids], from, to, options.batchSize],
+        options
+    );
+}
+
 module.exports = {
     performOpInBatch,
-    hisWrite
+    hisWrite,
+    hisRead
 };
