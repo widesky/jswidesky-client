@@ -15,7 +15,7 @@ const { RequestError } = require("./../errors");
 const bunyan = require("bunyan");
 const { CLIENT_SCHEMA, deriveFromDefaults } = require("./../utils/evaluator");
 const clientV2Functions = require("./functions/v2");
-const { performOpInBatch } = require("./functions/batch");
+const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const cliProgress = require("cli-progress");
 let axios;
 
@@ -170,6 +170,8 @@ class WideSkyClient {
         assignPrototype(this.v2, clientV2Functions);
         // Assign batch functions
         this.performOpInBatch = performOpInBatch.bind(this);
+        this.batch = {};
+        assignPrototype(this.batch, allBatchFunctions);
     }
 
     /**
