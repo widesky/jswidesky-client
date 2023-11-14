@@ -206,5 +206,6 @@ module.exports = {
     PERFORM_OP_IN_BATCH_SCHEMA,
     BATCH_HIS_WRITE_SCHEMA,
     BATCH_HIS_READ_SCHEMA,
+    BATCH_HIS_DELETE_SCHEMA,
     deriveFromDefaults
 };
