@@ -90,7 +90,7 @@ describe("client.batch.hisWrite", () => {
                 payload.add("abc", [{ts: "t:asad", val: "n:123"}]);
                 await ws.batch.hisWrite(payload);
                 expect(ws.hisWrite.calledOnce).to.be.true;
-                expect(ws.hisWrite.args[0]).to.eql([payload.payload, DEFAULT_BATCH_SIZE]);
+                expect(ws.hisWrite.args[0]).to.eql([payload.payload]);
             });
         });
 
@@ -100,7 +100,7 @@ describe("client.batch.hisWrite", () => {
                 payload.add("abc", [{ts: "t:asad", val: "n:123"}]);
                 await ws.batch.hisWrite(payload.payload);
                 expect(ws.hisWrite.calledOnce).to.be.true;
-                expect(ws.hisWrite.args[0]).to.eql([payload.payload, DEFAULT_BATCH_SIZE]);
+                expect(ws.hisWrite.args[0]).to.eql([payload.payload]);
             });
         });
 
@@ -126,7 +126,6 @@ describe("client.batch.hisWrite", () => {
                 payload.payload = SMALL_DATA_1000;
                 await ws.batch.hisWrite(payload);
                 expect(ws.hisWrite.calledOnce).to.be.true;
-                expect(ws.hisWrite.args[0][1]).to.eql(DEFAULT_BATCH_SIZE);
                 for (const [key, values] of Object.entries(ws.hisWrite.args[0][0])) {
                     expect(SMALL_DATA_1000[key]).to.not.be.undefined;
                     expect(SMALL_DATA_1000[key]).to.eql(values);
@@ -144,8 +143,7 @@ describe("client.batch.hisWrite", () => {
                 const expectedBatches = constructPayloadBatches(LARGE_DATA_20000, DEFAULT_BATCH_SIZE);
                 expect(expectedBatches.length).to.equal(ws.hisWrite.callCount);
                 for (let i = 0; i < ws.hisWrite.callCount; i++) {
-                    const [payload, hisWriteBatch] = ws.hisWrite.args[i];
-                    expect(hisWriteBatch).to.equal(DEFAULT_BATCH_SIZE);
+                    const payload = ws.hisWrite.args[i][0];
                     expect(countRows(payload)).to.equal(DEFAULT_BATCH_SIZE);
                     expect(payload).to.eql(expectedBatches[i]);
                 }
@@ -161,7 +159,6 @@ describe("client.batch.hisWrite", () => {
                 const batchSize = 20000;
                 await ws.batch.hisWrite(payload, { batchSize });
                 expect(ws.hisWrite.calledOnce).to.be.true;
-                expect(ws.hisWrite.args[0][1]).to.eql(batchSize);
                 for (const [key, values] of Object.entries(ws.hisWrite.args[0][0])) {
                     expect(SMALL_DATA_1000[key]).to.not.be.undefined;
                     expect(SMALL_DATA_1000[key]).to.eql(values);
@@ -179,8 +176,7 @@ describe("client.batch.hisWrite", () => {
                 const expectedBatches = constructPayloadBatches(SMALL_DATA_1000, batchSize);
                 expect(expectedBatches.length).to.equal(ws.hisWrite.callCount);
                 for (let i = 0; i < ws.hisWrite.callCount; i++) {
-                    const [payload, hisWriteBatch] = ws.hisWrite.args[i];
-                    expect(hisWriteBatch).to.equal(batchSize);
+                    const payload = ws.hisWrite.args[i][0];
                     expect(countRows(payload)).to.be.lessThanOrEqual(batchSize);
                     expect(payload).to.eql(expectedBatches[i]);
                 }
@@ -240,7 +236,7 @@ describe("client.batch.hisWrite", () => {
             expect(result.errors.length).to.be.equal(1);
             const { error, args } = result.errors[0];
             expect(error).to.equal("Test error");
-            expect(args).to.eql([SMALL_DATA_1000, DEFAULT_BATCH_SIZE]);
+            expect(args).to.eql([SMALL_DATA_1000]);
         });
     })
 });
