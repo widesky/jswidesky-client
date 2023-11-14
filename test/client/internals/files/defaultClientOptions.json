@@ -62,14 +62,14 @@
     },
     "hisWrite": {
       "batchDelay": 0,
-      "batchSize": 2000,
+      "batchSize": 10000,
       "parallel": 1,
       "parallelDelay": 0,
       "returnResult": false
     },
     "migrateHistory": {
       "batchDelay": 0,
-      "batchSize": 2000,
+      "batchSize": 10000,
       "parallel": 1,
       "parallelDelay": 0,
       "returnResult": false
