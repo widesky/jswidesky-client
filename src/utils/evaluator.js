@@ -2,12 +2,16 @@ const yup = require("yup");
 
 const HIS_READ_BATCH_SIZE = 100;
 const HIS_WRITE_BATCH_SIZE  = 2000;
+const HIS_WRITE_MAX_BATCH_SIZE = 10000;
 const HIS_DELETE_DATA_POINT_BATCH_SIZE = 1500;
 const HIS_DELETE_ENTITY_BATCH_SIZE = 100;
 const CREATE_BATCH_SIZE = 2000;
 const UPDATE_BATCH_SIZE = 2000;
 const DELETE_BATCH_SIZE = 30;
+
 const PERFORM_OP_IN_BATCH_BATCH_SIZE = 100;
+const PERFORM_OP_IN_BATCH_MAX_BATCH_SIZE = 10 ** 9;
+const PERFORM_OP_IN_BATCH_MAX_PARALLEL = 100;
 
 function deriveFromDefaults(defaultConfig, passedConfig) {
     for (const [key, value] of Object.entries(defaultConfig)) {
@@ -29,13 +33,14 @@ const LIMIT_PROPERTY = {
         .min(0)
 };
 
-const getBatchProp = (defaultSize) => {
+const getBatchProp = (defaultSize, maxSize=defaultSize) => {
     return {
         batchSize: yup.number()
             .notRequired()
             .nullable()
             .strict()
             .min(1)
+            .max(maxSize)
             .default(defaultSize)
     }
 };
@@ -50,7 +55,7 @@ const getReturnResultProp = (defaultVal) => {
 
 // Shared Objects
 const PERFORM_OP_IN_BATCH_ObJ = {
-    ...getBatchProp(PERFORM_OP_IN_BATCH_BATCH_SIZE),
+    ...getBatchProp(PERFORM_OP_IN_BATCH_BATCH_SIZE, PERFORM_OP_IN_BATCH_MAX_BATCH_SIZE),
     ...getReturnResultProp(false),
     batchDelay: yup.number()
         .notRequired()
@@ -61,6 +66,7 @@ const PERFORM_OP_IN_BATCH_ObJ = {
     parallel: yup.number()
         .strict()
         .min(1)
+        .max(PERFORM_OP_IN_BATCH_MAX_PARALLEL)
         .default(1),
     parallelDelay: yup.number()
         .notRequired()
@@ -77,7 +83,7 @@ const BATCH_HIS_READ_SCHEMA = yup.object({
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_ObJ,
-    ...getBatchProp(HIS_WRITE_BATCH_SIZE),
+    ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_MAX_BATCH_SIZE),
     ...getReturnResultProp(false)
 });
 const BATCH_HIS_DELETE_SCHEMA = yup.object({
@@ -196,5 +202,6 @@ const CLIENT_SCHEMA = yup.object({
 module.exports = {
     CLIENT_SCHEMA,
     PERFORM_OP_IN_BATCH_SCHEMA,
+    BATCH_HIS_WRITE_SCHEMA,
     deriveFromDefaults
-}
+};
