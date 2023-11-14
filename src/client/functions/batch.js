@@ -1,4 +1,8 @@
-const { deriveFromDefaults, PERFORM_OP_IN_BATCH_SCHEMA} = require("../../utils/evaluator");
+const {
+    deriveFromDefaults,
+    PERFORM_OP_IN_BATCH_SCHEMA,
+    BATCH_HIS_WRITE_SCHEMA
+} = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
 
@@ -163,6 +167,35 @@ async function performOpInBatch(op, args, options={}) {
     return result;
 }
 
+/**
+ * Perform a hisWrite operation using batch functionality.
+ * @param hisWriteData HisWrite data to be sent. Can be the raw hisWrite payload or an instance of HisWritePayload.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*>}
+ */
+async function hisWrite(hisWriteData, options={}) {
+    if (!["Object", "HisWritePayload"].includes(hisWriteData.constructor.name)) {
+        throw new Error("parameter hisWriteData must be of type Object");
+    }
+
+    await BATCH_HIS_WRITE_SCHEMA.validate(options);
+
+    let data;
+    if (hisWriteData instanceof HisWritePayload) {
+        data = hisWriteData.payload;
+    } else {
+        data = hisWriteData;
+    }
+    options = deriveFromDefaults(this.clientOptions.batch.hisWrite, options);
+
+    return this.performOpInBatch(
+        "hisWrite",
+        [data, options.batchSize],
+        options
+    );
+}
+
 module.exports = {
-    performOpInBatch
+    performOpInBatch,
+    hisWrite
 };
