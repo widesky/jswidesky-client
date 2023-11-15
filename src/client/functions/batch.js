@@ -313,7 +313,7 @@ function endTimeRange(dataSet, grabFromIndex, batchSize) {
     }
 
     let i = grabFromIndex;
-    while (i < dataSet.length - 1 && i < grabFromIndex + batchSize) {
+    while (i < dataSet.length - 1 && i - grabFromIndex + 1 < batchSize) {
         i++;
     }
 
@@ -357,7 +357,7 @@ function minWithIndex(values) {
  */
 function allAccountedFor(data, recordIndexes) {
     for (let i = 0; i < recordIndexes.length; i++) {
-        if (data[i].length - 1 > recordIndexes[i]) {
+        if (data[i].length > recordIndexes[i]) {
             return false;
         }
     }
@@ -428,27 +428,25 @@ async function hisDelete(ids, range, options={}) {
             const timeRanges = recordIndexes.map((_, index) =>
                 endTimeRange(data[index], recordIndexes[index], batchSize));
             const minIndex = minWithIndex(timeRanges);
-            const grabTo = new Date(timeRanges[minIndex].endRange);
+            // ensure time range is inclusive of data to be deleted (i.e. +1ms)
+            const grabTo = new Date(timeRanges[minIndex].endRange + 1);
 
             if (grabTo.getTime() > timeEnd.getTime()) {
                 // end of the line
                 batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${timeEnd.toISOString()}`]);
-                // batches.push(`s:${grabFrom.toISOString()},${timeEnd.toISOString()}`);
                 break;
             } else {
                 batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${grabTo.toISOString()}`]);
-                // batches.push(`s:${grabFrom.toISOString()},${grabTo.toISOString()}`);
             }
             grabFrom = grabTo;
 
             // update starting indexes
             for (let i = 0; i < recordIndexes.length; i++) {
-                recordIndexes[i] = timeRanges[minIndex].index;
+                recordIndexes[i] = timeRanges[minIndex].index + 1;
             }
         }
     }
 
-    // flatten array
     const batchFlattened = [];
     for (const idBatch of batches) {
         for (const batchForIds of idBatch) {
