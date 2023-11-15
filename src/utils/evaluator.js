@@ -133,6 +133,7 @@ const BATCH_UPDATE_BY_FILTER_SCHEMA = yup.object({
 const BATCH_HIS_DELETE_BY_FILTER_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_DELETE_DATA_POINT_BATCH_SIZE),
+    ...getBatchProp(HIS_DELETE_ENTITY_BATCH_SIZE, HIS_DELETE_ENTITY_BATCH_SIZE_MAX, "batchSizeEntity"),
     ...getReturnResultProp(false),
     ...LIMIT_PROPERTY
 });
