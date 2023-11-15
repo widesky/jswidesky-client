@@ -33,6 +33,7 @@
     "hisDelete": {
       "batchDelay": 0,
       "batchSize": 1500,
+      "batchSizeEntity": 100,
       "parallel": 1,
       "parallelDelay": 0,
       "returnResult": false
@@ -40,6 +41,7 @@
     "hisDeleteByFilter": {
       "batchDelay": 0,
       "batchSize": 1500,
+      "batchSizeEntity": 100,
       "limit": 0,
       "parallel": 1,
       "parallelDelay": 0,
