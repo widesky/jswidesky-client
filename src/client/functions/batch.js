@@ -341,7 +341,7 @@ function minWithIndex(values) {
     }
 
     return minIndex;
-};
+}
 /**
  * Determine if all time series data has been accounted for.
  * @returns {boolean} True if there is more data to work with. False if not.
