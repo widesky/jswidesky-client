@@ -9,6 +9,7 @@ const HIS_DELETE_DATA_POINT_BATCH_SIZE_MAX = 3000;
 const HIS_DELETE_ENTITY_BATCH_SIZE = 100;
 const HIS_DELETE_ENTITY_BATCH_SIZE_MAX = 1000;
 const CREATE_BATCH_SIZE = 2000;
+const CREATE_BATCH_SIZE_MAX = 10000;
 const UPDATE_BATCH_SIZE = 2000;
 const DELETE_BATCH_SIZE = 30;
 
@@ -96,7 +97,7 @@ const BATCH_HIS_DELETE_SCHEMA = yup.object({
 });
 const BATCH_CREATE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_ObJ,
-    ...getBatchProp(CREATE_BATCH_SIZE),
+    ...getBatchProp(CREATE_BATCH_SIZE, CREATE_BATCH_SIZE_MAX),
     ...getReturnResultProp(false)
 });
 const BATCH_UPDATE_SCHEMA = yup.object({
@@ -212,5 +213,6 @@ module.exports = {
     BATCH_HIS_WRITE_SCHEMA,
     BATCH_HIS_READ_SCHEMA,
     BATCH_HIS_DELETE_SCHEMA,
+    BATCH_CREATE_SCHEMA,
     deriveFromDefaults
 };
