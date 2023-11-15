@@ -379,9 +379,16 @@ async function hisDelete(ids, range, options={}) {
     await BATCH_HIS_DELETE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisDelete, options);
     const { batchSize, batchSizeEntity } = options;
-    // TODO
+
+    // validate hisRead range given
+    if (!range.includes(",")) {
+        throw new Error("'range' parameter is not a valid hisRead range");
+    }
     const [timeStart, timeEnd] = range.split(",")
         .map((timeStr) => new Date(Date.parse(timeStr.trim())));
+    if (isNaN(timeStart) || isNaN(timeEnd)) {
+        throw new Error("'range' parameter is not a valid hisRead range");
+    }
 
     // Create batch of ids
     let idsAsBatch = [];
