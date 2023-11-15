@@ -56,7 +56,6 @@ const getReturnResultProp = (defaultVal) => {
 // Shared Objects
 const PERFORM_OP_IN_BATCH_ObJ = {
     ...getBatchProp(PERFORM_OP_IN_BATCH_BATCH_SIZE, PERFORM_OP_IN_BATCH_MAX_BATCH_SIZE),
-    ...getReturnResultProp(false),
     batchDelay: yup.number()
         .notRequired()
         .nullable()
@@ -79,8 +78,7 @@ const PERFORM_OP_IN_BATCH_ObJ = {
 // Client function schema for options arguments
 const BATCH_HIS_READ_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_ObJ,
-    ...getBatchProp(HIS_READ_BATCH_SIZE),
-    ...getReturnResultProp(true)
+    ...getBatchProp(HIS_READ_BATCH_SIZE)
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_ObJ,
@@ -145,7 +143,10 @@ const BATCH_UPDATE_OR_CREATE_SCHEMA = yup.object({
     ...getBatchProp(Math.min(CREATE_BATCH_SIZE, UPDATE_BATCH_SIZE)),
     ...getReturnResultProp(true)
 });
-const PERFORM_OP_IN_BATCH_SCHEMA = yup.object(PERFORM_OP_IN_BATCH_ObJ);
+const PERFORM_OP_IN_BATCH_SCHEMA = yup.object({
+    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...getReturnResultProp(false)
+});
 
 const PROGRESS_OBJ = {
     enable: yup.boolean()
@@ -197,7 +198,7 @@ const CLIENT_SCHEMA = yup.object({
         hisDeleteByFilter: BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
         updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA
     }),
-    performOpInBatch: yup.object(PERFORM_OP_IN_BATCH_ObJ)
+    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA
 });
 
 module.exports = {
