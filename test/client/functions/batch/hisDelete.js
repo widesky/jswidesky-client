@@ -54,6 +54,35 @@ describe("client", () => {
     });
 
     describe("batch.hisDelete", () => {
+        describe("argument range", () => {
+            it("should reject if given '2023-10-10T00:00:00Z'", async () => {
+                try {
+                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00Z");
+                    throw new Error("Should not have worked");
+                } catch (error) {
+                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
+                }
+            });
+
+            it("should reject if 'from' part of range is not a valid Date", async () => {
+                try {
+                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00A,2023-10-10T10:00:00Z");
+                    throw new Error("Should not have worked");
+                } catch (error) {
+                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
+                }
+            });
+
+            it("should reject if 'to' part of range is not a valid Date", async () => {
+                try {
+                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00Z,2023-10-10T10:00:00A");
+                    throw new Error("Should not have worked");
+                } catch (error) {
+                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
+                }
+            });
+        });
+
         describe("no options specified", () => {
             describe("time series rows", () => {
                 describe("payload smaller than default batch size of 100", () => {
