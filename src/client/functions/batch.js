@@ -10,6 +10,20 @@ const { sleep } = require("../../utils/tools");
 const Hs = require("../../utils/haystack");
 
 /**
+ * Initialise a 2D empty array.
+ * @param size Size of the 2D array.
+ * @returns {*[]}
+ */
+function init2DArray(size) {
+    const arr = [];
+    for (let i = 0; i < size; i++) {
+        arr.push([]);
+    }
+
+    return arr;
+}
+
+/**
  * Create a Iterator Object for the given payload.
  * @param op Operation to be performed. Only relevant for op "hisDelete".
  * @param payload Payload to be batched.
@@ -139,10 +153,6 @@ function createBatchRequest(op, args, result, returnResult) {
  *                - transformer: A function to transform the payload to be passed to the client operation.
  */
 async function performOpInBatch(op, args, options={}) {
-    if (!this.initialised) {
-        await this.initWaitFor;
-    }
-
     // evaluate options
     await PERFORM_OP_IN_BATCH_SCHEMA.validate(options);
     const {
@@ -206,6 +216,8 @@ async function performOpInBatch(op, args, options={}) {
  * Perform a hisWrite operation using batch functionality.
  * @param hisWriteData HisWrite data to be sent. Can be the raw hisWrite payload or an instance of HisWritePayload.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
+ *                Option batchSize is determined by the maximum number of time series rows to be sent. The rows are
+ *                defined as the time series for each entity.
  * @returns {Promise<*>}
  */
 async function hisWrite(hisWriteData, options={}) {
@@ -236,6 +248,7 @@ async function hisWrite(hisWriteData, options={}) {
  * @param   from Haystack read range or a Date Object representing where to grab historical data from.
  * @param   to  Date Object representing where to grab historical data to (not inclusive).
  * @param   options A Object defining batch configurations to be used. See README.md for more information.
+ *                  Option batchSize is determined by the number of ids to perform a hisRead for.
  * @returns A 2D array of time series data in the order of ids queried.
  */
 async function hisRead(ids, from, to, options={}) {
@@ -254,13 +267,8 @@ async function hisRead(ids, from, to, options={}) {
         }
     );
 
-    // prepare 2D array
-    const resultByEntity = [];
-    for (let i = 0; i < ids.length; i++) {
-        resultByEntity.push([]);
-    }
-
     // process hisRead data
+    const resultByEntity = init2DArray(ids.length);
     for (let i = 0; i < data.length; i++) {
         const res = data[i];
         if (ids.length === 1 || options.batchSize === 1) {
@@ -290,6 +298,7 @@ async function hisRead(ids, from, to, options={}) {
  * Get the end time and index in the data set that has at most the given batchSize records.
  * @param dataSet Data set to search in.
  * @param grabFromIndex A start index to signify what will be batched next.
+ * @param batchSize
  * @returns {{endRange: number, index: number}|{endRange: null, index: null}}
  *      endRange: The epoch time that is either the end of the data set or batchSize indexes from the given
  *                grabFromIndex. If data set is empty, null is returned.
@@ -358,79 +367,102 @@ function allAccountedFor(data, recordIndexes) {
 
 /**
  * Perform a history delete request using batch functionality.
- * @param ids An array of point entity UUIDs for the delete operations or a single string.
- * @param range A valid hisRead range string.
+ * @param ids An array of point entity UUIDs for the delete operations or a single string. These will be batched by
+ *            options.batchSizeEntity.
+ * @param range A valid hisRead range string. End range is not inclusive.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
+ *                Option batchSize is determined by the maximum number of time series rows to be deleted across
+ *                all ids given.
  * @returns {Promise<void>}
  */
 async function hisDelete(ids, range, options={}) {
     await BATCH_HIS_DELETE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisDelete, options);
-    const { batchSize } = options;
-
+    const { batchSize, batchSizeEntity } = options;
     // TODO
     const [timeStart, timeEnd] = range.split(",")
         .map((timeStr) => new Date(Date.parse(timeStr.trim())));
-    const data = await this.batch.hisRead(ids, timeStart, timeEnd);
-    if (data.filter((dataSet) => dataSet.rows.length > 0).length === 0) {
-        // no data to delete
-        return;
+
+    // Create batch of ids
+    let idsAsBatch = [];
+    if (ids.length > batchSizeEntity) {
+        const idsCopy = [...ids];
+        while (idsCopy.length) {
+            idsAsBatch.push(idsCopy.splice(0, batchSizeEntity));
+        }
+    } else {
+        idsAsBatch.push(ids);
     }
 
-    // find start point
-    let startTime = null;
-    for (const dataSet of data) {
-        if (dataSet.length > 0) {
-            if (startTime === null) {
-                startTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
-                continue;
+    // Create time range batches in terms of each batch of ids
+    const batches = init2DArray(idsAsBatch.length);
+    for (let batchIndex = 0; batchIndex < idsAsBatch.length; batchIndex++) {
+        const idsInBatch = idsAsBatch[batchIndex];
+        const data = await this.batch.hisRead(ids, timeStart, timeEnd);
+        if (data.filter((dataSet) => dataSet.length > 0).length === 0) {
+            // no data to delete
+            return;
+        }
+
+        // find start point
+        let startTime = null;
+        for (const dataSet of data) {
+            if (dataSet.length > 0) {
+                if (startTime === null) {
+                    startTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
+                    continue;
+                }
+                const firstTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
+                if (firstTime.getTime() < startTime.getTime()) {
+                    startTime = firstTime;
+                }
             }
-            const firstTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
-            if (firstTime.getTime() < startTime.getTime()) {
-                startTime = firstTime;
+        }
+        let grabFrom = startTime;
+        const recordIndexes = new Array(ids.length).fill(0);
+
+        // Create the time ranges to be batched for hisDeletion
+        // const batches = [];
+        const indexes = ids.map((_) => 0);
+        while (!allAccountedFor(data, recordIndexes)) {
+            const timeRanges = recordIndexes.map((_, index) =>
+                endTimeRange(data[index], recordIndexes[index], batchSize));
+            const minIndex = minWithIndex(timeRanges);
+            const grabTo = new Date(timeRanges[minIndex].endRange);
+
+            if (grabTo.getTime() > timeEnd.getTime()) {
+                // end of the line
+                batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${timeEnd.toISOString()}`]);
+                // batches.push(`s:${grabFrom.toISOString()},${timeEnd.toISOString()}`);
+                break;
+            } else {
+                batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${grabTo.toISOString()}`]);
+                // batches.push(`s:${grabFrom.toISOString()},${grabTo.toISOString()}`);
+            }
+            grabFrom = grabTo;
+
+            // update starting indexes
+            for (let i = 0; i < recordIndexes.length; i++) {
+                recordIndexes[i] = timeRanges[minIndex].index;
             }
         }
     }
-    let grabFrom = startTime;
-    const recordIndexes = new Array(ids.length).fill(0);
 
-    // Create the time ranges to be batched for hisDeletion
-    const batches = [];
-    const indexes = ids.map((_) => 0);
-    while (!allAccountedFor(data, recordIndexes)) {
-        const timeRanges = recordIndexes.map((_, index) =>
-            endTimeRange(data[index], recordIndexes[index], batchSize));
-        const minIndex = minWithIndex(timeRanges);
-        const grabTo = new Date(timeRanges[minIndex].endRange);
-
-        if (grabTo.getTime() > timeEnd.getTime()) {
-            // end of the line
-            batches.push(`s:${grabFrom.toISOString()},${timeEnd.toISOString()}`);
-            break;
-        } else {
-            batches.push(`s:${grabFrom.toISOString()},${grabTo.toISOString()}`);
-        }
-        grabFrom = grabTo;
-
-        // increment indexes
-        for (let i = 0; i < recordIndexes.length; i++) {
-            recordIndexes[i] = timeRanges[minIndex].index;
+    // flatten array
+    const batchFlattened = [];
+    for (const idBatch of batches) {
+        for (const batchForIds of idBatch) {
+            batchFlattened.push(batchForIds);
         }
     }
-
-    // ensure last time range is inclusive so add 1ms
-    const lastRangeStr = Hs.removePrefix(batches[batches.length - 1]);
-    const split = lastRangeStr.split(",");
-    const lastRange = new Date(Date.parse(split[1]) + 1);
-    batches[batches.length - 1] = `s:${split[0]},${lastRange.toISOString()}`;
 
     return this.performOpInBatch(
         "hisDelete",
-        [batches],
+        [batchFlattened],
         {
             ...options,
             batchSize: 1,           // batches are based on the time ranges to be deleted
-            transformer: (batch) => [ids, batch[0]]
+            transformer: (batch) => batch[0]
         }
     );
 }
