@@ -78,7 +78,6 @@ const PERFORM_OP_IN_BATCH_OBJ = {
 // Client function schema for options arguments
 const BATCH_HIS_READ_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(HIS_READ_BATCH_SIZE)
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
