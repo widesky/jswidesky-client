@@ -28,7 +28,16 @@ describe("client.batch.hisRead", () => {
         http = new stubs.StubHTTPClient();
         log = new stubs.StubLogger();
         ws = getInstance(http, log);
-        ws.hisRead = sinon.stub();
+        ws.hisRead = sinon.stub().callsFake(() =>  {
+            return {
+                rows: [
+                    {
+                        ts: "t:2023-10-10T00:00:00Z",
+                        val: "n:123"
+                    }
+                ]
+            };
+        });
     });
 
     describe("no options specified", () => {
@@ -41,6 +50,17 @@ describe("client.batch.hisRead", () => {
         });
 
         describe("payload larger than default batch size of 100", () => {
+            beforeEach(() => {
+                ws.hisRead = sinon.stub().callsFake(() =>  {
+                    return {
+                        cols: HIS_READ_RESPONSE_MULTI.cols,
+                        rows: [
+                            HIS_READ_RESPONSE_MULTI.rows[0]
+                        ]
+                    };
+                });
+            });
+
             it("should only make 2 requests", async () => {
                 const ids = [];
                 for (let i = 0; i < 150 ; i++) {
@@ -58,10 +78,14 @@ describe("client.batch.hisRead", () => {
         });
 
         it("should return result", async () => {
-            ws.hisRead = sinon.stub().callsFake(() =>  "abc");
             const result = await ws.batch.hisRead(["id1"], "start", "end");
             expect(result).to.eql({
-                success: ["abc"],
+                success: [[
+                    {
+                        ts: "t:2023-10-10T00:00:00Z",
+                        val: "n:123"
+                    }
+                ]],
                 errors: []
             });
         });
@@ -69,6 +93,17 @@ describe("client.batch.hisRead", () => {
 
     describe("option batchSize", async () => {
         describe("payload smaller than batchSize", () => {
+            beforeEach(() => {
+                ws.hisRead = sinon.stub().callsFake(() =>  {
+                    return {
+                        cols: HIS_READ_RESPONSE_MULTI.cols,
+                        rows: [
+                            HIS_READ_RESPONSE_MULTI.rows[0]
+                        ]
+                    };
+                });
+            });
+
             it("should send 1 request", async () => {
                 const ids = ["id0", "id1", "id2", "id3", "id4"];
                 await ws.batch.hisRead(ids, "start", "end", {
@@ -82,6 +117,17 @@ describe("client.batch.hisRead", () => {
         });
 
         describe("payload larger than batchSize", () => {
+            beforeEach(() => {
+                ws.hisRead = sinon.stub().callsFake(() =>  {
+                    return {
+                        cols: HIS_READ_RESPONSE_MULTI.cols,
+                        rows: [
+                            HIS_READ_RESPONSE_MULTI.rows[0]
+                        ]
+                    };
+                });
+            });
+
             it("should send multiple requests", async () => {
                 const ids = ["id0", "id1", "id2", "id3", "id4"];
                 await ws.batch.hisRead(ids, "start", "end", {
@@ -97,36 +143,6 @@ describe("client.batch.hisRead", () => {
                 expect(ws.hisRead.args[2]).to.eql([
                     ["id4"], "start", "end", 2
                 ]);
-            });
-        })
-    });
-
-    describe("option returnResult", () => {
-        beforeEach(() => {
-            ws.hisRead = sinon.stub().callsFake(() =>  "abc");
-        });
-
-        describe("if enabled", () => {
-            it("should return result", async () => {
-                const result = await ws.batch.hisRead(["id1"], "start", "end", {
-                    returnResult: true
-                });
-                expect(result).to.eql({
-                    success: ["abc"],
-                    errors: []
-                });
-            });
-        });
-
-        describe("if disabled", () => {
-            it("should not return result", async () => {
-                const result = await ws.batch.hisRead(["id1"], "start", "end", {
-                    returnResult: false
-                });
-                expect(result).to.eql({
-                    success: [],
-                    errors: []
-                });
             });
         })
     });
@@ -154,13 +170,13 @@ describe("client.batch.hisRead", () => {
 
         describe("with 1 entity", () => {
             it("Should return a 2D array of hisRead data", async () => {
-                const result = await ws.batch.hisRead(
+                const { success, errors } = await ws.batch.hisRead(
                     HIS_READ_RESPONSE_SINGLE_IDS,
                     new Date(0),
                     new Date()
                 );
-                expect(result.length).to.equal(1);
-                const dataSet = result[0];
+                expect(success.length).to.equal(1);
+                const dataSet = success[0];
                 for (let t = 0; t < dataSet.length; t++) {
                     expect(dataSet[t]).to.eql({
                         ts: `t:${(new Date(t)).toISOString()}`,
@@ -178,14 +194,14 @@ describe("client.batch.hisRead", () => {
             });
 
             it("Should return a 2D array of hisRead data", async () => {
-                const result = await ws.batch.hisRead(
+                const { success, errors } = await ws.batch.hisRead(
                     HIS_READ_RESPONSE_MULTI_IDS,
                     new Date(0),
                     new Date()
                 );
-                expect(result.length).to.equal(5);
-                for (let i = 0; i < result.length; i++) {
-                    const dataSet = result[i];
+                expect(success.length).to.equal(5);
+                for (let i = 0; i < success.length; i++) {
+                    const dataSet = success[i];
                     for (let t = 0; t < dataSet.length; t++) {
                         expect(dataSet[t]).to.eql({
                             ts: `t:${(new Date(t)).toISOString()}`,

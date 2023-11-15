@@ -240,11 +240,17 @@ async function hisRead(ids, from, to, options={}) {
     await BATCH_HIS_READ_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisRead, options);
 
-    const result = (await this.performOpInBatch(
+    const {
+        success: data,
+        errors
+    } = await this.performOpInBatch(
         "hisRead",
         [[...ids], from, to, options.batchSize],
-        options
-    )).success;
+        {
+            ...options,
+            returnResult: true
+        }
+    );
 
     // prepare 2D array
     const resultByEntity = [];
@@ -253,10 +259,9 @@ async function hisRead(ids, from, to, options={}) {
     }
 
     // process hisRead data
-    let lastIndex  = 0;
-    for (let i = 0; i < result.length; i++) {
-        const res = result[i];
-        if (options.batchSize === 1) {
+    for (let i = 0; i < data.length; i++) {
+        const res = data[i];
+        if (ids.length === 1) {
             resultByEntity[i] = res.rows;
         } else {
             for (const row of res.rows) {
@@ -266,20 +271,17 @@ async function hisRead(ids, from, to, options={}) {
                         continue;
                     }
 
-                    let index;
-                    if (ids.length === 1) {
-                        index = 0;
-                    } else {
-                        index = lastIndex + Number(vId.slice(1));
-                    }
+                    const index = Number(vId.slice(1));
                     resultByEntity[index].push({ts, val});
                 }
             }
-            lastIndex += res.cols.length - 1;
         }
     }
 
-    return resultByEntity;
+    return {
+        success: resultByEntity,
+        errors: errors
+    };
 }
 
 module.exports = {
