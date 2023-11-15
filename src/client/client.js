@@ -159,9 +159,25 @@ class WideSkyClient {
     }
 
     assignSubFunctions() {
-        const assignPrototype = (thisProp, functions) => {
+        const performPreCheck = (func) => {
+            return async (...args) => {
+                if (!this.initialised) {
+                    this.#logger.info("Not finished initialising. Waiting...");
+                    await this.initWaitFor;
+                }
+
+                return func.call(this, ...args);
+            }
+        }
+
+        const assignPrototype = (thisProp, functions, withPreCheck=false) => {
             for (const [name, func] of Object.entries(functions)) {
-                thisProp[name] = func.bind(this);
+                if (withPreCheck) {
+                    thisProp[name] = performPreCheck(func);
+                }
+                else {
+                    thisProp[name] = func.bind(this);
+                }
             }
         }
 
@@ -169,9 +185,9 @@ class WideSkyClient {
         this.v2 = {};
         assignPrototype(this.v2, clientV2Functions);
         // Assign batch functions
-        this.performOpInBatch = performOpInBatch.bind(this);
+        this.performOpInBatch = performPreCheck(performOpInBatch);
         this.batch = {};
-        assignPrototype(this.batch, allBatchFunctions);
+        assignPrototype(this.batch, allBatchFunctions, true);
     }
 
     /**
