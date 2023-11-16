@@ -30,7 +30,7 @@ describe('client.entityCount', () => {
         expect(ws.query.calledOnce).to.be.true;
     });
 
-    it(`should add '/' where '"' characters are found`, async () =>{
+    it(`should add '/' where '"' characters are found`, async () => {
         await ws.entityCount(`name=="a-name"`);
         expect(ws.query.calledOnce).to.be.true;
         expect(ws.query.args[0]).to.eql([
