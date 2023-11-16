@@ -4,7 +4,7 @@ const {
     BATCH_HIS_WRITE_SCHEMA,
     BATCH_HIS_READ_SCHEMA,
     BATCH_HIS_DELETE_SCHEMA,
-    BATCH_CREATE_SCHEMA
+    BATCH_CREATE_SCHEMA, BATCH_UPDATE_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -486,10 +486,24 @@ async function create(entities, options={}) {
     return this.performOpInBatch("create", [[...entities]], options);
 }
 
+/**
+ * Perform a update requesting using batch functionality. The request are batched based on the number of entities given.
+ * @param entities Entities and respective tags to be updated.
+ * @param options A Object defining batch configuration to be used. See README.md for more information.
+ * @returns {Promise<*>}
+ */
+async function update(entities, options={}) {
+    await BATCH_UPDATE_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.update, options);
+
+    return this.performOpInBatch("update", [[...entities]], options);
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
     hisRead,
     hisDelete,
-    create
+    create,
+    update
 };
