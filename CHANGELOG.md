@@ -37,6 +37,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.deleteById(ids, options)`
   - `client.batch.deleteByFilter(filter, limit, options)`
   - `client.batch.hisReadByFilter(filter, from, to, options)`
+  - `client.batch.updateByFilter(filter, criteriaList, options)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
 
 ### CHANGED
