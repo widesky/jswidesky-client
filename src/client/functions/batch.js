@@ -9,7 +9,8 @@ const {
     BATCH_DELETE_BY_ID_SCHEMA,
     BATCH_DELETE_BY_FILTER_SCHEMA,
     BATCH_HIS_READ_BY_FILTER_SCHEMA,
-    BATCH_UPDATE_BY_FILTER_SCHEMA
+    BATCH_UPDATE_BY_FILTER_SCHEMA,
+    BATCH_HIS_DELETE_BY_FILTER_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -376,26 +377,17 @@ function allAccountedFor(data, recordIndexes) {
  * Perform a history delete request using batch functionality.
  * @param ids An array of point entity UUIDs for the delete operations or a single string. These will be batched by
  *            options.batchSizeEntity.
- * @param range A valid hisRead range string. End range is not inclusive.
+ * @param start Starting timestamp to be deleted as a Date Object.
+ * @param end Ending timestamp to be deleted as a Data Object (not inclusive).
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
  * @returns {Promise<void>}
  */
-async function hisDelete(ids, range, options={}) {
+async function hisDelete(ids, start, end, options={}) {
     await BATCH_HIS_DELETE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisDelete, options);
     const { batchSize, batchSizeEntity } = options;
-
-    // validate hisRead range given
-    if (!range.includes(",")) {
-        throw new Error("'range' parameter is not a valid hisRead range");
-    }
-    const [timeStart, timeEnd] = range.split(",")
-        .map((timeStr) => new Date(Date.parse(timeStr.trim())));
-    if (isNaN(timeStart) || isNaN(timeEnd)) {
-        throw new Error("'range' parameter is not a valid hisRead range");
-    }
 
     // Create batch of ids
     let idsAsBatch = [];
@@ -412,7 +404,7 @@ async function hisDelete(ids, range, options={}) {
     const batches = init2DArray(idsAsBatch.length);
     for (let batchIndex = 0; batchIndex < idsAsBatch.length; batchIndex++) {
         const idsInBatch = idsAsBatch[batchIndex];
-        const data = await this.batch.hisRead(ids, timeStart, timeEnd);
+        const data = await this.batch.hisRead(ids, start, end);
         if (data.filter((dataSet) => dataSet.length > 0).length === 0) {
             // no data to delete
             return;
@@ -445,9 +437,9 @@ async function hisDelete(ids, range, options={}) {
             // ensure time range is inclusive of data to be deleted (i.e. +1ms)
             const grabTo = new Date(timeRanges[minIndex].endRange + 1);
 
-            if (grabTo.getTime() > timeEnd.getTime()) {
+            if (grabTo.getTime() > end.getTime()) {
                 // end of the line
-                batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${timeEnd.toISOString()}`]);
+                batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${end.toISOString()}`]);
                 break;
             } else {
                 batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${grabTo.toISOString()}`]);
@@ -634,6 +626,40 @@ async function updateByFilter(filter, criteriaList, options={}) {
     return this.performOpInBatch("update", [updatePayload], options);
 }
 
+/**
+ * Perform a hisDelete using a filter to select the entities.
+ * @param filter Filter to select the entities to be hisDelete'd.
+ * @param start Starting timestamp to be deleted as a Date Object.
+ * @param end Ending timestamp to be deleted as a Data Object (not inclusive).
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ *                Option batchSize is determined by the maximum number of time series rows to be deleted across
+ *                all ids given.
+ * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ */
+async function hisDeleteByFilter(filter, start, end, options={}) {
+    await BATCH_HIS_DELETE_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.hisDeleteByFilter, options);
+    const { limit } = options;
+
+    try {
+        return this.batch.hisDelete(
+            (await this.v2.find(filter, limit))
+                .map((entity) => Hs.getId(entity)),
+            start,
+            end,
+            options
+        );
+    } catch (error) {
+        return {
+            success: [],
+            errors: [{
+                error: error.message,
+                args: ["v2.find", filter, limit]
+            }]
+        };
+    }
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
@@ -644,5 +670,6 @@ module.exports = {
     deleteById,
     deleteByFilter,
     hisReadByFilter,
-    updateByFilter
+    updateByFilter,
+    hisDeleteByFilter
 };

@@ -23,7 +23,9 @@ const HIS_READ_SMALL_TIME_SERIES = {
 const HIS_READ_LARGE_ENTITIES = {
     data: require("./files/hisRead_entities_large.json"),
     ids: require("./files/hisRead_entites_ids.json")
-}
+};
+const TIME_START = new Date(0);
+const TIME_END = new Date();
 
 describe("client", () => {
     let ws, http, log;
@@ -54,42 +56,13 @@ describe("client", () => {
     });
 
     describe("batch.hisDelete", () => {
-        describe("argument range", () => {
-            it("should reject if given '2023-10-10T00:00:00Z'", async () => {
-                try {
-                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00Z");
-                    throw new Error("Should not have worked");
-                } catch (error) {
-                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
-                }
-            });
-
-            it("should reject if 'from' part of range is not a valid Date", async () => {
-                try {
-                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00A,2023-10-10T10:00:00Z");
-                    throw new Error("Should not have worked");
-                } catch (error) {
-                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
-                }
-            });
-
-            it("should reject if 'to' part of range is not a valid Date", async () => {
-                try {
-                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00Z,2023-10-10T10:00:00A");
-                    throw new Error("Should not have worked");
-                } catch (error) {
-                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
-                }
-            });
-        });
-
         describe("no options specified", () => {
             describe("time series rows", () => {
                 describe("payload smaller than default batch size of 100", () => {
                     it("should only make 1 request", async () => {
                         ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
                         await ws.batch.hisDelete(
-                            HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                            HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END);
                         expect(ws.hisDelete.calledOnce).to.be.true;
                         expect(ws.hisDelete.args[0]).to.eql([
                             HIS_READ_SMALL_TIME_SERIES.ids,
@@ -101,7 +74,7 @@ describe("client", () => {
                         it("should make more than 1 request", async () => {
                             ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_LARGE_TIME_SERIES.data);
                             await ws.batch.hisDelete(
-                                HIS_READ_LARGE_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                                HIS_READ_LARGE_TIME_SERIES.ids, TIME_START, TIME_END);
                             expect(ws.hisDelete.calledTwice).to.be.true;
                             expect(ws.hisDelete.args[0]).to.eql([
                                 HIS_READ_LARGE_TIME_SERIES.ids,
@@ -120,7 +93,7 @@ describe("client", () => {
                         it("should only make 1 request", async () => {
                             ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
                             await ws.batch.hisDelete(
-                                HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                                HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END);
                             expect(ws.hisDelete.calledOnce).to.be.true;
                             expect(ws.hisDelete.args[0]).to.eql([
                                 HIS_READ_SMALL_TIME_SERIES.ids,
@@ -133,7 +106,7 @@ describe("client", () => {
                         it("should make more than 1 request", async () => {
                             ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_LARGE_ENTITIES.data);
                             await ws.batch.hisDelete(
-                                HIS_READ_LARGE_ENTITIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                                HIS_READ_LARGE_ENTITIES.ids, TIME_START, TIME_END);
                             expect(ws.hisDelete.calledTwice).to.be.true;
                             expect(ws.hisDelete.args[0]).to.eql([
                                 HIS_READ_LARGE_ENTITIES.ids.slice(0, 100),
@@ -154,7 +127,7 @@ describe("client", () => {
                 it("should make 1 request", async () => {
                     ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
                     await ws.batch.hisDelete(
-                        HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
+                        HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END, {
                             batchSize: 12
                         }
                     );
@@ -169,7 +142,7 @@ describe("client", () => {
                 it("should make more than 1 request", async () => {
                     ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
                     await ws.batch.hisDelete(
-                        HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
+                        HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END, {
                             batchSize: 2
                         }
                     );
@@ -192,7 +165,7 @@ describe("client", () => {
                 it("should make 1 request", async () => {
                     ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
                     await ws.batch.hisDelete(
-                        HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
+                        HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END, {
                             batchSizeEntity: 10
                         }
                     );
@@ -207,7 +180,7 @@ describe("client", () => {
                 it("should make more than 1 request", async () => {
                     ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
                     await ws.batch.hisDelete(
-                        HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
+                        HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END, {
                             batchSizeEntity: 2
                         }
                     );
@@ -237,7 +210,7 @@ describe("client", () => {
             describe("if enabled", () => {
                 it("should return the result", async () => {
                     const result = await ws.batch.hisDelete(
-                        HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
+                        HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END, {
                             returnResult: true
                         }
                     );
@@ -251,7 +224,7 @@ describe("client", () => {
             describe("if not enabled", () => {
                 it("should not return the result", async () => {
                     const result = await ws.batch.hisDelete(
-                        HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
+                        HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END, {
                             returnResult: false
                         }
                     );
@@ -273,7 +246,7 @@ describe("client", () => {
 
             it("should return encountered errors and arguments used", async () => {
                 const result = await ws.batch.hisDelete(
-                    HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                    HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END);
                 expect(result.errors.length).to.equal(1);
                 expect(result.errors).to.eql([{
                     args: [
