@@ -529,8 +529,7 @@ async function deleteByFilter(filter, limit=0, options={}) {
         return this.performOpInBatch(
             "deleteById",
             [
-                (await this.v2.find(filter, limit))
-                    .map((entity) => Hs.getId(entity))
+                await this.findAsId(filter, limit)
             ],
             options
         );
@@ -539,7 +538,7 @@ async function deleteByFilter(filter, limit=0, options={}) {
             success: [],
             errors: [{
                 error: error.message,
-                args: ["v2.find", filter, limit]
+                args: ["findAsId", filter, limit]
             }]
         };
     }
@@ -560,8 +559,7 @@ async function hisReadByFilter(filter, from, to, options={}) {
 
     try {
         return this.batch.hisRead(
-            (await this.v2.find(filter, limit))
-                .map((entity) => Hs.getId(entity)),
+            await this.findAsId(filter, limit),
             from,
             to,
             options
@@ -571,7 +569,7 @@ async function hisReadByFilter(filter, from, to, options={}) {
             success: [],
             errors: [{
                 error: error.message,
-                args: ["v2.find", filter, limit]
+                args: ["findAsId", filter, limit]
             }]
         };
     }
@@ -644,8 +642,7 @@ async function hisDeleteByFilter(filter, start, end, options={}) {
 
     try {
         return this.batch.hisDelete(
-            (await this.v2.find(filter, limit))
-                .map((entity) => Hs.getId(entity)),
+            await this.findAsId(filter, limit),
             start,
             end,
             options
@@ -655,7 +652,7 @@ async function hisDeleteByFilter(filter, start, end, options={}) {
             success: [],
             errors: [{
                 error: error.message,
-                args: ["v2.find", filter, limit]
+                args: ["findAsId", filter, limit]
             }]
         };
     }
