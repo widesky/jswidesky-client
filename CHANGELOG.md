@@ -31,13 +31,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Add new batch functions:
   - `client.batch.hisWrite(payload, options)`
   - `client.batch.hisRead(ids, from, to, options)`
-  - `client.batch.hisDelete(ids, range, options)`
+  - `client.batch.hisDelete(ids, start, end, options)`
   - `client.batch.create(entities, options)`
   - `client.batch.update(entities, options)`
   - `client.batch.deleteById(ids, options)`
   - `client.batch.deleteByFilter(filter, limit, options)`
   - `client.batch.hisReadByFilter(filter, from, to, options)`
   - `client.batch.updateByFilter(filter, criteriaList, options)`
+  - `client.batch.hisDeleteByFilter(filter, start, end, options)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
 
 ### CHANGED
