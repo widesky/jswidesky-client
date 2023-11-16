@@ -41,6 +41,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.hisDeleteByFilter(filter, start, end, options)`
   - `client.batch.migrateHistory(fromEntity, toEntity)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
+- Added new function `entityCount(filter)` to get the number of entities from a filter via a GraphQL query.
 
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 

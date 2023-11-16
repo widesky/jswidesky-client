@@ -36,7 +36,6 @@ const { isAxiosError } = axios;
 const SPECIAL_COLS = ['id', 'name', 'dis'];
 const MOMENT_FORMAT_MS_PRECISION = 'YYYY-MM-DDTHH:mm:ss.SSS\\Z';
 
-
 /**
  * Authentication methods supported for creating new users.
  */
@@ -1613,6 +1612,24 @@ class WideSkyClient {
         }
 
         return this.submitRequest('POST', '/api/hisDelete', payload, {});
+    }
+
+    /**
+     * Get the number of entities to be returned from a filter.
+     * @param filter Filter to select entities.
+     * @returns {Promise<*>} Number of entities found.
+     */
+    async entityCount(filter) {
+        const query = `
+{
+  haystack {
+    search(filter: "${filter.replaceAll('"', '\\"')}", limit: 0) {
+      count
+    }
+  }
+}
+`;
+        return Number((await this.query(query)).data.haystack.search.count);
     }
 }
 
