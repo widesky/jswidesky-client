@@ -10,7 +10,8 @@ const {
     BATCH_DELETE_BY_FILTER_SCHEMA,
     BATCH_HIS_READ_BY_FILTER_SCHEMA,
     BATCH_UPDATE_BY_FILTER_SCHEMA,
-    BATCH_HIS_DELETE_BY_FILTER_SCHEMA
+    BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
+    BATCH_MIGRATE_HISTORY_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -660,6 +661,28 @@ async function hisDeleteByFilter(filter, start, end, options={}) {
     }
 }
 
+/**
+ * Perform a historical data migration between fromEntity and toEntity using batch functionality.
+ * @param fromEntity The entity to migrate data from as a UUID or fqname.
+ * @param toEntity The entity to migrate data to as a UUID or fqname.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ *                Option batchSize is determined by the maximum number of time series rows to be sent. The rows are
+ *                defined as the time series for each entity.
+ * @returns {Promise<*>}
+ */
+async function migrateHistory(fromEntity, toEntity, options={}) {
+    await BATCH_MIGRATE_HISTORY_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.migrateHistory, options);
+
+    const from = new Date(0);
+    const to = new Date(Date.now());
+    const [ history ] = await this.batch.hisRead([fromEntity], from, to);
+    const data = new HisWritePayload();
+    data.add(`r:${toEntity}`, history, true);
+
+    return this.batch.hisWrite(data, options);
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
@@ -671,5 +694,6 @@ module.exports = {
     deleteByFilter,
     hisReadByFilter,
     updateByFilter,
-    hisDeleteByFilter
+    hisDeleteByFilter,
+    migrateHistory
 };
