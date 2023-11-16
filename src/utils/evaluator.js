@@ -219,5 +219,6 @@ module.exports = {
     BATCH_CREATE_SCHEMA,
     BATCH_UPDATE_SCHEMA,
     BATCH_DELETE_BY_ID_SCHEMA,
+    BATCH_DELETE_BY_FILTER_SCHEMA,
     deriveFromDefaults
 };
