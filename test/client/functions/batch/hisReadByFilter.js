@@ -7,6 +7,7 @@
 
 const stubs = require('../../../stubs');
 const sinon = require('sinon');
+const {RequestError} = require("../../../../src/errors");
 const expect = require('chai').expect;
 const getInstance = stubs.getInstance;
 
@@ -156,7 +157,23 @@ describe("client.batch.hisReadByFilter", () => {
 
         it("should handle errors encountered by v2.filter and return them", async () => {
             ws.findAsId = sinon.stub().callsFake(() => {
-                throw new Error("Bad filter");
+                const fakeError = new Error("test");
+                fakeError.response = {
+                    data: {
+                        errors: [
+                            {
+                                "locations": [
+                                    {
+                                        "column": 3,
+                                        "line": 4
+                                    }
+                                ],
+                                "message": "Invalid name start char (end of stream)"
+                            }
+                        ]
+                    }
+                }
+                throw RequestError.make(fakeError);
             });
 
 
@@ -164,7 +181,7 @@ describe("client.batch.hisReadByFilter", () => {
             expect(success.length).to.equal(0);
             expect(errors.length).to.equal(1);
             expect(errors[0]).to.eql({
-                error: "Bad filter",
+                error: "Invalid name start char (end of stream)",
                 args: ["findAsId", "bad filter", 0]
             });
         });
