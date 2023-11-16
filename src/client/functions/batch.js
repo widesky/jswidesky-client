@@ -4,7 +4,8 @@ const {
     BATCH_HIS_WRITE_SCHEMA,
     BATCH_HIS_READ_SCHEMA,
     BATCH_HIS_DELETE_SCHEMA,
-    BATCH_CREATE_SCHEMA, BATCH_UPDATE_SCHEMA
+    BATCH_CREATE_SCHEMA,
+    BATCH_UPDATE_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
