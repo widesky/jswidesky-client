@@ -117,7 +117,7 @@ describe("client.batch.deleteById", () => {
             expect(errors).to.eql([
                 {
                     error: "Test Error",
-                    args: [entities]
+                    args: ["deleteById", entities]
                 }
             ]);
         });
