@@ -5,7 +5,8 @@ const {
     BATCH_HIS_READ_SCHEMA,
     BATCH_HIS_DELETE_SCHEMA,
     BATCH_CREATE_SCHEMA,
-    BATCH_UPDATE_SCHEMA
+    BATCH_UPDATE_SCHEMA,
+    BATCH_DELETE_BY_ID_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -488,7 +489,8 @@ async function create(entities, options={}) {
 }
 
 /**
- * Perform a update requesting using batch functionality. The request are batched based on the number of entities given.
+ * Perform an update requesting using batch functionality. The request are batched based on the number
+ * of entities given.
  * @param entities Entities and respective tags to be updated.
  * @param options A Object defining batch configuration to be used. See README.md for more information.
  * @returns {Promise<*>}
@@ -500,11 +502,26 @@ async function update(entities, options={}) {
     return this.performOpInBatch("update", [[...entities]], options);
 }
 
+/**
+ * Perform a deleteById operation using batch functionality. The request are batched based on the number of entities
+ * given.
+ * @param ids The id of each entity to be deleted.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*>}
+ */
+async function deleteById(ids, options={}) {
+    await BATCH_DELETE_BY_ID_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.deleteById, options);
+
+    return this.performOpInBatch("deleteById", [[...ids]], options);
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
     hisRead,
     hisDelete,
     create,
-    update
+    update,
+    deleteById
 };
