@@ -1,3 +1,5 @@
+const { validate: uuidValidate } = require("uuid");
+
 /**
  * Remove the Haystack prefix if applied.
  * @param value Value with/without Haystack prefix.
@@ -62,8 +64,49 @@ function getReadableName(entity) {
     }
 }
 
+/**
+ * Convert a given value to its Haystack prefix using the given kind.
+ * @param value Value to be assigned its prefix.
+ * @param kind Haystack kind of the value.
+ * @returns {(string|*)[]|string} Value with Haystack prefix assigned.
+ */
+function toHaystack(value, kind) {
+    switch (kind) {
+        case "Str":
+            return `s:${value}`;
+        case "Ref":
+            return `r:${value}`;
+        case "Number":
+            return `n:${value}`;
+        case "Marker":
+            return "m:";
+        case "Coord":
+            return `c:${value}`;
+        case "Time":
+            return `h:${value}`;
+        case "Date":
+            return `d:${value}`;
+        case "DateTime":
+            return `t:${value}`;
+        case "Zero":
+            return "z:";
+        case "Bool":
+            return `${value}`;
+        case "Uri":
+            return `u:${value}`;
+        case "List":
+            return value.substring(1, value.length - 1)
+                .split(",")
+                .map((val) => uuidValidate(val) ?
+                    toHaystack(val, "Ref") : toHaystack(val, "Str"));
+        default:
+            throw new Error(`Unknown kind ${kind} for value ${value}`);
+    }
+}
+
 module.exports = {
     removePrefix,
     getReadableName,
-    getId
+    getId,
+    toHaystack
 }

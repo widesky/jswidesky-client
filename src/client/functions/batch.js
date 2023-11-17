@@ -12,7 +12,8 @@ const {
     BATCH_UPDATE_BY_FILTER_SCHEMA,
     BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
     BATCH_MIGRATE_HISTORY_SCHEMA,
-    BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA
+    BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA,
+    BATCH_MULTI_FIND_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -31,6 +32,29 @@ function init2DArray(size) {
     }
 
     return arr;
+}
+
+/**
+ * Create a read by filter using GraphQL
+ * @param alias Filter alias name.
+ * @param filter Read byu filter to be used.
+ * @param limit Limit of entities to be searched.
+ * @returns {string} GraphQL query.
+ */
+function getReadByFilterQuery(alias, filter, limit) {
+    filter = filter.replaceAll('"', '\\"');
+    return `
+    ${alias}:search(filter: "${filter}", limit: ${limit}) {
+      count
+      entity{
+        tags {
+          name
+          value
+          kindValue { __typename}
+        }
+      }
+    }
+    `
 }
 
 /**
@@ -729,6 +753,83 @@ async function addChildrenByFilter(filter, children, tagMap=[], options={}) {
             options
         );
     }
+}
+
+/**
+ * Perform multi read-by-filter requests in a single request. The number of filters sent in a request is determined
+ * by options.batchSize.
+ * @param filterAndLimits A 2D Array defining the filter and limit of each read-by-filter to be queried.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*[]>} A 2D Array of the result from each read-by-filter given.
+ */
+async function multiFind(filterAndLimits, options={}) {
+    if (!Array.isArray(filterAndLimits) ||
+            filterAndLimits.filter((fAndL) => !Array.isArray(fAndL) || fAndL.length >= 1).length) {
+        throw new Error("parameter filterAndLimits is not a 2D Array as specified");
+    }
+
+    await BATCH_MULTI_FIND_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.multiFind, options);
+    const { limit } = options;
+
+    // Build the GraphQL queries
+    const queries = [];
+    for (let i = 0; i < filterAndLimits.length; i++) {
+        let [filter, limitFound] = filterAndLimits[i];
+        if (limit === undefined) {
+            limitFound = limit;
+        }
+
+        queries.push(getReadByFilterQuery(`filter${i}`, filter, limit));
+    }
+
+    /**
+     * Transform the read by filter sub queries to be a single GraphQL query.
+     * @param payload Payload of sub filter queries.
+     * @returns String single GraphQL query.
+     */
+    const transformer = (payload) => {
+        return `
+{
+  haystack {
+    ${payload.join("\n")}
+  }
+}
+            `;
+    }
+    const result = await this.performOpInBatch(
+        "query",
+        [queries],
+        {
+            ...options,
+            returnResult: true,
+            transformer
+        }
+    )
+
+    // parse the batched results
+    const parsedResult = [];
+    for (const res of result) {
+        for (const filter of Object.values(res.data.haystack)) {
+            const filterResult = [];
+            for (const entity of filter.entity) {
+                const newEntity = {};
+                for (const {name, value, kindValue} of entity.tags) {
+                    let kindType = "Zero";
+                    if (kindValue !== null && kindValue !== undefined) {
+                        kindType = kindValue["__typename"];
+                    }
+                    newEntity[name] = Hs.toHaystack(value, kindType)
+                }
+                filterResult.push(newEntity);
+            }
+
+            parsedResult.push(filterResult);
+        }
+    }
+
+
+    return parsedResult;
 }
 
 module.exports = {
