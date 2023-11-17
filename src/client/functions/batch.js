@@ -743,12 +743,11 @@ function getReadByFilterQuery(alias, filter, limit) {
     filter = filter.replaceAll('"', '\\"');
     return `
     ${alias}:search(filter: "${filter}", limit: ${limit}) {
-      count
-      entity{
+      entity {
         tags {
           name
           value
-          kindValue { __typename}
+          kindValue { __typename }
         }
       }
     }
@@ -776,11 +775,11 @@ async function multiFind(filterAndLimits, options={}) {
     const queries = [];
     for (let i = 0; i < filterAndLimits.length; i++) {
         let [filter, limitFound] = filterAndLimits[i];
-        if (limit === undefined) {
+        if (limitFound === undefined) {
             limitFound = limit;
         }
 
-        queries.push(getReadByFilterQuery(`filter${i}`, filter, limit));
+        queries.push(getReadByFilterQuery(`filter${i}`, filter, limitFound));
     }
 
     /**
@@ -797,7 +796,7 @@ async function multiFind(filterAndLimits, options={}) {
 }
             `;
     }
-    const result = await this.performOpInBatch(
+    const { success, errors } = await this.performOpInBatch(
         "query",
         [queries],
         {
@@ -809,7 +808,7 @@ async function multiFind(filterAndLimits, options={}) {
 
     // parse the batched results
     const parsedResult = [];
-    for (const res of result) {
+    for (const res of success) {
         for (const filter of Object.values(res.data.haystack)) {
             const filterResult = [];
             for (const entity of filter.entity) {
@@ -829,7 +828,10 @@ async function multiFind(filterAndLimits, options={}) {
     }
 
 
-    return parsedResult;
+    return {
+        success: parsedResult,
+        errors
+    };
 }
 
 module.exports = {
