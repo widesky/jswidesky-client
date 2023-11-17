@@ -35,29 +35,6 @@ function init2DArray(size) {
 }
 
 /**
- * Create a read by filter using GraphQL
- * @param alias Filter alias name.
- * @param filter Read byu filter to be used.
- * @param limit Limit of entities to be searched.
- * @returns {string} GraphQL query.
- */
-function getReadByFilterQuery(alias, filter, limit) {
-    filter = filter.replaceAll('"', '\\"');
-    return `
-    ${alias}:search(filter: "${filter}", limit: ${limit}) {
-      count
-      entity{
-        tags {
-          name
-          value
-          kindValue { __typename}
-        }
-      }
-    }
-    `
-}
-
-/**
  * Create a Iterator Object for the given payload.
  * @param op Operation to be performed. Only relevant for op "hisDelete".
  * @param payload Payload to be batched.
@@ -756,6 +733,29 @@ async function addChildrenByFilter(filter, children, tagMap=[], options={}) {
 }
 
 /**
+ * Create a read by filter using GraphQL
+ * @param alias Filter alias name.
+ * @param filter Read byu filter to be used.
+ * @param limit Limit of entities to be searched.
+ * @returns {string} GraphQL query.
+ */
+function getReadByFilterQuery(alias, filter, limit) {
+    filter = filter.replaceAll('"', '\\"');
+    return `
+    ${alias}:search(filter: "${filter}", limit: ${limit}) {
+      count
+      entity{
+        tags {
+          name
+          value
+          kindValue { __typename}
+        }
+      }
+    }
+    `
+}
+
+/**
  * Perform multi read-by-filter requests in a single request. The number of filters sent in a request is determined
  * by options.batchSize.
  * @param filterAndLimits A 2D Array defining the filter and limit of each read-by-filter to be queried.
@@ -845,5 +845,6 @@ module.exports = {
     updateByFilter,
     hisDeleteByFilter,
     migrateHistory,
-    addChildrenByFilter
+    addChildrenByFilter,
+    multiFind
 };

@@ -97,6 +97,7 @@ function toHaystack(value, kind) {
         case "List":
             return value.substring(1, value.length - 1)
                 .split(",")
+                .map((val) => val.trim())
                 .map((val) => uuidValidate(val) ?
                     toHaystack(val, "Ref") : toHaystack(val, "Str"));
         default:
