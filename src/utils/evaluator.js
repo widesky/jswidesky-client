@@ -1,5 +1,4 @@
 const yup = require("yup");
-const { performOpInBatch } = require("../client/functions/batch");
 
 const HIS_READ_BATCH_SIZE = 100;
 const HIS_READ_BATCH_SIZE_MAX = 1000;
