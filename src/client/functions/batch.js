@@ -692,10 +692,6 @@ async function migrateHistory(fromEntity, toEntity, options={}) {
  * @returns {Promise<void>}
  */
 async function addChildrenByFilter(filter, children, tagMap=[], options={}) {
-    await BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA.validate(options);
-    options = deriveFromDefaults(this.clientOptions.batch.addChildrenByFilter, options);
-    const { limit } = options;
-
     if (!Array.isArray(children) || children.filter((arr) => typeof arr !== "object").length) {
         throw new Error("parameter children is not an Array of Objects");
     } else if (children.length === 0) {
@@ -703,6 +699,10 @@ async function addChildrenByFilter(filter, children, tagMap=[], options={}) {
     } else if (!Array.isArray(tagMap) || tagMap.filter((tags) => !Array.isArray(tags) || tags.length !== 2).length) {
         throw new Error("parameter refTags is not a 2D Array as specified");
     }
+
+    await BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.addChildrenByFilter, options);
+    const { limit } = options;
 
     const parents = await this.v2.find(filter, limit);
     const createPayload = [];
