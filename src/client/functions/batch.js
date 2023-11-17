@@ -764,7 +764,7 @@ function getReadByFilterQuery(alias, filter, limit) {
  */
 async function multiFind(filterAndLimits, options={}) {
     if (!Array.isArray(filterAndLimits) ||
-            filterAndLimits.filter((fAndL) => !Array.isArray(fAndL) || fAndL.length >= 1).length) {
+            filterAndLimits.filter((fAndL) => !Array.isArray(fAndL) || fAndL.length === 0).length) {
         throw new Error("parameter filterAndLimits is not a 2D Array as specified");
     }
 
