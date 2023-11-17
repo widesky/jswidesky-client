@@ -11,6 +11,7 @@ const moment = require('moment-timezone');
 const fs = require('fs');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
+const { RequestError } = require("./errors");
 let axios;
 
 // Browser/Node axios import
@@ -24,6 +25,7 @@ else {
     // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
     axios = require('axios').default;
 }
+const { isAxiosError } = axios;
 
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
@@ -217,12 +219,22 @@ class WideSkyClient {
             return await this._wsRawSubmit(method, uri, body, config);
         }
         catch (err) {
-            // If error is 401, then get new token
-            if (err.response && err.response.status === 401 && this._ws_token) {
-                this._ws_token = null;
-                config = await this._attachReqConfig(config);
-
-                return this._wsRawSubmit(method, uri, body, config);
+            if (isAxiosError(err)) {
+                if (err.response) {
+                    // response has been received from API server
+                    if (err.response.status === 401 && this._ws_token) {
+                        // If error is 401, then get new token
+                        this._ws_token = null;
+                        config = await this._attachReqConfig(config);
+                        return this._wsRawSubmit(method, uri, body, config);
+                    }
+                    else {
+                        throw RequestError.make(err);
+                    }
+                }
+                else {
+                    throw err;
+                }
             }
             else {
                 throw err;

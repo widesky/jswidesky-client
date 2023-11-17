@@ -23,6 +23,7 @@ const {
     verifyRequestCall,
     sleep
 } = require("./utils");
+const { HaystackError, GraphQLError } = require("../../src/errors");
 
 describe('client', () => {
     describe('internals', () => {
@@ -503,7 +504,12 @@ describe('client', () => {
 
                 ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                     if (config === WS_ACCESS_TOKEN) {
-                        return Promise.reject({response: {status: 401}});
+                        return Promise.reject({
+                            isAxiosError: true,
+                            response: {
+                                status: 401
+                            }
+                        });
                     } else if (config === WS_ACCESS_TOKEN2) {
                         return Promise.resolve("success");
                     } else {
@@ -516,6 +522,119 @@ describe('client', () => {
                 expect(ws._wsRawSubmit.callCount).to.equal(2);
                 expect(ws._attachReqConfig.callCount).to.equal(2);
                 expect(ws._ws_token).to.equal(WS_ACCESS_TOKEN2);
+            });
+
+            describe("error handling", () => {
+                let http, ws;
+                before(() => {
+                    http = new stubs.StubHTTPClient();
+                    ws = getInstance(http);
+                    ws._attachReqConfig = sinon.stub().callsFake((config) => {
+                        if (ws._ws_token !== null) {
+                            ws._ws_token = WS_ACCESS_TOKEN;
+                            return ws._ws_token;
+
+                        } else {
+                            ws._ws_token = WS_ACCESS_TOKEN2;
+                            return ws._ws_token;
+                        }
+                    });
+                    ws._ws_token = "not null";
+                });
+
+                it("should throw syntax error if encountered", async () => {
+                    let caughtErr;
+                    ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                        try {
+                            const a = [][0][1];
+                        } catch (error) {
+                            caughtErr = error;
+                            throw error;
+                        }
+                    });
+
+                    try {
+                        await ws.submitRequest("GET", "URI", null, null);
+                        throw new Error("Did not work");
+                    } catch (error) {
+                        expect(error.message).to.equal(caughtErr.message);
+                    }
+                });
+
+                it("should throw Axios error if no response received", async () => {
+                    ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                        const error = new Error("Pretend Axios Error");
+                        error.isAxiosError = true;
+                        throw error;
+                    });
+
+                    try {
+                        await ws.submitRequest("GET", "URI", null, null);
+                        throw new Error("Did not work");
+                    } catch (error) {
+                        expect(error.message).to.equal("Pretend Axios Error");
+                    }
+                });
+
+                it("should throw response as Haystack error if suitable", async () => {
+                    let err;
+                    ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                        err = new Error("Pretend Axios Error");
+                        err.isAxiosError = true;
+                        err.response = {
+                            data: {
+                                meta: {
+                                    dis: "s:A WideSky API server error"
+                                }
+                            }
+                        };
+                        throw err;
+                    });
+
+                    try {
+                        await ws.submitRequest("GET", "URI", null, null);
+                        throw new Error("Did not work");
+                    } catch (error) {
+                        expect(error).to.be.instanceof(HaystackError);
+                        expect(error.message).to.equal("A WideSky API server error");
+                    }
+                });
+
+                it("should throw response as GraphQL error if suitable", async () => {
+                    let err;
+                    ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                        err = new Error("Pretend Axios Error");
+                        err.isAxiosError = true;
+                        err.response = {
+                            data: {
+                                errors: [
+                                    {
+                                        "message": "Field \"search\" argument \"whereTag\" of type \"String!\" is " +
+                                            "required but not provided.",
+                                        "locations": [
+                                            {
+                                                "line": 5,
+                                                "column": 5
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        };
+                        throw err;
+                    });
+
+                    try {
+                        await ws.submitRequest("GET", "URI", null, null);
+                        throw new Error("Did not work");
+                    } catch (error) {
+                        expect(error).to.be.instanceof(GraphQLError);
+                        expect(error.message).to.equal(
+                            "Field \"search\" argument \"whereTag\" of type \"String!\" is " +
+                            "required but not provided."
+                        );
+                    }
+                });
             });
         });
 

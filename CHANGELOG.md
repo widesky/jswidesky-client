@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### CHANGED
+- Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
+  Instead, the error found in the response as received from a WideSky API server is used as the error message. 
+  This has been changed as the WideSky API server already created good responses to request errors and changes should 
+  only be in API server.
+
 ## [2.0.6] - 2023-10-03
 ### FIXED
 - Fixed `hisDelete` date validation on timezone offsets.
