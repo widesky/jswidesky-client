@@ -13,12 +13,15 @@ const {
     BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
     BATCH_MIGRATE_HISTORY_SCHEMA,
     BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA,
-    BATCH_MULTI_FIND_SCHEMA
+    BATCH_MULTI_FIND_SCHEMA, BATCH_UPDATE_OR_CREATE_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
 const Hs = require("../../utils/haystack");
 const EntityCriteria = require("../../utils/EntityCriteria");
+
+const ID_TAGS = ["id", "fqname"];
+const VIRTUAL_TAGS = ["lastHisTime", "lastHisVal", "curVal"];
 
 /**
  * Initialise a 2D empty array.
@@ -834,6 +837,124 @@ async function multiFind(filterAndLimits, options={}) {
     };
 }
 
+/**
+ * Create a update payload when comparing the changes between oldEntity and newEntity.
+ * @param oldEntity Old entity to compare changes against.
+ * @param newEntity New entity whose changed we'd like to make current.
+ * @returns {{id}} A updateRec payload.
+ */
+const createUpdatePayload = (oldEntity, newEntity) => {
+    const updatePayload = {
+        id: newEntity.id
+    };
+    // what's new and what's changed?
+    for (const [tag, value] of Object.entries(newEntity)) {
+        if (ID_TAGS.includes(tag) || VIRTUAL_TAGS.includes(tag)) {
+            continue;
+        }
+
+        if (oldEntity[tag] === undefined) {
+            updatePayload[tag] = value;
+        } else if (oldEntity[tag] !== value) {
+            if (tag.includes("Ref") || ["metaOf"].includes(tag)) {
+                // Ref can be different by the ID is what matters here
+                if (Hs.getId(oldEntity, tag) !== Hs.getId(newEntity, tag)) {
+                    updatePayload[tag] = value;
+                }
+            } else {
+                updatePayload[tag] = value;
+            }
+        }
+    }
+
+    // what's removed?
+    for (const tag in oldEntity) {
+        if (ID_TAGS.includes(tag) || VIRTUAL_TAGS.includes(tag)) {
+            continue;
+        }
+
+        if (newEntity[tag] === undefined) {
+            updatePayload[tag] = "x:";
+        }
+    }
+
+    return updatePayload;
+}
+
+/**
+ * Perform an update or create request for the list of entities given. If the entity exists, the entity will be
+ * checked for changes if an update is required, and send a request as necessary. If the entity does not exist, it
+ * will be created.
+ * @param entities Array of entities to be updated or created.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<Awaited<unknown>[]>} Array of entities in their current state in the WideSky database.
+ */
+async function updateOrCreate(entities, options={}) {
+    await BATCH_UPDATE_OR_CREATE_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.updateOrCreate, options);
+
+    const createPayload = [];
+    const updatePayload = [];
+    let returnedEntities = [];    // List of entities in their current state as updated/created
+    const skipIndex = new Array(entities.length);
+
+    const idsFilter = [];
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        if (entity.id === undefined) {
+            // console.log(`No id found for entity at index ${i}. Assuming creation`);
+            createPayload.push(entity);
+            skipIndex[i] = true;
+            // throw new Error(`Entity at index ${index} is missing its id.`);
+        } else {
+            // filter and limit
+            idsFilter.push([`id==@${Hs.getId(entity)}`, 1]);
+        }
+    }
+    const currentEntities = await this.multiFind(idsFilter, 100);
+
+    for (let i = 0; i < entities.length; i++) {
+        if (skipIndex[i]) {
+            continue;
+        }
+
+        const entity = entities[i];
+        const existingEntity = currentEntities[i][0];
+
+        if (existingEntity === undefined) {
+            createPayload.push(entity);
+        } else {
+            const entityUpdate = createUpdatePayload(existingEntity, entity);
+            if (Object.keys(entityUpdate).length > 1) {
+                updatePayload.push(entityUpdate);
+            } else {
+                // nothing has changed
+                returnedEntities.push(entity);
+            }
+        }
+    }
+
+    if (createPayload.length === 0 && updatePayload.length === 0) {
+        // console.log("Nothing to update or create");
+        return entities;
+    }
+
+    const requests = [];
+    if (createPayload.length > 0) {
+        requests.push(this.batch.create(createPayload, options));
+    }
+    if (updatePayload.length > 0) {
+        requests.push(this.batch.update(updatePayload, options));
+    }
+
+    for (const { success, errors } of await Promise.all(requests)) {
+        // TODO
+        returnedEntities = returnedEntities.concat(res.rows);
+    }
+
+    return returnedEntities;
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
@@ -848,5 +969,6 @@ module.exports = {
     hisDeleteByFilter,
     migrateHistory,
     addChildrenByFilter,
-    multiFind
+    multiFind,
+    updateOrCreate
 };
