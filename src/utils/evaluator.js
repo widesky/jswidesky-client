@@ -1,4 +1,5 @@
 const yup = require("yup");
+const { performOpInBatch } = require("../client/functions/batch");
 
 const HIS_READ_BATCH_SIZE = 100;
 const HIS_READ_BATCH_SIZE_MAX = 1000;
@@ -14,6 +15,8 @@ const UPDATE_BATCH_SIZE = 2000;
 const UPDATE_BATCH_SIZE_MAX = 10000;
 const DELETE_BATCH_SIZE = 30;
 const DELETE_BATCH_SIZE_MAX = 100;
+const READ_BY_FILTER_BATCH_SIZE = 10;
+const READ_BY_FILTER_BATCH_SIZE_MAX = 200;
 
 const PERFORM_OP_IN_BATCH_BATCH_SIZE = 100;
 const PERFORM_OP_IN_BATCH_MAX_BATCH_SIZE = 10 ** 9;
@@ -152,6 +155,11 @@ const BATCH_UPDATE_OR_CREATE_SCHEMA = yup.object({
         Math.min(CREATE_BATCH_SIZE, UPDATE_BATCH_SIZE), Math.min(CREATE_BATCH_SIZE_MAX, UPDATE_BATCH_SIZE_MAX)),
     ...getReturnResultProp(true)
 });
+const BATCH_MULTI_FIND_SCHEMA = yup.object({
+    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...getBatchProp(READ_BY_FILTER_BATCH_SIZE, READ_BY_FILTER_BATCH_SIZE_MAX),
+    ...LIMIT_PROPERTY
+})
 const PERFORM_OP_IN_BATCH_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_ObJ,
     ...getReturnResultProp(false)
@@ -205,7 +213,8 @@ const CLIENT_SCHEMA = yup.object({
         updateByFilter: BATCH_UPDATE_BY_FILTER_SCHEMA,
         migrateHistory: BATCH_MIGRATE_HISTORY_SCHEMA,
         hisDeleteByFilter: BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
-        updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA
+        updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA,
+        multiFind: BATCH_MULTI_FIND_SCHEMA
     }),
     performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA
 });
@@ -225,5 +234,6 @@ module.exports = {
     BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
     BATCH_MIGRATE_HISTORY_SCHEMA,
     BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA,
+    BATCH_MULTI_FIND_SCHEMA,
     deriveFromDefaults
 };

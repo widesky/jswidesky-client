@@ -95,6 +95,13 @@
       "parallel": 1,
       "parallelDelay": 0,
       "returnResult": true
+    },
+    "multiFind": {
+      "batchDelay": 0,
+      "batchSize": 10,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "limit": 0
     }
   },
   "impersonateAs": null,
