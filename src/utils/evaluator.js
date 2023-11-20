@@ -79,8 +79,6 @@ const PERFORM_OP_IN_BATCH_OBJ = {
 const BATCH_HIS_READ_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_READ_BATCH_SIZE)
-    ...getBatchProp(HIS_READ_BATCH_SIZE),
-    ...getReturnResultProp(true)
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
@@ -201,7 +199,7 @@ const CLIENT_SCHEMA = yup.object({
         hisDeleteByFilter: BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
         updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA
     }),
-    performOpInBatch: yup.object(PERFORM_OP_IN_BATCH_OBJ)
+    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA
 });
 
 module.exports = {
