@@ -9,8 +9,6 @@ const stubs = require('../../../stubs');
 const sinon = require('sinon');
 const findResult = require("./files/findExample.json");
 const expect = require('chai').expect;
-const WS_ACCESS_TOKEN = stubs.WS_ACCESS_TOKEN;
-const WS_REFRESH_TOKEN = stubs.WS_REFRESH_TOKEN;
 const getInstance = stubs.getInstance;
 
 describe('client.v2.find', () => {

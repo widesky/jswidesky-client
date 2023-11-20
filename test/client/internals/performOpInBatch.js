@@ -272,7 +272,7 @@ describe('client', () => {
                                 3: [11, 12, 13, 14, 15]
                             };
                             const res = await ws.performOpInBatch("test", [payload, "testArg"], {
-                                batchSize: 3
+                                batchSize: 15
                             });
                             expect(ws.test.calledOnce).to.be.true;
                             expect(ws.test.args[0]).to.eql([payload, "testArg"]);
@@ -289,7 +289,7 @@ describe('client', () => {
                                 3: [11, 12, 13, 14, 15]
                             };
                             const res = await ws.performOpInBatch("test", [payload, "testArg"], {
-                                batchSize: 2
+                                batchSize: 10
                             });
                             expect(ws.test.calledTwice).to.be.true;
                             expect(ws.test.args[0]).to.eql([{
@@ -314,7 +314,7 @@ describe('client', () => {
                                 5: [21, 22, 23, 24, 25]
                             };
                             const res = await ws.performOpInBatch("test", [payload, "testArg"], {
-                                batchSize: 1
+                                batchSize: 5
                             });
                             expect(ws.test.callCount).to.equal(5);
                             expect(ws.test.args[0]).to.eql([{

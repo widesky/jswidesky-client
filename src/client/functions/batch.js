@@ -1,4 +1,8 @@
-const { deriveFromDefaults, PERFORM_OP_IN_BATCH_SCHEMA} = require("../../utils/evaluator");
+const {
+    deriveFromDefaults,
+    PERFORM_OP_IN_BATCH_SCHEMA,
+    BATCH_HIS_WRITE_SCHEMA
+} = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
 
@@ -7,7 +11,8 @@ const { sleep } = require("../../utils/tools");
  * @param op Operation to be performed. Only relevant for op "hisDelete".
  * @param payload Payload to be batched.
  * @param clientArgs Arguments to be grouped with the batched payload.
- * @param batchSize Maximum size of each batch.
+ * @param batchSize Maximum size of each batch. For Objects, it's the number of key-value pairs found in the Object
+ *                  of each attribute specified in the Object. For Arrays, its number of elements.
  * @param transformer A transformer for the batched arguments.
  * @returns {{p1, hasMore: (function(): boolean), getNext}}
  */
@@ -36,18 +41,49 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
         }
     } else if (typeof payload === "object") {
         const payloadKeys = Object.keys(payload);
+        const keyValueLength = payloadKeys.map((key) => Object.keys(payload[key]).length);
+        let currKeyIndex = 0;
         getNext = () => {
-            const nextKeys = payloadKeys.splice(0, batchSize);
+            // get next set using batchSize as maximum number of rows, not inclusive of the key
             const next = {};
-            for (const key of nextKeys) {
-                next[key] = payload[key];
+            let totalRows = 0;
+            let currKey = payloadKeys[currKeyIndex];
+            while (totalRows < batchSize && currKeyIndex < payloadKeys.length) {
+                const currKeyEntries = Object.entries(payload[currKey]);
+                const keyValueStartFrom = keyValueLength[currKeyIndex];
+                if (currKeyEntries.length > (batchSize - totalRows) || keyValueStartFrom !== Object.keys(payload[currKey]).length) {
+                    // take part of the set
+                    const partTake = batchSize - totalRows;
+
+                    if (next[currKey] === undefined) {
+                        next[currKey] = {};
+                    }
+
+                    for (let i = keyValueStartFrom; i < partTake; i++) {
+                        next[currKey][currKeyEntries[i][0]] = currKeyEntries[i][1];
+                    }
+                    keyValueLength[currKeyIndex] -= partTake;
+                    totalRows += partTake;
+
+                    if (keyValueLength[currKeyIndex] === 0) {
+                        currKeyIndex++;
+                        currKey = payloadKeys[currKeyIndex];
+                    }
+                } else {
+                    next[currKey] = payload[currKey];
+                    keyValueLength[currKeyIndex] = 0;
+                    totalRows += currKeyEntries.length;
+                    currKeyIndex++;
+                    currKey = payloadKeys[currKeyIndex];
+                }
             }
+
             return {
                 next: [transformer(next), ...clientArgs],
-                size: nextKeys.length
+                size: totalRows
             };
         }
-        hasMore = () => payloadKeys.length > 0;
+        hasMore = () => currKeyIndex !== payloadKeys.length && keyValueLength[currKeyIndex] !== 0;
 
         if (this.isProgressEnabled) {
             p1 = this.progressCreate(Object.keys(payload).length);
@@ -163,6 +199,35 @@ async function performOpInBatch(op, args, options={}) {
     return result;
 }
 
+/**
+ * Perform a hisWrite operation using batch functionality.
+ * @param hisWriteData HisWrite data to be sent. Can be the raw hisWrite payload or an instance of HisWritePayload.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*>}
+ */
+async function hisWrite(hisWriteData, options={}) {
+    if (!["Object", "HisWritePayload"].includes(hisWriteData.constructor.name)) {
+        throw new Error("parameter hisWriteData must be of type Object");
+    }
+
+    await BATCH_HIS_WRITE_SCHEMA.validate(options);
+
+    let data;
+    if (hisWriteData instanceof HisWritePayload) {
+        data = hisWriteData.payload;
+    } else {
+        data = hisWriteData;
+    }
+    options = deriveFromDefaults(this.clientOptions.batch.hisWrite, options);
+
+    return this.performOpInBatch(
+        "hisWrite",
+        [data],
+        options
+    );
+}
+
 module.exports = {
-    performOpInBatch
+    performOpInBatch,
+    hisWrite
 };

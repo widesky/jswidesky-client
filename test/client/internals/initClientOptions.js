@@ -290,13 +290,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisRead: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisRead.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisRead.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisRead.batchDelay"]);
                     });
 
@@ -387,13 +387,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisRead: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisRead.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisRead.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisRead.parallel"]);
                     });
 
@@ -484,13 +484,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisRead: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisRead.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisRead.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisRead.parallelDelay"]);
                     });
 
@@ -696,13 +696,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisWrite: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisWrite.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisWrite.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisWrite.batchDelay"]);
                     });
 
@@ -793,13 +793,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisWrite: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisWrite.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisWrite.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisWrite.parallel"]);
                     });
 
@@ -890,13 +890,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisWrite: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisWrite.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisWrite.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisWrite.parallelDelay"]);
                     });
 
@@ -1179,13 +1179,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisDelete: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisDelete.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisDelete.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisDelete.batchDelay"]);
                     });
 
@@ -1276,13 +1276,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisDelete: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisDelete.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisDelete.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisDelete.parallel"]);
                     });
 
@@ -1373,13 +1373,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisDelete: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisDelete.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisDelete.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisDelete.parallelDelay"]);
                     });
 
@@ -1662,13 +1662,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     create: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.create.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.create.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.create.batchDelay"]);
                     });
 
@@ -1759,13 +1759,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     create: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.create.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.create.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.create.parallel"]);
                     });
 
@@ -1856,13 +1856,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     create: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.create.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.create.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.create.parallelDelay"]);
                     });
 
@@ -2145,13 +2145,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     update: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.update.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.update.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.update.batchDelay"]);
                     });
 
@@ -2242,13 +2242,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     update: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.update.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.update.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.update.parallel"]);
                     });
 
@@ -2339,13 +2339,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     update: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.update.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.update.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.update.parallelDelay"]);
                     });
 
@@ -2628,13 +2628,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     deleteById: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.deleteById.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.deleteById.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.deleteById.batchDelay"]);
                     });
 
@@ -2725,13 +2725,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     deleteById: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.deleteById.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.deleteById.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.deleteById.parallel"]);
                     });
 
@@ -2822,13 +2822,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     deleteById: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.deleteById.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.deleteById.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.deleteById.parallelDelay"]);
                     });
 
@@ -3111,13 +3111,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     deleteByFilter: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.deleteByFilter.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.deleteByFilter.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.deleteByFilter.batchDelay"]);
                     });
 
@@ -3208,13 +3208,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     deleteByFilter: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.deleteByFilter.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.deleteByFilter.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.deleteByFilter.parallel"]);
                     });
 
@@ -3305,13 +3305,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     deleteByFilter: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.deleteByFilter.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.deleteByFilter.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.deleteByFilter.parallelDelay"]);
                     });
 
@@ -3594,13 +3594,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisReadByFilter: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisReadByFilter.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisReadByFilter.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisReadByFilter.batchDelay"]);
                     });
 
@@ -3691,13 +3691,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisReadByFilter: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisReadByFilter.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisReadByFilter.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisReadByFilter.parallel"]);
                     });
 
@@ -3788,13 +3788,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisReadByFilter: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisReadByFilter.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisReadByFilter.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisReadByFilter.parallelDelay"]);
                     });
 
@@ -4097,13 +4097,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     addChildrenByFilter: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.addChildrenByFilter.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.addChildrenByFilter.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.addChildrenByFilter.batchDelay"]);
                     });
 
@@ -4194,13 +4194,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     addChildrenByFilter: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.addChildrenByFilter.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.addChildrenByFilter.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.addChildrenByFilter.parallel"]);
                     });
 
@@ -4291,13 +4291,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     addChildrenByFilter: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.addChildrenByFilter.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.addChildrenByFilter.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.addChildrenByFilter.parallelDelay"]);
                     });
 
@@ -4677,13 +4677,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     updateByFilter: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.updateByFilter.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.updateByFilter.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.updateByFilter.batchDelay"]);
                     });
 
@@ -4774,13 +4774,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     updateByFilter: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.updateByFilter.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.updateByFilter.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.updateByFilter.parallel"]);
                     });
 
@@ -4871,13 +4871,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     updateByFilter: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.updateByFilter.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.updateByFilter.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.updateByFilter.parallelDelay"]);
                     });
 
@@ -5257,13 +5257,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     migrateHistory: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.migrateHistory.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.migrateHistory.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.migrateHistory.batchDelay"]);
                     });
 
@@ -5354,13 +5354,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     migrateHistory: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.migrateHistory.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.migrateHistory.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.migrateHistory.parallel"]);
                     });
 
@@ -5451,13 +5451,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     migrateHistory: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.migrateHistory.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.migrateHistory.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.migrateHistory.parallelDelay"]);
                     });
 
@@ -5740,13 +5740,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisDeleteByFilter: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisDeleteByFilter.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisDeleteByFilter.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisDeleteByFilter.batchDelay"]);
                     });
 
@@ -5837,13 +5837,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisDeleteByFilter: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisDeleteByFilter.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisDeleteByFilter.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisDeleteByFilter.parallel"]);
                     });
 
@@ -5934,13 +5934,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     hisDeleteByFilter: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.hisDeleteByFilter.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.hisDeleteByFilter.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.hisDeleteByFilter.parallelDelay"]);
                     });
 
@@ -6320,13 +6320,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     updateOrCreate: {
-                                        batchDelay: 1234
+                                        batchDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.updateOrCreate.batchDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.updateOrCreate.batchDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.updateOrCreate.batchDelay"]);
                     });
 
@@ -6417,13 +6417,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     updateOrCreate: {
-                                        parallel: 1234
+                                        parallel: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.updateOrCreate.parallel).to.equal(1234);
+                        expect(ws.clientOptions.batch.updateOrCreate.parallel).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.updateOrCreate.parallel"]);
                     });
 
@@ -6514,13 +6514,13 @@ describe("client", () => {
                             client: {
                                 batch: {
                                     updateOrCreate: {
-                                        parallelDelay: 1234
+                                        parallelDelay: 12
                                     }
                                 }
                             }
                         };
                         await ws.initClientOptions();
-                        expect(ws.clientOptions.batch.updateOrCreate.parallelDelay).to.equal(1234);
+                        expect(ws.clientOptions.batch.updateOrCreate.parallelDelay).to.equal(12);
                         validateObject(ws.clientOptions, ["batch.updateOrCreate.parallelDelay"]);
                     });
 
@@ -6714,12 +6714,12 @@ describe("client", () => {
                     ws.options = {
                         client: {
                             performOpInBatch: {
-                                batchDelay: 1234
+                                batchDelay: 12
                             }
                         }
                     };
                     await ws.initClientOptions();
-                    expect(ws.clientOptions.performOpInBatch.batchDelay).to.equal(1234);
+                    expect(ws.clientOptions.performOpInBatch.batchDelay).to.equal(12);
                     validateObject(ws.clientOptions, ["performOpInBatch.batchDelay"]);
                 });
 
@@ -6801,12 +6801,12 @@ describe("client", () => {
                     ws.options = {
                         client: {
                             performOpInBatch: {
-                                parallel: 1234
+                                parallel: 12
                             }
                         }
                     };
                     await ws.initClientOptions();
-                    expect(ws.clientOptions.performOpInBatch.parallel).to.equal(1234);
+                    expect(ws.clientOptions.performOpInBatch.parallel).to.equal(12);
                     validateObject(ws.clientOptions, ["performOpInBatch.parallel"]);
                 });
 
@@ -6888,12 +6888,12 @@ describe("client", () => {
                     ws.options = {
                         client: {
                             performOpInBatch: {
-                                parallelDelay: 1234
+                                parallelDelay: 12
                             }
                         }
                     };
                     await ws.initClientOptions();
-                    expect(ws.clientOptions.performOpInBatch.parallelDelay).to.equal(1234);
+                    expect(ws.clientOptions.performOpInBatch.parallelDelay).to.equal(12);
                     validateObject(ws.clientOptions, ["performOpInBatch.parallelDelay"]);
                 });
 
