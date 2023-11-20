@@ -24,9 +24,8 @@ The Object defined in `client.progress` is expected to have the following struct
 |-----------------------------|----------------------------------------------------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------|
 | `enabled`                   | Enable progress reporting to the command interface.                        | Boolean | `false`                                                                                                                            |
 | `instance`                  | Define the class instance to do progress reports.                          | Object  | `cliProgress.MultiBar({clearOnComplete: false, hideCursor: true}, cliProgress.Presets.shades_classic)` from package `cli-progress` |
-| `increment`                 | A string that defines an increment function on `client.progress.instance`. | String  |                                                                                                                                    |
-| `create`                    | A string that defines a create function on `client.progress.instance`.     | String  | "increment"                                                                                                                        |
-|                             |                                                                            | String  | "create"                                                                                                                           |
+| `increment`                 | A string that defines an increment function on `client.progress.instance`. | String  | "increment"                                                                                                                        |
+| `create`                    | A string that defines a create function on `client.progress.instance`.     | String  | "create"                                                                                                                           |
 
 ### Path `client.performOpInBatch`
 The Object defined in `client.performOpInBatch` is expected to have the following structure:

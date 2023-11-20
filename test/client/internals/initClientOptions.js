@@ -1,4 +1,3 @@
-const WideSkyClient = require("../../../src/client");
 const { expect } = require("chai");
 const stubs = require("../../stubs");
 const {getInstance} = require("../../stubs");

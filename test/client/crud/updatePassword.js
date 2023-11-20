@@ -12,8 +12,6 @@ const stubs = require('../../stubs'),
     WS_REFRESH_TOKEN = stubs.WS_REFRESH_TOKEN,
     getInstance = stubs.getInstance;
 const {verifyRequestCall} = require("./../utils");
-const {Ref} = require("../../../src/data");
-
 
 describe('client', () => {
     let ws, http, log;
