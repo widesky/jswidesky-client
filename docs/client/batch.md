@@ -157,13 +157,13 @@ The Object in `client.batch.hisDeleteByFilter` is expected to have the following
 ### Path `client.batch.updateOrCreate`
 The Object in `client.batch.updateOrCreate` is expected to have the following structure:
 
-| Path from `client.batch.updateOrCreate` | Description                                                                         | Type    | Default |
-|-----------------------------------------|-------------------------------------------------------------------------------------|---------|---------|
-| `batchSize`                             | Define the maximum size of each payload for `updateOrCreate` operations.            | Number  | 2000    |
-| `batchDelay`                            | Define the time in between each batch `updateOrCreate` request (ms).                | Number  | 0       |
-| `parallel`                              | Define the number of batched requests to be run in parallel                         | Number  | 1       |
-| `parallelDelay`                         | Define the delay between each set of batched requests run in parallel (ms)          | Number  | 0       |
-| `returnResult`                          | Enable the result from WideSky API server operation `updateOrCreate` to be returned | Boolean | `true`  |
+| Path from `client.batch.updateOrCreate` | Description                                                                             | Type    | Default |
+|-----------------------------------------|-----------------------------------------------------------------------------------------|---------|---------|
+| `batchSize`                             | Define the maximum size of each payload for `update` or `create` operations.            | Number  | 2000    |
+| `batchDelay`                            | Define the time in between each batch `update` or `reate` request (ms).                 | Number  | 0       |
+| `parallel`                              | Define the number of batched requests to be run in parallel                             | Number  | 1       |
+| `parallelDelay`                         | Define the delay between each set of batched requests run in parallel (ms)              | Number  | 0       |
+| `returnResult`                          | Enable the result from WideSky API server operation `update` or `create` to be returned | Boolean | `true`  |
 
 ### Path `client.batch.multiFind`
 The Object in `client.batch.multiFind` is expected to have the following structure:

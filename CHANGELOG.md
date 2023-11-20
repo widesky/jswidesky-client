@@ -42,6 +42,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.migrateHistory(fromEntity, toEntity)`
   - `client.batch.addChildrenByFilter(filter, children, tagMap)`
   - `client.batch.multiFind(filterAndLimits, options)`
+  - `client.batch.updateOrCreate(entities, options)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
 - Added new function `entityCount(filter)` to get the number of entities from a filter via a GraphQL query.
 - Added new function `findAsId(filter, limit)` to optimise functions that only require the ids of the entity,
