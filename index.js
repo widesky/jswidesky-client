@@ -5,7 +5,7 @@
  */
 "use strict";
 
-const client = require('./src/client');
+const client = require('./src/client/client');
 const data = require('./src/data');
 const replace = require('./src/graphql/replace');
 const exprParser = require('./src/graphql/exprParser');

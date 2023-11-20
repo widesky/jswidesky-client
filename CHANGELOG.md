@@ -23,6 +23,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `options`: A Object containing attributes axios and client for configuring the axios and WideSky client
     respectively. The options argument is expected to have the following structure as defined in 
     [Client Options](./docs/client/options.md).
+- Added new set of functions under property `v2` of the `WideSkyClient` instance. `v2` consists of client functions:
+  - `find`: Same functionality as the existing `WideSkyClient.find` but returns only the rows.
 
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 

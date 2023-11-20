@@ -5,15 +5,16 @@
  */
 'use strict';
 
-const data = require('./data');
-const replace = require('./graphql/replace');
+const data = require('./../data');
+const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
 const fs = require('fs');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
-const { RequestError } = require("./errors");
+const { RequestError } = require("./../errors");
 const bunyan = require("bunyan");
-const {CLIENT_SCHEMA} = require("./utils/evaluator");
+const {CLIENT_SCHEMA} = require("./../utils/evaluator");
+const clientV2Functions = require("./functions/v2");
 let axios;
 
 // Browser/Node axios import
@@ -48,7 +49,6 @@ const AUTH_METHOD = Object.freeze({
      */
     SCRAM: 'scram'
 });
-
 
 class WideSkyClient {
     base_uri
@@ -103,6 +103,19 @@ class WideSkyClient {
         this.initAxios();
         // Client option initiator is async. Wait for this to complete before submitting requests
         this.initWaitFor = this.initClientOptions();
+        this.assignSubFunctions();
+    }
+
+    assignSubFunctions() {
+        const assignPrototype = (thisProp, functions) => {
+            for (const [name, func] of Object.entries(functions)) {
+                thisProp[name] = func.bind(this);
+            }
+        }
+
+        // Add function for v2
+        this.v2 = {};
+        assignPrototype(this.v2, clientV2Functions);
     }
 
     /**
