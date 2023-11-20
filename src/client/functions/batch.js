@@ -223,7 +223,7 @@ async function hisWrite(hisWriteData, options={}) {
 
     return this.performOpInBatch(
         "hisWrite",
-        [data, options.batchSize],
+        [data],
         options
     );
 }

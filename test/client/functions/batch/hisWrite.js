@@ -90,7 +90,7 @@ describe("client.batch.hisWrite", () => {
                 payload.add("abc", [{ts: "t:asad", val: "n:123"}]);
                 await ws.batch.hisWrite(payload);
                 expect(ws.hisWrite.calledOnce).to.be.true;
-                expect(ws.hisWrite.args[0]).to.eql([payload.payload, DEFAULT_BATCH_SIZE]);
+                expect(ws.hisWrite.args[0]).to.eql([payload.payload]);
             });
         });
 
@@ -100,7 +100,7 @@ describe("client.batch.hisWrite", () => {
                 payload.add("abc", [{ts: "t:asad", val: "n:123"}]);
                 await ws.batch.hisWrite(payload.payload);
                 expect(ws.hisWrite.calledOnce).to.be.true;
-                expect(ws.hisWrite.args[0]).to.eql([payload.payload, DEFAULT_BATCH_SIZE]);
+                expect(ws.hisWrite.args[0]).to.eql([payload.payload]);
             });
         });
 
@@ -236,7 +236,7 @@ describe("client.batch.hisWrite", () => {
             expect(result.errors.length).to.be.equal(1);
             const { error, args } = result.errors[0];
             expect(error).to.equal("Test error");
-            expect(args).to.eql([SMALL_DATA_1000, DEFAULT_BATCH_SIZE]);
+            expect(args).to.eql([SMALL_DATA_1000]);
         });
     });
 });
