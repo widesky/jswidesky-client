@@ -54,7 +54,7 @@ const getReturnResultProp = (defaultVal) => {
 }
 
 // Shared Objects
-const PERFORM_OP_IN_BATCH_ObJ = {
+const PERFORM_OP_IN_BATCH_OBJ = {
     ...getBatchProp(PERFORM_OP_IN_BATCH_BATCH_SIZE, PERFORM_OP_IN_BATCH_MAX_BATCH_SIZE),
     ...getReturnResultProp(false),
     batchDelay: yup.number()
@@ -82,7 +82,7 @@ const BATCH_HIS_READ_SCHEMA = yup.object({
     ...getBatchProp(HIS_READ_BATCH_SIZE)
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_MAX_BATCH_SIZE),
     ...getReturnResultProp(false)
 });
