@@ -35,6 +35,7 @@ const getBatchProp = (defaultSize) => {
             .notRequired()
             .nullable()
             .strict()
+            .min(1)
             .default(defaultSize)
     }
 };
@@ -55,14 +56,17 @@ const PERFORM_OP_IN_BATCH_OBJ = {
         .notRequired()
         .nullable()
         .strict()
+        .min(0)
         .default(0),
     parallel: yup.number()
         .strict()
+        .min(1)
         .default(1),
     parallelDelay: yup.number()
         .notRequired()
         .nullable()
         .strict()
+        .min(0)
         .default(0)
 };
 
@@ -151,7 +155,12 @@ const PROGRESS_OBJ = {
         .nullable()
         .notRequired()
         .strict()
-        .default("create")
+        .default("create"),
+    update: yup.string()
+        .nullable()
+        .notRequired()
+        .strict()
+        .default("update")
 };
 
 const CLIENT_SCHEMA = yup.object({

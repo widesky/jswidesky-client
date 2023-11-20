@@ -13,8 +13,10 @@ const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
 const bunyan = require("bunyan");
-const {CLIENT_SCHEMA} = require("./../utils/evaluator");
+const { CLIENT_SCHEMA, deriveFromDefaults } = require("./../utils/evaluator");
 const clientV2Functions = require("./functions/v2");
+const { performOpInBatch } = require("./functions/batch");
+const cliProgress = require("cli-progress");
 let axios;
 
 // Browser/Node axios import
@@ -106,18 +108,6 @@ class WideSkyClient {
         this.assignSubFunctions();
     }
 
-    assignSubFunctions() {
-        const assignPrototype = (thisProp, functions) => {
-            for (const [name, func] of Object.entries(functions)) {
-                thisProp[name] = func.bind(this);
-            }
-        }
-
-        // Add function for v2
-        this.v2 = {};
-        assignPrototype(this.v2, clientV2Functions);
-    }
-
     /**
      * Create a WideSky client from a given set of configurations
      * @param config An Object defining the configurations for the WideSkyClient. Requires attributes serverURL,
@@ -168,6 +158,20 @@ class WideSkyClient {
         );
     }
 
+    assignSubFunctions() {
+        const assignPrototype = (thisProp, functions) => {
+            for (const [name, func] of Object.entries(functions)) {
+                thisProp[name] = func.bind(this);
+            }
+        }
+
+        // Add function for v2 function
+        this.v2 = {};
+        assignPrototype(this.v2, clientV2Functions);
+        // Assign batch functions
+        this.performOpInBatch = performOpInBatch.bind(this);
+    }
+
     /**
      * Initialise the Client access token
      */
@@ -216,6 +220,16 @@ class WideSkyClient {
                 this.impersonateAs(this.clientOptions.impersonateAs);
             }
 
+            if (this.isProgressEnabled) {
+                if (this.clientOptions.progress.instance === undefined) {
+                    const cliProgress = require("cli-progress");
+                    this.clientOptions.progress.instance = new cliProgress.MultiBar({
+                        clearOnComplete: false,
+                        hideCursor: true
+                    }, cliProgress.Presets.shades_classic);
+                }
+            }
+
             this.initialised = true;
         } catch (error) {
             throw new Error(error.message);
@@ -236,6 +250,7 @@ class WideSkyClient {
             this.initWaitFor = new Promise(async (resolve) => {
                 await oldPromise;
                 this._impersonate = userId;
+                resolve();
             });
         } else {
             this._impersonate = userId;
@@ -256,6 +271,20 @@ class WideSkyClient {
 
     isAcceptingGzip() {
         return this._acceptGzipEncoding;
+    }
+
+    get isProgressEnabled() {
+        return this.clientOptions.progress.enable;
+    }
+
+    /**
+     * Create a progress instance
+     * @param size Highest value for the progress counter.
+     * @param initialValue Initial value for the progress counter.
+     * @returns {*}
+     */
+    progressCreate(size, initialValue=0) {
+        return this.clientOptions.progress.instance[this.clientOptions.progress.create](size, initialValue);
     }
 
     /**
