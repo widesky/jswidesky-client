@@ -1,0 +1,113 @@
+{
+  "acceptGzip": true,
+  "batch": {
+    "addChildrenByFilter": {
+      "batchDelay": 0,
+      "batchSize": 2000,
+      "limit": 0,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "create": {
+      "batchDelay": 0,
+      "batchSize": 2000,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "deleteByFilter": {
+      "batchDelay": 0,
+      "batchSize": 30,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "deleteById": {
+      "batchDelay": 0,
+      "batchSize": 30,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "hisDelete": {
+      "batchDelay": 0,
+      "batchSize": 1500,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "hisDeleteByFilter": {
+      "batchDelay": 0,
+      "batchSize": 1500,
+      "limit": 0,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "hisRead": {
+      "batchDelay": 0,
+      "batchSize": 100,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "hisReadByFilter": {
+      "batchDelay": 0,
+      "batchSize": 100,
+      "limit": 0,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "hisWrite": {
+      "batchDelay": 0,
+      "batchSize": 2000,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "migrateHistory": {
+      "batchDelay": 0,
+      "batchSize": 2000,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "update": {
+      "batchDelay": 0,
+      "batchSize": 2000,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "updateByFilter": {
+      "batchDelay": 0,
+      "batchSize": 2000,
+      "limit": 0,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": false
+    },
+    "updateOrCreate": {
+      "batchDelay": 0,
+      "batchSize": 2000,
+      "parallel": 1,
+      "parallelDelay": 0,
+      "returnResult": true
+    }
+  },
+  "impersonateAs": null,
+  "performOpInBatch": {
+    "batchDelay": 0,
+    "batchSize": 100,
+    "parallel": 1,
+    "parallelDelay": 0,
+    "returnResult": false
+  },
+  "progress": {
+    "create": "create",
+    "enable": false,
+    "increment": "increment"
+  }
+}

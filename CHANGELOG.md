@@ -9,12 +9,26 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `removePrefix(value)`: Remove the Haystack prefix from the given String value if applied.
   - `getId(entity, tag)`: Get a UUID from the entity, or the Haystack reference tag is specified.
   - `getReadableName(entity)`: Get the `fqname` or `id` tag of the entity.
+- Added new argument `options` to `WideSkyClient` constructor to accept configurations for the underlying `axios` client
+  instance and WideSky client batch operations. The options argument is expected to have the following structure as 
+  defined in [Client Options](./docs/client/options.md).
+- Added a new static function `make` to create a `WideSkyClient` instance from a configuration Object. The Object can
+  have the following options:
+  - `serverURL`: The URL to the WideSky API server (required).
+  - `username`: The username for a WideSky user (required).
+  - `password`: The password the above WideSky username (required).
+  - `clientId`: The Client ID for OAuth 2.0 authentication (required).
+  - `clientSecret`: The Client secret for OAuth 2.0 authentication (required).
+  - `accessToken`: A valid WideSky access token for OAuth 2.0 authentication (optional).
+  - `options`: A Object containing attributes axios and client for configuring the axios and WideSky client
+    respectively. The options argument is expected to have the following structure as defined in 
+    [Client Options](./docs/client/options.md).
 
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
   Instead, the error found in the response as received from a WideSky API server is used as the error message. 
   This has been changed as the WideSky API server already created good responses to request errors and changes should 
-  only be in API server.
+  only be in API server. 
 
 ## [2.0.6] - 2023-10-03
 ### FIXED
