@@ -21,7 +21,7 @@ const Hs = require("../../utils/haystack");
 const EntityCriteria = require("../../utils/EntityCriteria");
 
 const ID_TAGS = ["id", "fqname"];
-const VIRTUAL_TAGS = ["lastHisTime", "lastHisVal", "curVal"];
+const VIRTUAL_TAGS = ["lastHisTime", "lastHisVal", "curVal", "curStatus", "curErr"];
 
 /**
  * Initialise a 2D empty array.
@@ -841,15 +841,17 @@ async function multiFind(filterAndLimits, options={}) {
  * Create a update payload when comparing the changes between oldEntity and newEntity.
  * @param oldEntity Old entity to compare changes against.
  * @param newEntity New entity whose changed we'd like to make current.
+ * @param logger Bunyan logging instance.
  * @returns {{id}} A updateRec payload.
  */
-const createUpdatePayload = (oldEntity, newEntity) => {
+const createUpdatePayload = (oldEntity, newEntity, logger) => {
     const updatePayload = {
         id: newEntity.id
     };
     // what's new and what's changed?
     for (const [tag, value] of Object.entries(newEntity)) {
         if (ID_TAGS.includes(tag) || VIRTUAL_TAGS.includes(tag)) {
+            logger.debug("Ignoring tag %s and value %s for entity %s.", tag, value, newEntity.id);
             continue;
         }
 
@@ -890,8 +892,19 @@ const createUpdatePayload = (oldEntity, newEntity) => {
  * @returns {Promise<Awaited<unknown>[]>} Array of entities in their current state in the WideSky database.
  */
 async function updateOrCreate(entities, options={}) {
+    if (!Array.isArray(entities)) {
+        throw new Error("parameter entities is not an Array");
+    } else if (entities.length === 0) {
+        this.logger.debug("No entities given.");
+        return {
+            success: [],
+            errors: []
+        };
+    }
+
     await BATCH_UPDATE_OR_CREATE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.updateOrCreate, options);
+    const { returnResult } = options;
 
     const createPayload = [];
     const updatePayload = [];
@@ -902,16 +915,24 @@ async function updateOrCreate(entities, options={}) {
     for (let i = 0; i < entities.length; i++) {
         const entity = entities[i];
         if (entity.id === undefined) {
-            // console.log(`No id found for entity at index ${i}. Assuming creation`);
+            this.logger.debug(`No id found for entity at index %d. Assuming creation.`, i);
             createPayload.push(entity);
             skipIndex[i] = true;
-            // throw new Error(`Entity at index ${index} is missing its id.`);
         } else {
             // filter and limit
             idsFilter.push([`id==@${Hs.getId(entity)}`, 1]);
         }
     }
-    const currentEntities = await this.multiFind(idsFilter, 100);
+    const {
+        success: currentEntities,
+        errors: findErrors
+    } = await this.batch.multiFind(idsFilter);
+    if (findErrors.length) {
+        return {
+            success: [],
+            errors: findErrors
+        };
+    }
 
     for (let i = 0; i < entities.length; i++) {
         if (skipIndex[i]) {
@@ -924,35 +945,55 @@ async function updateOrCreate(entities, options={}) {
         if (existingEntity === undefined) {
             createPayload.push(entity);
         } else {
-            const entityUpdate = createUpdatePayload(existingEntity, entity);
+            const entityUpdate = createUpdatePayload(existingEntity, entity, this.logger);
             if (Object.keys(entityUpdate).length > 1) {
                 updatePayload.push(entityUpdate);
             } else {
                 // nothing has changed
-                returnedEntities.push(entity);
+                if (returnResult) {
+                    returnedEntities.push(entity);
+                }
             }
         }
     }
 
     if (createPayload.length === 0 && updatePayload.length === 0) {
-        // console.log("Nothing to update or create");
+        this.logger.debug("Nothing to update or create.");
         return entities;
     }
 
     const requests = [];
     if (createPayload.length > 0) {
+        this.logger.debug("Creating %d entities.", createPayload.length);
         requests.push(this.batch.create(createPayload, options));
     }
+    else {
+        this.logger.debug("Nothing to create.");
+    }
     if (updatePayload.length > 0) {
+        this.logger.debug("Updating %d entities.", updatePayload.length);
         requests.push(this.batch.update(updatePayload, options));
+    } else {
+        this.logger.debug("Nothing to update");
     }
 
+    const allErrors = [];
     for (const { success, errors } of await Promise.all(requests)) {
-        // TODO
-        returnedEntities = returnedEntities.concat(res.rows);
+        if (success.length && success.rows && returnResult) {
+            for (const row of success.rows) {
+                returnedEntities.push(row);
+            }
+        }
+
+        for (const error of errors) {
+            allErrors.push(error);
+        }
     }
 
-    return returnedEntities;
+    return {
+        success: returnedEntities,
+        errors: allErrors
+    };
 }
 
 module.exports = {
