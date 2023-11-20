@@ -5,25 +5,18 @@
  */
 "use strict";
 
-const stubs = require('../../stubs'),
-    sinon = require('sinon'),
-    expect = require('chai').expect,
-    WS_USER = stubs.WS_USER,
-    WS_PASSWORD = stubs.WS_PASSWORD,
-    WS_CLIENT_ID = stubs.WS_CLIENT_ID,
-    WS_CLIENT_SECRET = stubs.WS_CLIENT_SECRET,
-    WS_ACCESS_TOKEN = stubs.WS_ACCESS_TOKEN,
-    WS_REFRESH_TOKEN = stubs.WS_REFRESH_TOKEN,
-    WS_ACCESS_TOKEN2 = stubs.WS_ACCESS_TOKEN2,
-    WS_REFRESH_TOKEN2 = stubs.WS_REFRESH_TOKEN2,
-    getInstance = stubs.getInstance;
+const stubs = require('../../stubs');
+const sinon = require('sinon');
+const { expect } = require('chai');
+const {
+    WS_ACCESS_TOKEN,
+    WS_REFRESH_TOKEN,
+    getInstance
+} = stubs;
 
 const {
-    verifyTokenCall,
     verifyRequestCall,
-    sleep
 } = require("./../utils");
-const { HaystackError, GraphQLError } = require("../../../src/errors");
 
 describe('client', () => {
     describe('acceptEncoding', () => {
