@@ -31,7 +31,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Add new batch functions:
   - `client.batch.hisWrite(payload, options)`
   - `client.batch.hisRead(ids, from, to, options)`
-  - `client.batch.hisDelete(ids, range, options)`
   - `client.batch.create(entities, options)`
 
 ### CHANGED

@@ -58,7 +58,7 @@ const getReturnResultProp = (defaultVal) => {
 };
 
 // Shared Objects
-const PERFORM_OP_IN_BATCH_ObJ = {
+const PERFORM_OP_IN_BATCH_OBJ = {
     ...getBatchProp(PERFORM_OP_IN_BATCH_BATCH_SIZE, PERFORM_OP_IN_BATCH_MAX_BATCH_SIZE),
     batchDelay: yup.number()
         .notRequired()
@@ -81,16 +81,16 @@ const PERFORM_OP_IN_BATCH_ObJ = {
 
 // Client function schema for options arguments
 const BATCH_HIS_READ_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_READ_BATCH_SIZE)
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_MAX_BATCH_SIZE),
     ...getReturnResultProp(false)
 });
 const BATCH_HIS_DELETE_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_DELETE_DATA_POINT_BATCH_SIZE, HIS_DELETE_DATA_POINT_BATCH_SIZE_MAX),
     ...getBatchProp(HIS_DELETE_ENTITY_BATCH_SIZE, HIS_DELETE_ENTITY_BATCH_SIZE_MAX, "batchSizeEntity"),
     ...getReturnResultProp(false)
@@ -101,56 +101,56 @@ const BATCH_CREATE_SCHEMA = yup.object({
     ...getReturnResultProp(false)
 });
 const BATCH_UPDATE_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(UPDATE_BATCH_SIZE),
     ...getReturnResultProp(false)
 });
 const BATCH_DELETE_BY_ID_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(DELETE_BATCH_SIZE),
     ...getReturnResultProp(false)
 });
 const BATCH_DELETE_BY_FILTER_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(DELETE_BATCH_SIZE),
     ...getReturnResultProp(false)
 });
 const BATCH_HIS_READ_BY_FILTER_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_READ_BATCH_SIZE),
     ...LIMIT_PROPERTY
 });
 const BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(CREATE_BATCH_SIZE),
     ...getReturnResultProp(false),
     ...LIMIT_PROPERTY
 });
 const BATCH_UPDATE_BY_FILTER_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(UPDATE_BATCH_SIZE),
     ...getReturnResultProp(false),
     ...LIMIT_PROPERTY
 });
 const BATCH_HIS_DELETE_BY_FILTER_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_DELETE_DATA_POINT_BATCH_SIZE),
     ...getBatchProp(HIS_DELETE_ENTITY_BATCH_SIZE, HIS_DELETE_ENTITY_BATCH_SIZE_MAX, "batchSizeEntity"),
     ...getReturnResultProp(false),
     ...LIMIT_PROPERTY
 });
 const BATCH_MIGRATE_HISTORY_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_WRITE_BATCH_SIZE),
     ...getReturnResultProp(false)
 });
 const BATCH_UPDATE_OR_CREATE_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(Math.min(CREATE_BATCH_SIZE, UPDATE_BATCH_SIZE)),
     ...getReturnResultProp(true)
 });
 const PERFORM_OP_IN_BATCH_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getReturnResultProp(false)
 });
 

@@ -272,7 +272,7 @@ async function hisRead(ids, from, to, options={}) {
     const resultByEntity = init2DArray(ids.length);
     for (let i = 0; i < data.length; i++) {
         const res = data[i];
-        if (ids.length === 1) {
+        if (ids.length === 1 || options.batchSize === 1) {
             resultByEntity[i] = res.rows;
         } else {
             for (const row of res.rows) {
@@ -330,150 +330,6 @@ function endTimeRange(dataSet, grabFromIndex, batchSize) {
 }
 
 /**
- * Find the index in a given Array of Objects with property "endRange" which is an epoch time stamp
- * that is the smallest in the Array.
- * @param values Array of Objects with property "endRange".
- * @returns {null, number} Return the index in the Array given in values that has the earliest time stamp.
- */
-function minWithIndex(values) {
-    let minIndex = null;
-    for (let i = 0; i < values.length; i++) {
-        if (values[i].endRange === null) {
-            continue;
-        } else if (minIndex === null) {
-            minIndex = i;
-            continue;
-        }
-
-        if (values[i].endRange < values[minIndex].endRange) {
-            minIndex = i;
-        }
-    }
-
-    return minIndex;
-};
-/**
- * Determine if all time series data has been accounted for.
- * @returns {boolean} True if there is more data to work with. False if not.
- */
-function allAccountedFor(data, recordIndexes) {
-    for (let i = 0; i < recordIndexes.length; i++) {
-        if (data[i].length > recordIndexes[i]) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/**
- * Perform a history delete request using batch functionality.
- * @param ids An array of point entity UUIDs for the delete operations or a single string. These will be batched by
- *            options.batchSizeEntity.
- * @param range A valid hisRead range string. End range is not inclusive.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
- *                Option batchSize is determined by the maximum number of time series rows to be deleted across
- *                all ids given.
- * @returns {Promise<void>}
- */
-async function hisDelete(ids, range, options={}) {
-    await BATCH_HIS_DELETE_SCHEMA.validate(options);
-    options = deriveFromDefaults(this.clientOptions.batch.hisDelete, options);
-    const { batchSize, batchSizeEntity } = options;
-
-    // validate hisRead range given
-    if (!range.includes(",")) {
-        throw new Error("'range' parameter is not a valid hisRead range");
-    }
-    const [timeStart, timeEnd] = range.split(",")
-        .map((timeStr) => new Date(Date.parse(timeStr.trim())));
-    if (isNaN(timeStart) || isNaN(timeEnd)) {
-        throw new Error("'range' parameter is not a valid hisRead range");
-    }
-
-    // Create batch of ids
-    let idsAsBatch = [];
-    if (ids.length > batchSizeEntity) {
-        const idsCopy = [...ids];
-        while (idsCopy.length) {
-            idsAsBatch.push(idsCopy.splice(0, batchSizeEntity));
-        }
-    } else {
-        idsAsBatch.push(ids);
-    }
-
-    // Create time range batches in terms of each batch of ids
-    const batches = init2DArray(idsAsBatch.length);
-    for (let batchIndex = 0; batchIndex < idsAsBatch.length; batchIndex++) {
-        const idsInBatch = idsAsBatch[batchIndex];
-        const data = await this.batch.hisRead(ids, timeStart, timeEnd);
-        if (data.filter((dataSet) => dataSet.length > 0).length === 0) {
-            // no data to delete
-            return;
-        }
-
-        // find start point
-        let startTime = null;
-        for (const dataSet of data) {
-            if (dataSet.length > 0) {
-                if (startTime === null) {
-                    startTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
-                    continue;
-                }
-                const firstTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
-                if (firstTime.getTime() < startTime.getTime()) {
-                    startTime = firstTime;
-                }
-            }
-        }
-        let grabFrom = startTime;
-        const recordIndexes = new Array(ids.length).fill(0);
-
-        // Create the time ranges to be batched for hisDeletion
-        // const batches = [];
-        const indexes = ids.map((_) => 0);
-        while (!allAccountedFor(data, recordIndexes)) {
-            const timeRanges = recordIndexes.map((_, index) =>
-                endTimeRange(data[index], recordIndexes[index], batchSize));
-            const minIndex = minWithIndex(timeRanges);
-            // ensure time range is inclusive of data to be deleted (i.e. +1ms)
-            const grabTo = new Date(timeRanges[minIndex].endRange + 1);
-
-            if (grabTo.getTime() > timeEnd.getTime()) {
-                // end of the line
-                batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${timeEnd.toISOString()}`]);
-                break;
-            } else {
-                batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${grabTo.toISOString()}`]);
-            }
-            grabFrom = grabTo;
-
-            // update starting indexes
-            for (let i = 0; i < recordIndexes.length; i++) {
-                recordIndexes[i] = timeRanges[minIndex].index + 1;
-            }
-        }
-    }
-
-    const batchFlattened = [];
-    for (const idBatch of batches) {
-        for (const batchForIds of idBatch) {
-            batchFlattened.push(batchForIds);
-        }
-    }
-
-    return this.performOpInBatch(
-        "hisDelete",
-        [batchFlattened],
-        {
-            ...options,
-            batchSize: 1,           // batches are based on the time ranges to be deleted
-            transformer: (batch) => batch[0]
-        }
-    );
-}
-
-/**
  * Perform a create request using batch functionality. The request are batched based on the number of entities given.
  * @param entities Entities to be created.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
@@ -490,6 +346,5 @@ module.exports = {
     performOpInBatch,
     hisWrite,
     hisRead,
-    hisDelete,
     create
 };

@@ -33,7 +33,7 @@ The Object in `client.batch.hisWrite` is expected to have the following structur
 
 | Path from `client.batch.hisWrite` | Description                                                                   | Type    | Default |
 |-----------------------------------|-------------------------------------------------------------------------------|---------|---------|
-| `batchSize`                       | Define the maximum number of rows of each payload for `hisWrite` operations.  | Number  | 2000    |
+| `batchSize`                       | Define the maximum number of rows of each payload for `hisWrite` operations.  | Number  | 10000   |
 | `batchDelay`                      | Define the time in between each batch `hisWrite` request (ms).                | Number  | 0       |
 | `parallel`                        | Define the number of batched requests to be run in parallel                   | Number  | 1       |
 | `parallelDelay`                   | Define the delay between each set of batched requests run in parallel (ms)    | Number  | 0       |
@@ -136,7 +136,7 @@ The Object in `client.batch.migrateHistory` is expected to have the following st
 
 | Path from `client.batch.migrateHistory` | Description                                                                         | Type    | Default |
 |-----------------------------------------|-------------------------------------------------------------------------------------|---------|---------|
-| `batchSize`                             | Define the maximum size of each payload for `migrateHistory` operations.            | Number  | 2000    |
+| `batchSize`                             | Define the maximum size of each payload for `migrateHistory` operations.            | Number  | 10000   |
 | `batchDelay`                            | Define the time in between each batch `migrateHistory` request (ms).                | Number  | 0       |
 | `parallel`                              | Define the number of batched requests to be run in parallel                         | Number  | 1       |
 | `parallelDelay`                         | Define the delay between each set of batched requests run in parallel (ms)          | Number  | 0       |
