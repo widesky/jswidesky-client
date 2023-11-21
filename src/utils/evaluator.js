@@ -56,7 +56,6 @@ const getReturnResultProp = (defaultVal) => {
 // Shared Objects
 const PERFORM_OP_IN_BATCH_OBJ = {
     ...getBatchProp(PERFORM_OP_IN_BATCH_BATCH_SIZE, PERFORM_OP_IN_BATCH_MAX_BATCH_SIZE),
-    ...getReturnResultProp(false),
     batchDelay: yup.number()
         .notRequired()
         .nullable()
@@ -144,7 +143,11 @@ const BATCH_UPDATE_OR_CREATE_SCHEMA = yup.object({
     ...getBatchProp(Math.min(CREATE_BATCH_SIZE, UPDATE_BATCH_SIZE)),
     ...getReturnResultProp(true)
 });
-const PERFORM_OP_IN_BATCH_SCHEMA = yup.object(PERFORM_OP_IN_BATCH_OBJ);
+
+const PERFORM_OP_IN_BATCH_SCHEMA = yup.object({
+    ...PERFORM_OP_IN_BATCH_OBJ,
+    ...getReturnResultProp(false)
+});
 
 const PROGRESS_OBJ = {
     enable: yup.boolean()
@@ -196,12 +199,13 @@ const CLIENT_SCHEMA = yup.object({
         hisDeleteByFilter: BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
         updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA
     }),
-    performOpInBatch: yup.object(PERFORM_OP_IN_BATCH_OBJ)
+    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA
 });
 
 module.exports = {
     CLIENT_SCHEMA,
     PERFORM_OP_IN_BATCH_SCHEMA,
     BATCH_HIS_WRITE_SCHEMA,
+    BATCH_HIS_READ_SCHEMA,
     deriveFromDefaults
 };
