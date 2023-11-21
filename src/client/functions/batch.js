@@ -261,7 +261,7 @@ async function hisRead(ids, from, to, options={}) {
     // process hisRead data
     for (let i = 0; i < data.length; i++) {
         const res = data[i];
-        if (ids.length === 1) {
+        if (ids.length === 1 || options.batchSize === 1) {
             resultByEntity[i] = res.rows;
         } else {
             for (const row of res.rows) {
