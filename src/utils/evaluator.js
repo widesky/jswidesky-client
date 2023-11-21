@@ -96,7 +96,7 @@ const BATCH_HIS_DELETE_SCHEMA = yup.object({
     ...getReturnResultProp(false)
 });
 const BATCH_CREATE_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(CREATE_BATCH_SIZE, CREATE_BATCH_SIZE_MAX),
     ...getReturnResultProp(false)
 });
