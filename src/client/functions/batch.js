@@ -410,6 +410,7 @@ function getMinIndex(values, dataSet, grabFrom, batchSize) {
             rowsBetweenRange(data, grabFrom, sortByRange[i].endRange));
         const maxDataCount = Math.max(...getDataCount);
         if (maxDataCount === batchSize) {
+            // we're at max
             deleteRowCounts = i;
             curMax = maxDataCount;
             endRange = sortByRange[i].endRange;
