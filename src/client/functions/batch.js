@@ -8,6 +8,7 @@ const {
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
 const Hs = require("../../utils/haystack");
+const {value} = require("lodash/seq");
 
 /**
  * Initialise a 2D empty array.
@@ -298,7 +299,7 @@ async function hisRead(ids, from, to, options={}) {
  * Get the end time and index in the data set that has at most the given batchSize records.
  * @param dataSet Data set to search in.
  * @param grabFromIndex A start index to signify what will be batched next.
- * @param batchSize
+ * @param batchSize Maximum number of time series data that can be deleted.
  * @returns {{endRange: number, index: number}|{endRange: null, index: null}}
  *      endRange: The epoch time that is either the end of the data set or batchSize indexes from the given
  *                grabFromIndex. If data set is empty, null is returned.
@@ -306,6 +307,11 @@ async function hisRead(ids, from, to, options={}) {
  */
 function endTimeRange(dataSet, grabFromIndex, batchSize) {
     if (dataSet.length === 0) {
+        return {
+            endRange: null,
+            index: null
+        };
+    } else if (grabFromIndex > dataSet.length) {
         return {
             endRange: null,
             index: null
@@ -329,27 +335,93 @@ function endTimeRange(dataSet, grabFromIndex, batchSize) {
 }
 
 /**
- * Find the index in a given Array of Objects with property "endRange" which is an epoch time stamp
- * that is the smallest in the Array.
- * @param values Array of Objects with property "endRange".
- * @returns {null, number} Return the index in the Array given in values that has the earliest time stamp.
+ * Find the number of rows between the given times timeStart and timeEnd.
+ * @param data Data to search within.
+ * @param timeStart Starting time range.
+ * @param timeEnd Ending time range.
+ * @returns {number} Number of time series rows found.
  */
-function minWithIndex(values) {
-    let minIndex = null;
-    for (let i = 0; i < values.length; i++) {
-        if (values[i].endRange === null) {
-            continue;
-        } else if (minIndex === null) {
-            minIndex = i;
-            continue;
+function rowsBetweenRange(data, timeStart, timeEnd) {
+    let i = 0;
+    let count = 0;
+    const getDate = (ts) => Date.parse(Hs.removePrefix(ts));
+    while (data[i] && getDate(data[i].ts) < timeStart) {
+        i++;
+    }
+
+    if (data[i] === undefined) {
+        // found start point exceeds data sets endpoint. No data between time range
+        return 0;
+    }
+
+    for (; i < data.length; i++) {
+        if (data[i] === undefined || getDate(data[i].ts) > timeEnd) {
+            break;
+        }
+        count++;
+    }
+
+    return count;
+}
+
+/**
+ * Find the time for which either the maximum number of time series rows are deleted or the batchSize of rows has been
+ * reached.
+ * @param values Array of Objects with property "endRange".
+ * @param dataSet Data to search for the number of time series to be deleted from.
+ * @param grabFrom Time stamp to grab from.
+ * @param batchSize Maximum size of each batch.
+ * @returns {{endRange, deleteRowCounts: number}} Return endRange to delete till and the number of rows to delete from
+ *                                                each data set.
+ */
+function getMinIndex(values, dataSet, grabFrom, batchSize) {
+    const sortByRange = values
+        .filter((value, i) => value.endRange !== undefined)
+        .sort((a, b) => {
+            if (a.endRange < b.endRange) {
+                return -1;
+            } else if (b.endRange > a.endRange) {
+                return 1;
+            } else {
+                return 0;
+            }
+    });
+
+    let curMax, endRange, deleteRowCounts;
+    for (let i = 0; i < sortByRange.length; i++) {
+        if (curMax === undefined) {
+            endRange = sortByRange[i].endRange;
+            deleteRowCounts = dataSet
+                .map((data) => rowsBetweenRange(data, grabFrom, sortByRange[i].endRange));
+            curMax = Math.max(...deleteRowCounts);
+            if (curMax > batchSize) {
+                // this ain't it chief
+                curMax = undefined;
+                continue;
+            } else if (curMax === batchSize) {
+                // already at maximum batch size
+                break;
+            } else {
+                continue;
+            }
         }
 
-        if (values[i].endRange < values[minIndex].endRange) {
-            minIndex = i;
+        const getDataCount = dataSet.map((data) =>
+            rowsBetweenRange(data, grabFrom, sortByRange[i].endRange));
+        const maxDataCount = Math.max(...getDataCount);
+        if (maxDataCount === batchSize) {
+            deleteRowCounts = i;
+            curMax = maxDataCount;
+            endRange = sortByRange[i].endRange;
+            break;
+        } else if (maxDataCount > curMax) {
+            deleteRowCounts = getDataCount;
+            curMax = maxDataCount;
+            endRange = sortByRange[i].endRange;
         }
     }
 
-    return minIndex;
+    return { endRange, deleteRowCounts };
 }
 /**
  * Determine if all time series data has been accounted for.
@@ -363,6 +435,70 @@ function allAccountedFor(data, recordIndexes) {
     }
 
     return true;
+}
+
+/**
+ * Find the earliest time range in the historical data.
+ * @param data Data to search within.
+ * @returns {Date} Date of the earlier time series found.
+ */
+function findStartTime(data) {
+    let startTime = null;
+    for (const dataSet of data) {
+        if (dataSet.length > 0) {
+            if (startTime === null) {
+                startTime = Date.parse(Hs.removePrefix(dataSet[0].ts));
+                continue;
+            }
+            const firstTime = Date.parse(Hs.removePrefix(dataSet[0].ts));
+            if (firstTime < startTime) {
+                startTime = firstTime;
+            }
+        }
+    }
+
+    return new Date(startTime);
+}
+
+/**
+ * Create hisDelete time ranges to remove all the data given and append them to the given batch.
+ * @param data Data to create time ranges for.
+ * @param ids Entity IDs for who their data will be deleted.
+ * @param batch The current batch to append hisDelete arguments to.
+ * @param batchSize The maximum number of time series rows to be deleted per hisDelete range.
+ * @param startTime The earliest time to be deleted.
+ * @param timeEnd The requested end time range.
+ */
+function createTimeRanges(data, ids, batch, batchSize, startTime, timeEnd) {
+    let grabFrom = startTime;
+    const recordIndexes = new Array(ids.length).fill(0);
+    let prevDeleteRange = null;
+    // Create the time ranges to be batched for hisDeletion
+    while (!allAccountedFor(data, recordIndexes)) {
+        const timeRanges = recordIndexes.map((_, index) =>
+            endTimeRange(data[index], recordIndexes[index], batchSize));
+        const { endRange, deleteRowCounts} = getMinIndex(timeRanges, data, grabFrom.valueOf(), batchSize);
+        // ensure time range is inclusive of data to be deleted (i.e. +1ms)
+        const grabTo = new Date(endRange + 1);
+        if (grabTo.getTime() > timeEnd.getTime()) {
+            // end of the line
+            batch.push([ids, `s:${grabFrom.toISOString()},${timeEnd.toISOString()}`]);
+            break;
+        } else {
+            batch.push([ids, `s:${grabFrom.toISOString()},${grabTo.toISOString()}`]);
+        }
+        grabFrom = grabTo;
+
+        // update starting indexes
+        for (let i = 0; i < recordIndexes.length; i++) {
+            if (deleteRowCounts[i] !== 0
+                || (prevDeleteRange && (deleteRowCounts[i] - prevDeleteRange[i] !== 0))) {
+                // time series has been queued to be deleted
+                recordIndexes[i] += deleteRowCounts[i];
+            }
+        }
+        prevDeleteRange = deleteRowCounts;
+    }
 }
 
 /**
@@ -428,47 +564,14 @@ async function hisDelete(ids, range, options={}) {
             continue;
         }
 
-        // find start point
-        let startTime = null;
-        for (const dataSet of data) {
-            if (dataSet.length > 0) {
-                if (startTime === null) {
-                    startTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
-                    continue;
-                }
-                const firstTime = new Date(Date.parse(Hs.removePrefix(dataSet[0].ts)));
-                if (firstTime.getTime() < startTime.getTime()) {
-                    startTime = firstTime;
-                }
-            }
-        }
-        let grabFrom = startTime;
-        const recordIndexes = new Array(ids.length).fill(0);
-
-        // Create the time ranges to be batched for hisDeletion
-        // const batches = [];
-        const indexes = ids.map((_) => 0);
-        while (!allAccountedFor(data, recordIndexes)) {
-            const timeRanges = recordIndexes.map((_, index) =>
-                endTimeRange(data[index], recordIndexes[index], batchSize));
-            const minIndex = minWithIndex(timeRanges);
-            // ensure time range is inclusive of data to be deleted (i.e. +1ms)
-            const grabTo = new Date(timeRanges[minIndex].endRange + 1);
-
-            if (grabTo.getTime() > timeEnd.getTime()) {
-                // end of the line
-                batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${timeEnd.toISOString()}`]);
-                break;
-            } else {
-                batches[batchIndex].push([idsInBatch, `s:${grabFrom.toISOString()},${grabTo.toISOString()}`]);
-            }
-            grabFrom = grabTo;
-
-            // update starting indexes
-            for (let i = 0; i < recordIndexes.length; i++) {
-                recordIndexes[i] = timeRanges[minIndex].index + 1;
-            }
-        }
+        createTimeRanges(
+            data,
+            idsInBatch,
+            batches[batchIndex],
+            batchSize,
+            findStartTime(data),
+            timeEnd
+        );
     }
 
     if (batches.filter((idBatch) => idBatch.length > 0).length === 0) {
