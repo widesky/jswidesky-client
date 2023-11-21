@@ -87,7 +87,12 @@ describe("client", () => {
             describe("time series rows", () => {
                 describe("payload smaller than default batch size of 100", () => {
                     it("should only make 1 request", async () => {
-                        ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
+                        ws.batch.hisRead = sinon.stub().callsFake(() => {
+                            return {
+                                success: HIS_READ_SMALL_TIME_SERIES.data,
+                                errors: []
+                            }
+                        });
                         await ws.batch.hisDelete(
                             HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
                         expect(ws.hisDelete.calledOnce).to.be.true;
@@ -99,7 +104,12 @@ describe("client", () => {
 
                     describe("payload greater than default batch size of 100", () => {
                         it("should make more than 1 request", async () => {
-                            ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_LARGE_TIME_SERIES.data);
+                            ws.batch.hisRead = sinon.stub().callsFake(() => {
+                                return {
+                                    success: HIS_READ_LARGE_TIME_SERIES.data,
+                                    errors: []
+                                };
+                            });
                             await ws.batch.hisDelete(
                                 HIS_READ_LARGE_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
                             expect(ws.hisDelete.calledTwice).to.be.true;
@@ -118,7 +128,12 @@ describe("client", () => {
                 describe("entities", () => {
                     describe("entities smaller than maximum of 100", () => {
                         it("should only make 1 request", async () => {
-                            ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
+                            ws.batch.hisRead = sinon.stub().callsFake(() => {
+                                return {
+                                    success: HIS_READ_SMALL_TIME_SERIES.data,
+                                    errors: []
+                                };
+                            });
                             await ws.batch.hisDelete(
                                 HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
                             expect(ws.hisDelete.calledOnce).to.be.true;
@@ -131,7 +146,12 @@ describe("client", () => {
 
                     describe("entities greater than maximum of 100", () => {
                         it("should make more than 1 request", async () => {
-                            ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_LARGE_ENTITIES.data);
+                            ws.batch.hisRead = sinon.stub().callsFake(() => {
+                                return {
+                                    success: HIS_READ_LARGE_ENTITIES.data,
+                                    errors: []
+                                };
+                            });
                             await ws.batch.hisDelete(
                                 HIS_READ_LARGE_ENTITIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
                             expect(ws.hisDelete.calledTwice).to.be.true;
@@ -152,7 +172,12 @@ describe("client", () => {
         describe("option batchSize", () => {
             describe("delete data smaller than batchSize", () => {
                 it("should make 1 request", async () => {
-                    ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
+                    ws.batch.hisRead = sinon.stub().callsFake(() => {
+                        return {
+                            success: HIS_READ_SMALL_TIME_SERIES.data,
+                            errors: HIS_READ_SMALL_TIME_SERIES.data
+                        };
+                    });
                     await ws.batch.hisDelete(
                         HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
                             batchSize: 12
@@ -167,7 +192,12 @@ describe("client", () => {
 
             describe("delete data greater than batchSize", () => {
                 it("should make more than 1 request", async () => {
-                    ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
+                    ws.batch.hisRead = sinon.stub().callsFake(() => {
+                        return {
+                            success: HIS_READ_SMALL_TIME_SERIES.data,
+                            errors: []
+                        };
+                    });
                     await ws.batch.hisDelete(
                         HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
                             batchSize: 2
@@ -190,7 +220,12 @@ describe("client", () => {
         describe("option batchSizeEntity", () => {
             describe("entities to delete data smaller than batchSizeEntity", () => {
                 it("should make 1 request", async () => {
-                    ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
+                    ws.batch.hisRead = sinon.stub().callsFake(() => {
+                        return {
+                            success: HIS_READ_SMALL_TIME_SERIES.data,
+                            errors: []
+                        };
+                    });
                     await ws.batch.hisDelete(
                         HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
                             batchSizeEntity: 10
@@ -205,7 +240,12 @@ describe("client", () => {
 
             describe("entities to delete data greater than batchSizeEntity", () => {
                 it("should make more than 1 request", async () => {
-                    ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
+                    ws.batch.hisRead = sinon.stub().callsFake(() => {
+                        return {
+                            success: HIS_READ_SMALL_TIME_SERIES.data,
+                            errors: []
+                        };
+                    });
                     await ws.batch.hisDelete(
                         HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
                             batchSizeEntity: 2
@@ -230,7 +270,12 @@ describe("client", () => {
 
         describe("option returnResult", () => {
             beforeEach(() => {
-                ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
+                ws.batch.hisRead = sinon.stub().callsFake(() => {
+                    return {
+                        success: HIS_READ_SMALL_TIME_SERIES.data,
+                        errors: []
+                    };
+                });
                 ws.hisDelete = sinon.stub().callsFake(() => ["test123"]);
             });
 
@@ -265,20 +310,86 @@ describe("client", () => {
 
         describe("error handling", () => {
             beforeEach(() => {
-                ws.batch.hisRead = sinon.stub().callsFake(() => HIS_READ_SMALL_TIME_SERIES.data);
+                ws.batch.hisRead = sinon.stub().callsFake((...args) => {
+                    return {
+                        success: [],
+                        errors: [{
+                            error: "hisRead error",
+                            args: ["hisRead", ...args]
+                        }]
+                    };
+                });
                 ws.hisDelete = sinon.stub().callsFake(() => {
-                    throw new Error("Test error");
+                    throw new Error("hisDelete error");
                 });
             });
 
-            it("should return encountered errors and arguments used", async () => {
+            it("should return encountered errors and arguments used for hisDelete", async () => {
+                ws.batch.hisRead = sinon.stub().callsFake(() => {
+                    return {
+                        success: HIS_READ_SMALL_TIME_SERIES.data,
+                        errors: []
+                    };
+                });
                 const result = await ws.batch.hisDelete(
                     HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
                 expect(result.errors.length).to.equal(1);
                 expect(result.errors).to.eql([{
                     args: [HIS_READ_SMALL_TIME_SERIES.ids, "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"],
-                    error: "Test error"
+                    error: "hisDelete error"
                 }]);
+            });
+
+            it("should return encountered errors and arguments used for hisRead", async () => {
+                const result = await ws.batch.hisDelete(
+                    HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                expect(result.success.length).to.equal(0);
+                expect(result.errors.length).to.equal(1);
+                const { args, error } = result.errors[0];
+                expect(error).to.equal("hisRead error");
+                expect(args[0]).to.equal("hisRead");
+                expect(args[1]).to.eql(HIS_READ_SMALL_TIME_SERIES.ids);
+                expect(args[2].valueOf()).to.equal(new Date(Date.parse("1970-01-01T00:00:00.000Z")).valueOf());
+                expect(args[3].valueOf()).to.equal(new Date(Date.parse("2023-10-10T00:00:00Z")).valueOf());
+            });
+
+            it("should return encountered errors and arguments from both hisRead and hisDelete", async () => {
+                ws.batch.hisRead = sinon.stub().callsFake(() => {
+                    return {
+                        success: [
+                            HIS_READ_SMALL_TIME_SERIES.data[0],
+                            [],
+                            ...HIS_READ_SMALL_TIME_SERIES.data.slice(2)
+                        ],
+                        errors: [
+                            {
+                                error: "hisRead error",
+                                args: [
+                                    "hisRead",
+                                    [HIS_READ_SMALL_TIME_SERIES.ids[1]],
+                                    new Date(Date.parse("1970-01-01T00:00:00Z")),
+                                    new Date(Date.parse("2023-10-10T00:00:00Z"))
+                                ]
+                            }
+                        ]
+                    };
+                });
+                const { success, errors } = await ws.batch.hisDelete(
+                    HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                expect(success.length).to.equal(0);
+                expect(errors.length).to.equal(2);
+                const { args: hisReadArgs, error: hisReadError } = errors[0];
+                expect(hisReadError).to.equal("hisRead error");
+                expect(hisReadArgs[0]).to.equal("hisRead");
+                expect(hisReadArgs[1]).to.eql([HIS_READ_SMALL_TIME_SERIES.ids[1]]);
+                expect(hisReadArgs[2].valueOf()).to.equal(new Date(Date.parse("1970-01-01T00:00:00.000Z")).valueOf());
+                expect(hisReadArgs[3].valueOf()).to.equal(new Date(Date.parse("2023-10-10T00:00:00Z")).valueOf());
+                const { args: hisDeleteArgs, error: hisDeleteError} = errors[1];
+                expect(hisDeleteArgs).to.eql([
+                    [HIS_READ_SMALL_TIME_SERIES.ids[0], ...HIS_READ_SMALL_TIME_SERIES.ids.slice(2)],
+                    "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"
+                ]);
+                expect(hisDeleteError).to.equal("hisDelete error");
             });
         });
     });

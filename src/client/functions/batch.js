@@ -401,14 +401,31 @@ async function hisDelete(ids, range, options={}) {
         idsAsBatch.push(ids);
     }
 
+    const errorsEncountered = [];
     // Create time range batches in terms of each batch of ids
     const batches = init2DArray(idsAsBatch.length);
     for (let batchIndex = 0; batchIndex < idsAsBatch.length; batchIndex++) {
-        const idsInBatch = idsAsBatch[batchIndex];
-        const data = await this.batch.hisRead(ids, timeStart, timeEnd);
+        let idsInBatch = idsAsBatch[batchIndex];
+        const { success: data, errors } = await this.batch.hisRead(ids, timeStart, timeEnd);
+        if (errors.length) {
+            // pass the errors encountered to the user
+            for (const error of errors) {
+                errorsEncountered.push(error);
+            }
+
+            // purge the ids for which a hisRead could not be performed on
+            const oldIdsInBatch = [...idsInBatch];
+            idsInBatch = [];
+            for (let i = 0; i < data.length; i++) {
+                if (data[i].length !== 0) {
+                    idsInBatch.push(oldIdsInBatch[i]);
+                }
+            }
+        }
+
         if (data.filter((dataSet) => dataSet.length > 0).length === 0) {
             // no data to delete
-            return;
+            continue;
         }
 
         // find start point
@@ -454,6 +471,13 @@ async function hisDelete(ids, range, options={}) {
         }
     }
 
+    if (batches.filter((idBatch) => idBatch.length > 0).length === 0) {
+        return {
+            success: [],
+            errors: errorsEncountered
+        };
+    }
+
     const batchFlattened = [];
     for (const idBatch of batches) {
         for (const batchForIds of idBatch) {
@@ -461,7 +485,7 @@ async function hisDelete(ids, range, options={}) {
         }
     }
 
-    return this.performOpInBatch(
+    const opResult = await this.performOpInBatch(
         "hisDelete",
         [batchFlattened],
         {
@@ -470,6 +494,12 @@ async function hisDelete(ids, range, options={}) {
             transformer: (batch) => batch[0]
         }
     );
+
+    // join the result with any errors encountered
+    return {
+        success: opResult.success,
+        errors: [...errorsEncountered, ...opResult.errors]
+    };
 }
 
 module.exports = {
