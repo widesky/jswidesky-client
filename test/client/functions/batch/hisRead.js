@@ -7,6 +7,8 @@
 
 const stubs = require('../../../stubs');
 const sinon = require('sinon');
+const HisWritePayload = require("../../../../src/utils/hisWritePayload");
+const SMALL_DATA_1000 = require("./files/hisWrite_smallBatch.json");
 const expect = require('chai').expect;
 const getInstance = stubs.getInstance;
 
