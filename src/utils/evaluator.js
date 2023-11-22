@@ -1,10 +1,13 @@
 const yup = require("yup");
 
 const HIS_READ_BATCH_SIZE = 100;
+const HIS_READ_BATCH_SIZE_MAX = 1000;
 const HIS_WRITE_BATCH_SIZE  = 10000;
 const HIS_WRITE_MAX_BATCH_SIZE = 20000;
 const HIS_DELETE_DATA_POINT_BATCH_SIZE = 1500;
+const HIS_DELETE_DATA_POINT_BATCH_SIZE_MAX = 3000;
 const HIS_DELETE_ENTITY_BATCH_SIZE = 100;
+const HIS_DELETE_ENTITY_BATCH_SIZE_MAX = 1000;
 const CREATE_BATCH_SIZE = 2000;
 const UPDATE_BATCH_SIZE = 2000;
 const DELETE_BATCH_SIZE = 30;
@@ -33,9 +36,9 @@ const LIMIT_PROPERTY = {
         .min(0)
 };
 
-const getBatchProp = (defaultSize, maxSize=defaultSize) => {
+const getBatchProp = (defaultSize, maxSize=defaultSize, name="batchSize") => {
     return {
-        batchSize: yup.number()
+        [name]: yup.number()
             .notRequired()
             .nullable()
             .strict()
@@ -51,7 +54,7 @@ const getReturnResultProp = (defaultVal) => {
             .strict()
             .default(defaultVal)
     }
-}
+};
 
 // Shared Objects
 const PERFORM_OP_IN_BATCH_OBJ = {
@@ -78,7 +81,6 @@ const PERFORM_OP_IN_BATCH_OBJ = {
 // Client function schema for options arguments
 const BATCH_HIS_READ_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(HIS_READ_BATCH_SIZE)
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
@@ -87,7 +89,8 @@ const BATCH_HIS_WRITE_SCHEMA = yup.object({
 });
 const BATCH_HIS_DELETE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(HIS_DELETE_DATA_POINT_BATCH_SIZE),
+    ...getBatchProp(HIS_DELETE_DATA_POINT_BATCH_SIZE, HIS_DELETE_DATA_POINT_BATCH_SIZE_MAX),
+    ...getBatchProp(HIS_DELETE_ENTITY_BATCH_SIZE, HIS_DELETE_ENTITY_BATCH_SIZE_MAX, "batchSizeEntity"),
     ...getReturnResultProp(false)
 });
 const BATCH_CREATE_SCHEMA = yup.object({
@@ -130,6 +133,7 @@ const BATCH_UPDATE_BY_FILTER_SCHEMA = yup.object({
 const BATCH_HIS_DELETE_BY_FILTER_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_DELETE_DATA_POINT_BATCH_SIZE),
+    ...getBatchProp(HIS_DELETE_ENTITY_BATCH_SIZE, HIS_DELETE_ENTITY_BATCH_SIZE_MAX, "batchSizeEntity"),
     ...getReturnResultProp(false),
     ...LIMIT_PROPERTY
 });
@@ -207,5 +211,6 @@ module.exports = {
     PERFORM_OP_IN_BATCH_SCHEMA,
     BATCH_HIS_WRITE_SCHEMA,
     BATCH_HIS_READ_SCHEMA,
+    BATCH_HIS_DELETE_SCHEMA,
     deriveFromDefaults
 };
