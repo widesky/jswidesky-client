@@ -116,7 +116,7 @@ class WideSkyClient {
      *               options. Option logger can be:
      *                  - Empty, meaning a default Bunyan logger is used
      *                  - Object for which a Bunyan instance will be created with:
-     *                      - name: Nane of logging instance
+     *                      - name: Name of logging instance
      *                      - level: Bunyan logging level to show logs higher.
      *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
      * @returns {WideSkyClient} A WideSky client instance.
