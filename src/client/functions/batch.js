@@ -8,11 +8,13 @@ const {
     BATCH_UPDATE_SCHEMA,
     BATCH_DELETE_BY_ID_SCHEMA,
     BATCH_DELETE_BY_FILTER_SCHEMA,
-    BATCH_HIS_READ_BY_FILTER_SCHEMA
+    BATCH_HIS_READ_BY_FILTER_SCHEMA,
+    BATCH_UPDATE_BY_FILTER_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
 const Hs = require("../../utils/haystack");
+const EntityCriteria = require("../../utils/EntityCriteria");
 
 /**
  * Initialise a 2D empty array.
@@ -582,6 +584,56 @@ async function hisReadByFilter(filter, from, to, options={}) {
     }
 }
 
+/**
+ * Update the entities found in the filter by the given list of criteria using batch functionality.
+ * @param filter Filter to search for entities.
+ * @param criteriaList A list of EntityCriteria objects defining the criteria to match against.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ */
+async function updateByFilter(filter, criteriaList, options={}) {
+    await BATCH_UPDATE_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.updateByFilter, options);
+    const { limit } = options;
+
+    for (const criteria of criteriaList) {
+        if (!(criteria instanceof EntityCriteria)) {
+            throw new Error("Not class EntityCriteria");
+        }
+    }
+
+    let entities;
+    try {
+        entities = await this.v2.find(filter, limit);
+    } catch (error) {
+        return {
+            success: [],
+            errors: [{
+                error: error.message,
+                args: ["v2.find", filter, limit]
+            }]
+        };
+    }
+
+    const updatePayload = [];
+    for (const entity of entities) {
+        const newEntity = {
+            id: entity.id
+        };
+        for (const criteria of criteriaList) {
+            if (criteria.isValid(entity)) {
+                criteria.applyChanges(newEntity, entity);
+            }
+        }
+
+        if (Object.keys(newEntity).length > 1) {
+            updatePayload.push(newEntity);
+        }
+    }
+
+    return this.performOpInBatch("update", [updatePayload], options);
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
@@ -591,5 +643,6 @@ module.exports = {
     update,
     deleteById,
     deleteByFilter,
-    hisReadByFilter
+    hisReadByFilter,
+    updateByFilter
 };
