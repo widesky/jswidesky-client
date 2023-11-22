@@ -6,7 +6,8 @@ const {
     BATCH_HIS_DELETE_SCHEMA,
     BATCH_CREATE_SCHEMA,
     BATCH_UPDATE_SCHEMA,
-    BATCH_DELETE_BY_ID_SCHEMA
+    BATCH_DELETE_BY_ID_SCHEMA,
+    BATCH_DELETE_BY_FILTER_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -133,7 +134,7 @@ function createBatchRequest(op, args, result, returnResult) {
         } catch (error) {
             result.errors.push({
                 error: error.message,
-                args
+                args: [op, ...args]
             });
         } finally {
             resolve();
@@ -516,6 +517,38 @@ async function deleteById(ids, options={}) {
     return this.performOpInBatch("deleteById", [[...ids]], options);
 }
 
+/**
+ * Perform a deleteByFilter operation using batch functionality. The request are batched based on the number of entities
+ * retrieved from the given filter and limit.
+ * @param filter Filter to search for entities.
+ * @param limit Limit to be imposed on the result of the given filter.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*>}
+ */
+async function deleteByFilter(filter, limit=0, options={}) {
+    await BATCH_DELETE_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.deleteByFilter, options);
+
+    try {
+        return this.performOpInBatch(
+            "deleteById",
+            [
+                (await this.v2.find(filter, limit))
+                    .map((entity) => Hs.getId(entity))
+            ],
+            options
+        );
+    } catch (error) {
+        return {
+            success: [],
+            errors: [{
+                error: error.message,
+                args: ["v2.find", filter, limit]
+            }]
+        };
+    }
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
@@ -523,5 +556,6 @@ module.exports = {
     hisDelete,
     create,
     update,
-    deleteById
+    deleteById,
+    deleteByFilter
 };

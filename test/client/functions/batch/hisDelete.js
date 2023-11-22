@@ -276,7 +276,11 @@ describe("client", () => {
                     HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
                 expect(result.errors.length).to.equal(1);
                 expect(result.errors).to.eql([{
-                    args: [HIS_READ_SMALL_TIME_SERIES.ids, "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"],
+                    args: [
+                        "hisDelete",
+                        HIS_READ_SMALL_TIME_SERIES.ids,
+                        "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"
+                    ],
                     error: "Test error"
                 }]);
             });

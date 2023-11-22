@@ -122,7 +122,7 @@ describe("client.batch.create", () => {
             expect(errors).to.eql([
                 {
                     error: "Test Error",
-                    args: [entities]
+                    args: ["create", entities]
                 }
             ]);
         });
