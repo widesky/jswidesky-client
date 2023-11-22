@@ -317,18 +317,6 @@ async function hisRead(ids, from, to, options={}) {
 }
 
 /**
- * Perform a create request using batch functionality. The request are batched based on the number of entities given.
- * @param entities Entities to be created.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<*>}
- */
-async function create(entities, options={}) {
-    await BATCH_CREATE_SCHEMA.validate(options);
-    options = deriveFromDefaults(this.clientOptions.batch.create, options);
-    return this.performOpInBatch("create", [[...entities]], options);
-}
-
-/**
  * Find the number of rows between the given times timeStart and timeEnd.
  * @param data Data to search within.
  * @param timeStart Starting epoch time range.
@@ -404,7 +392,7 @@ function getMinIndex(timeRanges, dataSet, grabFrom, batchSize) {
             } else {
                 return 0;
             }
-    });
+        });
 
     let curMax, endRange, deleteRowCounts;
     for (let i = 0; i < sortByRange.length; i++) {
@@ -624,8 +612,19 @@ async function hisDelete(ids, range, options={}) {
 }
 
 /**
- * Perform an update requesting using batch functionality. The request are batched based on the number
- * of entities given.
+ * Perform a create request using batch functionality. The request are batched based on the number of entities given.
+ * @param entities Entities to be created.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*>}
+ */
+async function create(entities, options={}) {
+    await BATCH_CREATE_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.create, options);
+    return this.performOpInBatch("create", [[...entities]], options);
+}
+
+/**
+ * Perform a update requesting using batch functionality. The request are batched based on the number of entities given.
  * @param entities Entities and respective tags to be updated.
  * @param options A Object defining batch configuration to be used. See README.md for more information.
  * @returns {Promise<*>}
@@ -633,7 +632,6 @@ async function hisDelete(ids, range, options={}) {
 async function update(entities, options={}) {
     await BATCH_UPDATE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.update, options);
-
     return this.performOpInBatch("update", [[...entities]], options);
 }
 
@@ -771,7 +769,6 @@ module.exports = {
     hisRead,
     hisDelete,
     create,
-    update,
     deleteById,
     deleteByFilter,
     hisReadByFilter,

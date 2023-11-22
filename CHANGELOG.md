@@ -23,6 +23,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `options`: A Object containing attributes axios and client for configuring the axios and WideSky client
     respectively. The options argument is expected to have the following structure as defined in 
     [Client Options](./docs/client/options.md).
+  - `logger`: This can be one of:
+    - Empty, meaning a default Bunyan logger is used.
+    - Object, for which a Bunyan instance will be created with:
+      - name: Name of logging instance.
+      - level: Bunyan logging level to shows logs higher than
+      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+    - Bunyan logging instance
 - Added new set of functions under property `v2` of the `WideSkyClient` instance. `v2` consists of client functions:
   - `find`: Same functionality as the existing `WideSkyClient.find` but returns only the rows.
 - Added new `HisWritePayload` to more easily create payloads suitable for the `hisWrite` function.
@@ -31,6 +38,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Add new batch functions:
   - `client.batch.hisWrite(payload, options)`
   - `client.batch.hisRead(ids, from, to, options)`
+  - `client.batch.hisDelete(ids, range, options)`
   - `client.batch.create(entities, options)`
   - `client.batch.update(entities, options)`
   - `client.batch.deleteById(ids, options)`
@@ -38,7 +46,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.hisReadByFilter(filter, from, to, options)`
   - `client.batch.updateByFilter(filter, criteriaList, options)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
-  - `client.batch.hisDelete(ids, range, options)`
 
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
