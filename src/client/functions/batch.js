@@ -3,12 +3,12 @@ const {
     PERFORM_OP_IN_BATCH_SCHEMA,
     BATCH_HIS_WRITE_SCHEMA,
     BATCH_HIS_READ_SCHEMA,
-    BATCH_HIS_DELETE_SCHEMA
+    BATCH_HIS_DELETE_SCHEMA,
+    BATCH_CREATE_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
 const Hs = require("../../utils/haystack");
-const {value} = require("lodash/seq");
 
 /**
  * Initialise a 2D empty array.
@@ -311,28 +311,15 @@ async function hisRead(ids, from, to, options={}) {
 }
 
 /**
- * Get the end time in the data set that has at most the given batchSize records.
- * @param dataSet Data set to search in.
- * @param grabFromIndex A start index to signify what will be batched next.
- * @param batchSize Maximum number of time series data that can be deleted.
- * @returns {number|null} The index of the endRange time found. If data set is empty, null is returned.
+ * Perform a create request using batch functionality. The request are batched based on the number of entities given.
+ * @param entities Entities to be created.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*>}
  */
-function endTimeRange(dataSet, grabFromIndex, batchSize) {
-    if (dataSet.length === 0 || grabFromIndex >= dataSet.length) {
-        return null;
-    }
-
-    let i = grabFromIndex;
-    while (i < dataSet.length - 1 && i - grabFromIndex + 1 < batchSize) {
-        i++;
-    }
-
-    if (i > dataSet.length - 1) {
-        // gone over. Select the end
-        i = dataSet.length - 1
-    }
-
-    return Date.parse(Hs.removePrefix(dataSet[i].ts));
+async function create(entities, options={}) {
+    await BATCH_CREATE_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.create, options);
+    return this.performOpInBatch("create", [[...entities]], options);
 }
 
 /**
@@ -366,6 +353,31 @@ function rowsBetweenRange(data, timeStart, timeEnd) {
 }
 
 /**
+ * Get the end time in the data set that has at most the given batchSize records.
+ * @param dataSet Data set to search in.
+ * @param grabFromIndex A start index to signify what will be batched next.
+ * @param batchSize Maximum number of time series data that can be deleted.
+ * @returns {number|null} The index of the endRange time found. If data set is empty, null is returned.
+ */
+function endTimeRange(dataSet, grabFromIndex, batchSize) {
+    if (dataSet.length === 0 || grabFromIndex >= dataSet.length) {
+        return null;
+    }
+
+    let i = grabFromIndex;
+    while (i < dataSet.length - 1 && i - grabFromIndex + 1 < batchSize) {
+        i++;
+    }
+
+    if (i > dataSet.length - 1) {
+        // gone over. Select the end
+        i = dataSet.length - 1
+    }
+
+    return Date.parse(Hs.removePrefix(dataSet[i].ts));
+}
+
+/**
  * Find the time for which either the maximum number of time series rows are deleted or the batchSize of rows has been
  * reached.
  * @param timeRanges Array of Objects with property "endRange".
@@ -377,7 +389,7 @@ function rowsBetweenRange(data, timeStart, timeEnd) {
  */
 function getMinIndex(timeRanges, dataSet, grabFrom, batchSize) {
     const sortByRange = timeRanges
-        .filter((range, i) => range !== null)
+        .filter((range) => range !== null)
         .sort((rangeA, rangeB) => {
             if (rangeA < rangeB) {
                 return -1;
@@ -609,5 +621,6 @@ module.exports = {
     performOpInBatch,
     hisWrite,
     hisRead,
+    create,
     hisDelete
 };
