@@ -769,6 +769,7 @@ module.exports = {
     hisRead,
     hisDelete,
     create,
+    update,
     deleteById,
     deleteByFilter,
     hisReadByFilter,
