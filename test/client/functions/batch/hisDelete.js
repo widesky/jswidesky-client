@@ -296,22 +296,16 @@ describe("client", () => {
                     });
                     await ws.batch.hisDelete(
                         HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
-                            batchSizeEntity: 2
+                            batchSizeEntity: 1
                         }
                     );
-                    expect(ws.hisDelete.calledThrice).to.be.true;
-                    expect(ws.hisDelete.args[0]).to.eql([
-                        HIS_READ_SMALL_TIME_SERIES.ids.slice(0, 2),
-                        "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"
-                    ]);
-                    expect(ws.hisDelete.args[1]).to.eql([
-                        HIS_READ_SMALL_TIME_SERIES.ids.slice(2, 4),
-                        "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"
-                    ]);
-                    expect(ws.hisDelete.args[2]).to.eql([
-                        HIS_READ_SMALL_TIME_SERIES.ids.slice(4),
-                        "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"
-                    ]);
+                    expect(ws.hisDelete.callCount).to.be.equal(5);
+                    for (let i = 0; i < ws.hisDelete.callCount; i++) {
+                        expect(ws.hisDelete.args[i]).to.eql([
+                            [HIS_READ_SMALL_TIME_SERIES.ids[i]],
+                            "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"
+                        ], `Index ${i}`);
+                    }
                 });
             });
         });
