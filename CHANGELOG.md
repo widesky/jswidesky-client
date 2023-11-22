@@ -31,7 +31,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Add new batch functions:
   - `client.batch.hisWrite(payload, options)`
   - `client.batch.hisRead(ids, from, to, options)`
-  - `client.batch.hisDelete(ids, range, options)`
   - `client.batch.create(entities, options)`
   - `client.batch.update(entities, options)`
   - `client.batch.deleteById(ids, options)`
@@ -39,6 +38,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.hisReadByFilter(filter, from, to, options)`
   - `client.batch.updateByFilter(filter, criteriaList, options)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
+  - `client.batch.hisDelete(ids, range, options)`
 
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
