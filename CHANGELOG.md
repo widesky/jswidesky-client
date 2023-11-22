@@ -36,6 +36,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.update(entities, options)`
   - `client.batch.deleteById(ids, options)`
   - `client.batch.deleteByFilter(filter, limit, options)`
+  - `client.batch.hisReadByFilter(filter, from, to, options)`
 
 ### CHANGED
 - Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 

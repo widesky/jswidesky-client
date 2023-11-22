@@ -7,7 +7,8 @@ const {
     BATCH_CREATE_SCHEMA,
     BATCH_UPDATE_SCHEMA,
     BATCH_DELETE_BY_ID_SCHEMA,
-    BATCH_DELETE_BY_FILTER_SCHEMA
+    BATCH_DELETE_BY_FILTER_SCHEMA,
+    BATCH_HIS_READ_BY_FILTER_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -549,6 +550,38 @@ async function deleteByFilter(filter, limit=0, options={}) {
     }
 }
 
+/**
+ * Perform a hisRead using a filter to select the entities with batch functionality.
+ * @param filter Filter to search for entities.
+ * @param from Haystack read range or a Date Object representing where to grab historical data from.
+ * @param to  Date Object representing where to grab historical data to (not inclusive).
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ */
+async function hisReadByFilter(filter, from, to, options={}) {
+    await BATCH_HIS_READ_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.hisReadByFilter, options);
+    const { limit } = options;
+
+    try {
+        return this.batch.hisRead(
+            (await this.v2.find(filter, limit))
+                .map((entity) => Hs.getId(entity)),
+            from,
+            to,
+            options
+        );
+    } catch (error) {
+        return {
+            success: [],
+            errors: [{
+                error: error.message,
+                args: ["v2.find", filter, limit]
+            }]
+        };
+    }
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
@@ -557,5 +590,6 @@ module.exports = {
     create,
     update,
     deleteById,
-    deleteByFilter
+    deleteByFilter,
+    hisReadByFilter
 };

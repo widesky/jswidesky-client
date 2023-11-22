@@ -119,7 +119,7 @@ const BATCH_DELETE_BY_FILTER_SCHEMA = yup.object({
 });
 const BATCH_HIS_READ_BY_FILTER_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_ObJ,
-    ...getBatchProp(HIS_READ_BATCH_SIZE),
+    ...getBatchProp(HIS_READ_BATCH_SIZE, HIS_READ_BATCH_SIZE_MAX),
     ...LIMIT_PROPERTY
 });
 const BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA = yup.object({
@@ -220,5 +220,6 @@ module.exports = {
     BATCH_UPDATE_SCHEMA,
     BATCH_DELETE_BY_ID_SCHEMA,
     BATCH_DELETE_BY_FILTER_SCHEMA,
+    BATCH_HIS_READ_BY_FILTER_SCHEMA,
     deriveFromDefaults
 };
