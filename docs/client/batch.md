@@ -44,8 +44,8 @@ The Object in `client.batch.hisDelete` is expected to have the following structu
 
 | Path from `client.batch.hisDelete` | Description                                                                                                         | Type    | Default |
 |------------------------------------|---------------------------------------------------------------------------------------------------------------------|---------|---------|
-| `batchSize`                        | Define the maximum number of time series data to be deleted across all entities in a single `hisDelete` operations. | Number  | 100     |
-| `batchSizeEntity`                  | Define the maximum number of entities to perform a `hisDelete` operation on.                                        |         |         |
+| `batchSize`                        | Define the maximum number of time series data to be deleted across all entities in a single `hisDelete` operations. | Number  | 1500    |
+| `batchSizeEntity`                  | Define the maximum number of entities to perform a `hisDelete` operation on.                                        | Number  | 100     |
 | `batchDelay`                       | Define the time in between each batch `hisDelete` request (ms).                                                     | Number  | 0       |
 | `parallel`                         | Define the number of batched requests to be run in parallel                                                         | Number  | 1       |
 | `parallelDelay`                    | Define the delay between each set of batched requests run in parallel (ms)                                          | Number  | 0       |
