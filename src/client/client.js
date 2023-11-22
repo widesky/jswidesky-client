@@ -119,6 +119,7 @@ class WideSkyClient {
      *                      - name: Name of logging instance
      *                      - level: Bunyan logging level to show logs higher.
      *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+     *                  - Bunyan logging instance.
      * @returns {WideSkyClient} A WideSky client instance.
      */
     static makeFromConfig(config={}) {
