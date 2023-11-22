@@ -18,8 +18,8 @@ const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const cliProgress = require("cli-progress");
 const bFormat = require("bunyan-format");
-let axios;
 
+let axios;
 // Browser/Node axios import
 if (typeof window === 'undefined') {
     // node process
@@ -119,6 +119,7 @@ class WideSkyClient {
      *                      - name: Name of logging instance
      *                      - level: Bunyan logging level to show logs higher.
      *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+     *                  - Bunyan logging instance.
      * @returns {WideSkyClient} A WideSky client instance.
      */
     static makeFromConfig(config={}) {
