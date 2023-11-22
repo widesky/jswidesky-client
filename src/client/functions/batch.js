@@ -540,7 +540,7 @@ async function hisDelete(ids, range, options={}) {
     const batches = init2DArray(idsAsBatch.length);
     for (let i = 0; i < idsAsBatch.length; i++) {
         let idsInBatch = idsAsBatch[i];
-        const { success: data, errors } = await this.batch.hisRead(ids, timeStart, timeEnd);
+        const { success: data, errors } = await this.batch.hisRead(idsInBatch, timeStart, timeEnd);
         if (errors.length) {
             // pass the errors encountered to the user
             for (const error of errors) {
