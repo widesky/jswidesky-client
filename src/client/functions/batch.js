@@ -500,7 +500,9 @@ function createTimeRanges(data, ids, batch, batchSize, startTime, timeEnd) {
 }
 
 /**
- * Perform a history delete request using batch functionality.
+ * Perform a history delete request using batch functionality. A hisRead will be performed for the ids and range given
+ * to determine how the hisDelete ranges should be split to have at most options.batchSize time series rows deleted.
+ * The option batchSizeEntity will also impact the number of entities involved when performing a hisRead operation.
  * @param ids An array of point entity UUIDs for the delete operations or a single string. These will be batched by
  *            options.batchSizeEntity.
  * @param range A valid hisRead range string. End range is not inclusive.
