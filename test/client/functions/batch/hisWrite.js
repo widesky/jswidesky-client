@@ -236,7 +236,7 @@ describe("client.batch.hisWrite", () => {
             expect(result.errors.length).to.be.equal(1);
             const { error, args } = result.errors[0];
             expect(error).to.equal("Test error");
-            expect(args).to.eql([SMALL_DATA_1000]);
+            expect(args).to.eql(["hisWrite", SMALL_DATA_1000]);
         });
     });
 });

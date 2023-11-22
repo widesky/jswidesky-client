@@ -3,7 +3,7 @@ const yup = require("yup");
 const HIS_READ_BATCH_SIZE = 100;
 const HIS_READ_BATCH_SIZE_MAX = 1000;
 const HIS_WRITE_BATCH_SIZE  = 10000;
-const HIS_WRITE_MAX_BATCH_SIZE = 20000;
+const HIS_WRITE_BATCH_SIZE_MAX = 20000;
 const HIS_DELETE_DATA_POINT_BATCH_SIZE = 1500;
 const HIS_DELETE_DATA_POINT_BATCH_SIZE_MAX = 3000;
 const HIS_DELETE_ENTITY_BATCH_SIZE = 100;
@@ -13,6 +13,7 @@ const CREATE_BATCH_SIZE_MAX = 10000;
 const UPDATE_BATCH_SIZE = 2000;
 const UPDATE_BATCH_SIZE_MAX = 10000;
 const DELETE_BATCH_SIZE = 30;
+const DELETE_BATCH_SIZE_MAX = 100;
 
 const PERFORM_OP_IN_BATCH_BATCH_SIZE = 100;
 const PERFORM_OP_IN_BATCH_MAX_BATCH_SIZE = 10 ** 9;
@@ -86,7 +87,7 @@ const BATCH_HIS_READ_SCHEMA = yup.object({
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_MAX_BATCH_SIZE),
+    ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_BATCH_SIZE_MAX),
     ...getReturnResultProp(false)
 });
 const BATCH_HIS_DELETE_SCHEMA = yup.object({
@@ -107,17 +108,17 @@ const BATCH_UPDATE_SCHEMA = yup.object({
 });
 const BATCH_DELETE_BY_ID_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(DELETE_BATCH_SIZE),
+    ...getBatchProp(DELETE_BATCH_SIZE, DELETE_BATCH_SIZE_MAX),
     ...getReturnResultProp(false)
 });
 const BATCH_DELETE_BY_FILTER_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(DELETE_BATCH_SIZE),
+    ...getBatchProp(DELETE_BATCH_SIZE, DELETE_BATCH_SIZE_MAX),
     ...getReturnResultProp(false)
 });
 const BATCH_HIS_READ_BY_FILTER_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(HIS_READ_BATCH_SIZE),
+    ...getBatchProp(HIS_READ_BATCH_SIZE, HIS_READ_BATCH_SIZE_MAX),
     ...LIMIT_PROPERTY
 });
 const BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA = yup.object({
@@ -141,7 +142,7 @@ const BATCH_HIS_DELETE_BY_FILTER_SCHEMA = yup.object({
 });
 const BATCH_MIGRATE_HISTORY_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(HIS_WRITE_BATCH_SIZE),
+    ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_BATCH_SIZE_MAX),
     ...getReturnResultProp(false)
 });
 const BATCH_UPDATE_OR_CREATE_SCHEMA = yup.object({
@@ -216,5 +217,9 @@ module.exports = {
     BATCH_HIS_DELETE_SCHEMA,
     BATCH_CREATE_SCHEMA,
     BATCH_UPDATE_SCHEMA,
+    BATCH_DELETE_BY_ID_SCHEMA,
+    BATCH_DELETE_BY_FILTER_SCHEMA,
+    BATCH_HIS_READ_BY_FILTER_SCHEMA,
+    BATCH_UPDATE_BY_FILTER_SCHEMA,
     deriveFromDefaults
 };

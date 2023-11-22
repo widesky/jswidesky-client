@@ -119,7 +119,7 @@ describe('client', () => {
                 expect(errors.length).to.equal(1);
                 expect(errors[0]).to.eql({
                     error: "Failure",
-                    args: [[1, 2, 3], "a", "b", "c"]
+                    args: ["test", [1, 2, 3], "a", "b", "c"]
                 });
             });
 
@@ -134,15 +134,15 @@ describe('client', () => {
                 expect(errors.length).to.equal(3);
                 expect(errors[0]).to.eql({
                     error: "Failure",
-                    args: [[1], "a", "b", "c"]
+                    args: ["test", [1], "a", "b", "c"]
                 });
                 expect(errors[1]).to.eql({
                     error: "Failure",
-                    args: [[2], "a", "b", "c"]
+                    args: ["test", [2], "a", "b", "c"]
                 });
                 expect(errors[2]).to.eql({
                     error: "Failure",
-                    args: [[3], "a", "b", "c"]
+                    args: ["test", [3], "a", "b", "c"]
                 });
             })
         })

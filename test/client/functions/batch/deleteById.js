@@ -10,29 +10,24 @@ const sinon = require('sinon');
 const expect = require('chai').expect;
 const getInstance = stubs.getInstance;
 
-const UPDATE_BATCH_SIZE = 2000;
+const DELETE_BATCH_SIZE = 30;
 
 function genEntities(num) {
     const entities = [];
     for (let i = 0; i < num; i++) {
-        entities.push({
-            id: `r:${i}`,
-            name: `s:${i}-entity`,
-            dis: `s:Entity ${i}`,
-            site: "m:"
-        });
+        entities.push(`${i}-entity`);
     }
 
     return entities;
 }
 
-describe("client.batch.update", () => {
+describe("client.batch.deleteById", () => {
     let ws, http, log;
     beforeEach(() => {
         http = new stubs.StubHTTPClient();
         log = new stubs.StubLogger();
         ws = getInstance(http, log);
-        ws.update = sinon.stub().callsFake((entities) =>  {
+        ws.deleteById = sinon.stub().callsFake((entities) =>  {
             return {
                 rows: entities
             };
@@ -41,46 +36,46 @@ describe("client.batch.update", () => {
 
     describe("options not specified", () => {
         describe("entity payload smaller than default batchSize", () => {
-            it("should update 1 request", async () => {
+            it("should deleteById 1 request", async () => {
                 const entities = genEntities(10);
-                await ws.batch.update(entities);
-                expect(ws.update.calledOnce).to.be.true;
-                expect(ws.update.args[0]).to.eql([entities]);
+                await ws.batch.deleteById(entities);
+                expect(ws.deleteById.calledOnce).to.be.true;
+                expect(ws.deleteById.args[0]).to.eql([entities]);
             });
         });
 
         describe("entity payload larger than default batchSize", () => {
-            it("should update more than 1 request", async () => {
-                const entities = genEntities(UPDATE_BATCH_SIZE + 10);
-                await ws.batch.update(entities);
-                expect(ws.update.calledTwice).to.be.true;
-                expect(ws.update.args[0]).to.eql([entities.slice(0, UPDATE_BATCH_SIZE)]);
-                expect(ws.update.args[1]).to.eql([entities.slice(UPDATE_BATCH_SIZE)]);
+            it("should deleteById more than 1 request", async () => {
+                const entities = genEntities(DELETE_BATCH_SIZE + 10);
+                await ws.batch.deleteById(entities);
+                expect(ws.deleteById.calledTwice).to.be.true;
+                expect(ws.deleteById.args[0]).to.eql([entities.slice(0, DELETE_BATCH_SIZE)]);
+                expect(ws.deleteById.args[1]).to.eql([entities.slice(DELETE_BATCH_SIZE)]);
             });
         });
     });
 
     describe("option batchSize", () => {
         describe("entity payload smaller than batchSize", () => {
-            it("should update 1 request", async () => {
+            it("should deleteById 1 request", async () => {
                 const entities = genEntities(10);
-                await ws.batch.update(entities, {
+                await ws.batch.deleteById(entities, {
                     batchSize: 11
                 });
-                expect(ws.update.calledOnce).to.be.true;
-                expect(ws.update.args[0]).to.eql([entities]);
+                expect(ws.deleteById.calledOnce).to.be.true;
+                expect(ws.deleteById.args[0]).to.eql([entities]);
             });
         });
 
         describe("entity payload larger than batchSize", () => {
-            it("should update more than 1 request", async () => {
+            it("should deleteById more than 1 request", async () => {
                 const entities = genEntities(10);
-                await ws.batch.update(entities, {
+                await ws.batch.deleteById(entities, {
                     batchSize: 5
                 });
-                expect(ws.update.calledTwice).to.be.true;
-                expect(ws.update.args[0]).to.eql([entities.slice(0, 5)]);
-                expect(ws.update.args[1]).to.eql([entities.slice(5)]);
+                expect(ws.deleteById.calledTwice).to.be.true;
+                expect(ws.deleteById.args[0]).to.eql([entities.slice(0, 5)]);
+                expect(ws.deleteById.args[1]).to.eql([entities.slice(5)]);
             });
         });
     });
@@ -89,7 +84,7 @@ describe("client.batch.update", () => {
         describe("enabled", () => {
             it("should return result", async () => {
                 const entities = genEntities(2);
-                const { success, errors} = await ws.batch.update(entities, {
+                const { success, errors} = await ws.batch.deleteById(entities, {
                     returnResult: true
                 });
                 expect(success).to.eql([{rows: entities}]);
@@ -100,7 +95,7 @@ describe("client.batch.update", () => {
         describe("disabled", () => {
             it("should not return result", async () => {
                 const entities = genEntities(2);
-                const { success, errors} = await ws.batch.update(entities, {
+                const { success, errors} = await ws.batch.deleteById(entities, {
                     returnResult: false
                 });
                 expect(success.length).to.equal(0);
@@ -111,18 +106,18 @@ describe("client.batch.update", () => {
 
     describe("error handling", () => {
         it("should handle errors encountered and return them", async () => {
-            ws.update = sinon.stub().callsFake(() => {
+            ws.deleteById = sinon.stub().callsFake(() => {
                 throw new Error("Test Error");
             });
             const entities = genEntities(2);
-            const { success, errors} = await ws.batch.update(entities, {
+            const { success, errors} = await ws.batch.deleteById(entities, {
                 returnResult: true
             });
             expect(success.length).to.equal(0);
             expect(errors).to.eql([
                 {
                     error: "Test Error",
-                    args: ["update", entities]
+                    args: ["deleteById", entities]
                 }
             ]);
         });

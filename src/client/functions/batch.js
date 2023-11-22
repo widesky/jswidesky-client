@@ -5,11 +5,16 @@ const {
     BATCH_HIS_READ_SCHEMA,
     BATCH_HIS_DELETE_SCHEMA,
     BATCH_CREATE_SCHEMA,
-    BATCH_UPDATE_SCHEMA
+    BATCH_UPDATE_SCHEMA,
+    BATCH_DELETE_BY_ID_SCHEMA,
+    BATCH_DELETE_BY_FILTER_SCHEMA,
+    BATCH_HIS_READ_BY_FILTER_SCHEMA,
+    BATCH_UPDATE_BY_FILTER_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
 const Hs = require("../../utils/haystack");
+const EntityCriteria = require("../../utils/EntityCriteria");
 
 /**
  * Initialise a 2D empty array.
@@ -132,7 +137,7 @@ function createBatchRequest(op, args, result, returnResult) {
         } catch (error) {
             result.errors.push({
                 error: error.message,
-                args
+                args: [op, ...args]
             });
         } finally {
             resolve();
@@ -630,11 +635,143 @@ async function update(entities, options={}) {
     return this.performOpInBatch("update", [[...entities]], options);
 }
 
+/**
+ * Perform a deleteById operation using batch functionality. The request are batched based on the number of entities
+ * given.
+ * @param ids The id of each entity to be deleted.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*>}
+ */
+async function deleteById(ids, options={}) {
+    await BATCH_DELETE_BY_ID_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.deleteById, options);
+
+    return this.performOpInBatch("deleteById", [[...ids]], options);
+}
+
+/**
+ * Perform a deleteByFilter operation using batch functionality. The request are batched based on the number of entities
+ * retrieved from the given filter and limit.
+ * @param filter Filter to search for entities.
+ * @param limit Limit to be imposed on the result of the given filter.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*>}
+ */
+async function deleteByFilter(filter, limit=0, options={}) {
+    await BATCH_DELETE_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.deleteByFilter, options);
+
+    try {
+        return this.performOpInBatch(
+            "deleteById",
+            [
+                (await this.v2.find(filter, limit))
+                    .map((entity) => Hs.getId(entity))
+            ],
+            options
+        );
+    } catch (error) {
+        return {
+            success: [],
+            errors: [{
+                error: error.message,
+                args: ["v2.find", filter, limit]
+            }]
+        };
+    }
+}
+
+/**
+ * Perform a hisRead using a filter to select the entities with batch functionality.
+ * @param filter Filter to search for entities.
+ * @param from Haystack read range or a Date Object representing where to grab historical data from.
+ * @param to  Date Object representing where to grab historical data to (not inclusive).
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ */
+async function hisReadByFilter(filter, from, to, options={}) {
+    await BATCH_HIS_READ_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.hisReadByFilter, options);
+    const { limit } = options;
+
+    try {
+        return this.batch.hisRead(
+            (await this.v2.find(filter, limit))
+                .map((entity) => Hs.getId(entity)),
+            from,
+            to,
+            options
+        );
+    } catch (error) {
+        return {
+            success: [],
+            errors: [{
+                error: error.message,
+                args: ["v2.find", filter, limit]
+            }]
+        };
+    }
+}
+
+/**
+ * Update the entities found in the filter by the given list of criteria using batch functionality.
+ * @param filter Filter to search for entities.
+ * @param criteriaList A list of EntityCriteria objects defining the criteria to match against.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ */
+async function updateByFilter(filter, criteriaList, options={}) {
+    await BATCH_UPDATE_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.updateByFilter, options);
+    const { limit } = options;
+
+    for (const criteria of criteriaList) {
+        if (!(criteria instanceof EntityCriteria)) {
+            throw new Error("Not class EntityCriteria");
+        }
+    }
+
+    let entities;
+    try {
+        entities = await this.v2.find(filter, limit);
+    } catch (error) {
+        return {
+            success: [],
+            errors: [{
+                error: error.message,
+                args: ["v2.find", filter, limit]
+            }]
+        };
+    }
+
+    const updatePayload = [];
+    for (const entity of entities) {
+        const newEntity = {
+            id: entity.id
+        };
+        for (const criteria of criteriaList) {
+            if (criteria.isValid(entity)) {
+                criteria.applyChanges(newEntity, entity);
+            }
+        }
+
+        if (Object.keys(newEntity).length > 1) {
+            updatePayload.push(newEntity);
+        }
+    }
+
+    return this.performOpInBatch("update", [updatePayload], options);
+}
+
 module.exports = {
     performOpInBatch,
     hisWrite,
     hisRead,
     hisDelete,
     create,
-    update
+    update,
+    deleteById,
+    deleteByFilter,
+    hisReadByFilter,
+    updateByFilter
 };
