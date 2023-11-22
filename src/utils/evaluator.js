@@ -87,7 +87,7 @@ const BATCH_HIS_READ_SCHEMA = yup.object({
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_MAX_BATCH_SIZE),
+    ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_BATCH_SIZE_MAX),
     ...getReturnResultProp(false)
 });
 const BATCH_HIS_DELETE_SCHEMA = yup.object({

@@ -432,6 +432,7 @@ describe("client", () => {
                 expect(hisReadArgs[3].valueOf()).to.equal(new Date(Date.parse("2023-10-10T00:00:00Z")).valueOf());
                 const { args: hisDeleteArgs, error: hisDeleteError} = errors[1];
                 expect(hisDeleteArgs).to.eql([
+                    "hisDelete",
                     [HIS_READ_SMALL_TIME_SERIES.ids[0], ...HIS_READ_SMALL_TIME_SERIES.ids.slice(2)],
                     "s:1970-01-01T00:00:00.000Z,1970-01-01T00:00:00.005Z"
                 ]);
