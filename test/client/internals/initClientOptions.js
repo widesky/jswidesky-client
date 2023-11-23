@@ -6605,6 +6605,412 @@ describe("client", () => {
                     }
                 });
             });
+            
+            describe("multiFind", () => {
+                it("rejects if not an object", async () => {
+                    ws.options = {
+                        client: {
+                            batch: {
+                                multiFind: 1
+                            }
+                        }
+                    };
+                    try {
+                        await ws.initClientOptions();
+                        throw new Error("Should not have worked");
+                    } catch (error) {
+                        expect(error.message).to.equal("batch.multiFind must be a `object` type, but the final value was: `1`.");
+                    }
+                });
+
+                describe("batchSize", () => {
+                    it("should accept if number", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchSize: 1
+                                    }
+                                }
+                            }
+                        };
+                        await ws.initClientOptions();
+                        expect(ws.clientOptions.batch.multiFind.batchSize).to.equal(1);
+                        validateObject(ws.clientOptions, ["batch.multiFind.batchSize"]);
+                    });
+
+                    it("should reject if boolean", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchSize: false
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.batchSize must be a `number` type, but the final value was: `false`.");
+                        }
+                    });
+
+                    it("should reject if string", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchSize: "12"
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.batchSize must be a `number` type, but the final value was: `\"12\"`.");
+                        }
+                    });
+
+                    it("should reject if object", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchSize: {}
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.batchSize must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchSize: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.batchSize must be greater than or equal to 1");
+                        }
+                    });
+                });
+
+                describe("batchDelay", () => {
+                    it("should accept if number", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchDelay: 12
+                                    }
+                                }
+                            }
+                        };
+                        await ws.initClientOptions();
+                        expect(ws.clientOptions.batch.multiFind.batchDelay).to.equal(12);
+                        validateObject(ws.clientOptions, ["batch.multiFind.batchDelay"]);
+                    });
+
+                    it("should reject if boolean", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchDelay: false
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.batchDelay must be a `number` type, but the final value was: `false`.");
+                        }
+                    });
+
+                    it("should reject if string", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchDelay: "12"
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.batchDelay must be a `number` type, but the final value was: `\"12\"`.");
+                        }
+                    });
+
+                    it("should reject if object", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchDelay: {}
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.batchDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 0", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        batchDelay: -1
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.batchDelay must be greater than or equal to 0");
+                        }
+                    });
+                });
+
+                describe("parallel", () => {
+                    it("should accept if number", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallel: 12
+                                    }
+                                }
+                            }
+                        };
+                        await ws.initClientOptions();
+                        expect(ws.clientOptions.batch.multiFind.parallel).to.equal(12);
+                        validateObject(ws.clientOptions, ["batch.multiFind.parallel"]);
+                    });
+
+                    it("should reject if boolean", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallel: false
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.parallel must be a `number` type, but the final value was: `false`.");
+                        }
+                    });
+
+                    it("should reject if string", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallel: "12"
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.parallel must be a `number` type, but the final value was: `\"12\"`.");
+                        }
+                    });
+
+                    it("should reject if object", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallel: {}
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.parallel must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+
+                    it("should reject if below 1", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallel: 0
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.parallel must be greater than or equal to 1");
+                        }
+                    });
+                });
+
+                describe("parallelDelay", () => {
+                    it("should accept if number", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallelDelay: 12
+                                    }
+                                }
+                            }
+                        };
+                        await ws.initClientOptions();
+                        expect(ws.clientOptions.batch.multiFind.parallelDelay).to.equal(12);
+                        validateObject(ws.clientOptions, ["batch.multiFind.parallelDelay"]);
+                    });
+
+                    it("should reject if boolean", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallelDelay: false
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.parallelDelay must be a `number` type, but the final value was: `false`.");
+                        }
+                    });
+
+                    it("should reject if string", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallelDelay: "12"
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.parallelDelay must be a `number` type, but the final value was: `\"12\"`.");
+                        }
+                    });
+
+                    it("should reject if object", async () => {
+                        ws.options = {
+                            client: {
+                                batch: {
+                                    multiFind: {
+                                        parallelDelay: {}
+                                    }
+                                }
+                            }
+                        };
+
+                        try {
+                            await ws.initClientOptions();
+                            throw new Error("Should not have worked");
+                        } catch (error) {
+                            expect(error.message).to.equal(
+                                "batch.multiFind.parallelDelay must be a `number` type, but the final value was: `{}`.");
+                        }
+                    });
+                });
+
+                it("should reject if below 0", async () => {
+                    ws.options = {
+                        client: {
+                            batch: {
+                                multiFind: {
+                                    parallelDelay: -1
+                                }
+                            }
+                        }
+                    };
+
+                    try {
+                        await ws.initClientOptions();
+                        throw new Error("Should not have worked");
+                    } catch (error) {
+                        expect(error.message).to.equal(
+                            "batch.multiFind.parallelDelay must be greater than or equal to 0");
+                    }
+                });
+            })
         });
 
         describe("performOpInBatch", () => {

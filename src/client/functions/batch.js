@@ -11,12 +11,18 @@ const {
     BATCH_HIS_READ_BY_FILTER_SCHEMA,
     BATCH_UPDATE_BY_FILTER_SCHEMA,
     BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
-    BATCH_MIGRATE_HISTORY_SCHEMA
+    BATCH_MIGRATE_HISTORY_SCHEMA,
+    BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA,
+    BATCH_MULTI_FIND_SCHEMA,
+    BATCH_UPDATE_OR_CREATE_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
 const Hs = require("../../utils/haystack");
 const EntityCriteria = require("../../utils/EntityCriteria");
+
+const ID_TAGS = ["id", "fqname"];
+const VIRTUAL_TAGS = ["lastHisTime", "lastHisVal", "curVal", "curStatus", "curErr"];
 
 /**
  * Initialise a 2D empty array.
@@ -620,8 +626,8 @@ async function create(entities, options={}) {
 }
 
 /**
- * Perform a update requesting using batch functionality. The request are batched based on the number of entities given.
- * @param entities Entities and respective tags to be updated.
+ * Perform an update requesting using batch functionality. The request are batched based on the number of entities given.
+ * @param entities Entities and their respective tags to be updated.
  * @param options A Object defining batch configuration to be used. See README.md for more information.
  * @returns {Promise<*>}
  */
@@ -661,8 +667,7 @@ async function deleteByFilter(filter, limit=0, options={}) {
         return this.performOpInBatch(
             "deleteById",
             [
-                (await this.v2.find(filter, limit))
-                    .map((entity) => Hs.getId(entity))
+                await this.findAsId(filter, limit)
             ],
             options
         );
@@ -671,7 +676,7 @@ async function deleteByFilter(filter, limit=0, options={}) {
             success: [],
             errors: [{
                 error: error.message,
-                args: ["v2.find", filter, limit]
+                args: ["findAsId", filter, limit]
             }]
         };
     }
@@ -692,8 +697,7 @@ async function hisReadByFilter(filter, from, to, options={}) {
 
     try {
         return this.batch.hisRead(
-            (await this.v2.find(filter, limit))
-                .map((entity) => Hs.getId(entity)),
+            await this.findAsId(filter, limit),
             from,
             to,
             options
@@ -703,7 +707,7 @@ async function hisReadByFilter(filter, from, to, options={}) {
             success: [],
             errors: [{
                 error: error.message,
-                args: ["v2.find", filter, limit]
+                args: ["findAsId", filter, limit]
             }]
         };
     }
@@ -776,8 +780,7 @@ async function hisDeleteByFilter(filter, start, end, options={}) {
 
     try {
         return this.batch.hisDelete(
-            (await this.v2.find(filter, limit))
-                .map((entity) => Hs.getId(entity)),
+            await this.findAsId(filter, limit),
             start,
             end,
             options
@@ -787,7 +790,7 @@ async function hisDeleteByFilter(filter, start, end, options={}) {
             success: [],
             errors: [{
                 error: error.message,
-                args: ["v2.find", filter, limit]
+                args: ["findAsId", filter, limit]
             }]
         };
     }
@@ -810,9 +813,325 @@ async function migrateHistory(fromEntity, toEntity, options={}) {
     const to = new Date(Date.now());
     const { success: [history], errors } = await this.batch.hisRead([fromEntity], from, to);
     const data = new HisWritePayload();
-    data.add(`r:${toEntity}`, history, true);
+    data.add(`r:${toEntity}`, history);
 
     return this.batch.hisWrite(data, options);
+}
+
+/**
+ * Add the given children the parents found in the given filter.
+ * @param filter Filter to define the parents.
+ * @param children Children to be added to the found parents.
+ * @param tagMap A 2D Array of tags to be copied from the parent (if present) to the child entities.
+ *                Each element of the Array is an Array with elements as [tagOfParent, toTagOnChild].
+ *                For example [["id", "equipRef"]].
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<void>}
+ */
+async function addChildrenByFilter(filter, children, tagMap=[], options={}) {
+    if (!Array.isArray(children) || children.filter((arr) => typeof arr !== "object").length) {
+        throw new Error("parameter children is not an Array of Objects");
+    } else if (children.length === 0) {
+        throw new Error("parameter children is an empty Array");
+    } else if (!Array.isArray(tagMap) || tagMap.filter((tags) => !Array.isArray(tags) || tags.length !== 2).length) {
+        throw new Error("parameter refTags is not a 2D Array as specified");
+    }
+
+    await BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.addChildrenByFilter, options);
+    const { limit } = options;
+
+    const parents = await this.v2.find(filter, limit);
+    const createPayload = [];
+    for (const parent of parents) {
+        for (const child of JSON.parse(JSON.stringify(children))) {
+            let added = false;
+            for (const [tagOfParent, toTagOnChild] of tagMap) {
+                if (parent[tagOfParent] !== undefined) {
+                    added = true;
+                    child[toTagOnChild] = parent[tagOfParent];
+                }
+            }
+
+            if (added) {
+                createPayload.push(child);
+            }
+        }
+    }
+
+    if (createPayload.length > 0) {
+        return this.performOpInBatch(
+            "create",
+            [createPayload],
+            options
+        );
+    }
+}
+
+/**
+ * Create a read by filter using GraphQL
+ * @param alias Filter alias name.
+ * @param filter Read byu filter to be used.
+ * @param limit Limit of entities to be searched.
+ * @returns {string} GraphQL query.
+ */
+function getReadByFilterQuery(alias, filter, limit) {
+    filter = filter.replaceAll('"', '\\"');
+    return `
+    ${alias}:search(filter: "${filter}", limit: ${limit}) {
+      entity {
+        tags {
+          name
+          value
+          kindValue { __typename }
+        }
+      }
+    }
+    `
+}
+
+/**
+ * Perform multi read-by-filter requests in a single request. The number of filters sent in a request is determined
+ * by options.batchSize.
+ * @param filterAndLimits A 2D Array defining the filter and limit of each read-by-filter to be queried.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<*[]>} A 2D Array of the result from each read-by-filter given.
+ */
+async function multiFind(filterAndLimits, options={}) {
+    if (!Array.isArray(filterAndLimits) ||
+            filterAndLimits.filter((fAndL) => !Array.isArray(fAndL) || fAndL.length === 0).length) {
+        throw new Error("parameter filterAndLimits is not a 2D Array as specified");
+    }
+
+    await BATCH_MULTI_FIND_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.multiFind, options);
+    const { limit } = options;
+
+    // Build the GraphQL queries
+    const queries = [];
+    for (let i = 0; i < filterAndLimits.length; i++) {
+        let [filter, limitFound] = filterAndLimits[i];
+        if (limitFound === undefined) {
+            limitFound = limit;
+        }
+
+        queries.push(getReadByFilterQuery(`filter${i}`, filter, limitFound));
+    }
+
+    /**
+     * Transform the read by filter sub queries to be a single GraphQL query.
+     * @param payload Payload of sub filter queries.
+     * @returns String single GraphQL query.
+     */
+    const transformer = (payload) => {
+        return `
+{
+  haystack {
+    ${payload.join("\n")}
+  }
+}
+            `;
+    }
+    const { success, errors } = await this.performOpInBatch(
+        "query",
+        [queries],
+        {
+            ...options,
+            returnResult: true,
+            transformer
+        }
+    )
+
+    // parse the batched results
+    const parsedResult = [];
+    for (const res of success) {
+        for (const filter of Object.values(res.data.haystack)) {
+            const filterResult = [];
+            for (const entity of filter.entity) {
+                const newEntity = {};
+                for (const {name, value, kindValue} of entity.tags) {
+                    let kindType = "Zero";
+                    if (kindValue !== null && kindValue !== undefined) {
+                        kindType = kindValue["__typename"];
+                    }
+                    newEntity[name] = Hs.toHaystack(value, kindType)
+                }
+                filterResult.push(newEntity);
+            }
+
+            parsedResult.push(filterResult);
+        }
+    }
+
+
+    return {
+        success: parsedResult,
+        errors
+    };
+}
+
+/**
+ * Create a update payload when comparing the changes between oldEntity and newEntity.
+ * @param oldEntity Old entity to compare changes against.
+ * @param newEntity New entity whose changed we'd like to make current.
+ * @param logger Bunyan logging instance.
+ * @returns {{id}} A updateRec payload.
+ */
+const createUpdatePayload = (oldEntity, newEntity, logger) => {
+    const updatePayload = {
+        id: newEntity.id
+    };
+    // what's new and what's changed?
+    for (const [tag, value] of Object.entries(newEntity)) {
+        if (ID_TAGS.includes(tag) || VIRTUAL_TAGS.includes(tag)) {
+            logger.debug("Ignoring tag %s and value %s for entity %s.", tag, value, newEntity.id);
+            continue;
+        }
+
+        if (oldEntity[tag] === undefined) {
+            updatePayload[tag] = value;
+        } else if (oldEntity[tag] !== value) {
+            if (tag.includes("Ref") || ["metaOf"].includes(tag)) {
+                // Ref can be different by the ID is what matters here
+                if (Hs.getId(oldEntity, tag) !== Hs.getId(newEntity, tag)) {
+                    updatePayload[tag] = value;
+                }
+            } else {
+                updatePayload[tag] = value;
+            }
+        }
+    }
+
+    // what's removed?
+    for (const tag in oldEntity) {
+        if (ID_TAGS.includes(tag) || VIRTUAL_TAGS.includes(tag)) {
+            continue;
+        }
+
+        if (newEntity[tag] === undefined) {
+            updatePayload[tag] = "x:";
+        }
+    }
+
+    return updatePayload;
+}
+
+/**
+ * Perform an update or create request for the list of entities given. If the entity exists, the entity will be
+ * checked for changes if an update is required, and send a request as necessary. If the entity does not exist, it
+ * will be created.
+ * @param entities Array of entities to be updated or created.
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<Awaited<unknown>[]>} Array of entities in their current state in the WideSky database.
+ */
+async function updateOrCreate(entities, options={}) {
+    if (!Array.isArray(entities)) {
+        throw new Error("parameter entities is not an Array");
+    } else if (entities.length === 0) {
+        this.logger.debug("No entities given.");
+        return {
+            success: [],
+            errors: []
+        };
+    }
+
+    await BATCH_UPDATE_OR_CREATE_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.updateOrCreate, options);
+    const { returnResult } = options;
+
+    const createPayload = [];
+    const updatePayload = [];
+    let returnedEntities = [];    // List of entities in their current state as updated/created
+    const skipIndex = new Array(entities.length);
+
+    const idsFilter = [];
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        if (entity.id === undefined) {
+            this.logger.debug(`No id found for entity at index %d. Assuming creation.`, i);
+            createPayload.push(entity);
+            skipIndex[i] = true;
+        } else {
+            // filter and limit
+            idsFilter.push([`id==@${Hs.getId(entity)}`, 1]);
+        }
+    }
+    const {
+        success: currentEntities,
+        errors: findErrors
+    } = await this.batch.multiFind(idsFilter);
+    if (findErrors.length) {
+        return {
+            success: [],
+            errors: findErrors
+        };
+    }
+
+    for (let i = 0; i < entities.length; i++) {
+        if (skipIndex[i]) {
+            continue;
+        }
+
+        const entity = entities[i];
+        const existingEntity = currentEntities[i][0];
+
+        if (existingEntity === undefined) {
+            createPayload.push(entity);
+        } else {
+            const entityUpdate = createUpdatePayload(existingEntity, entity, this.logger);
+            if (Object.keys(entityUpdate).length > 1) {
+                updatePayload.push(entityUpdate);
+            } else {
+                // nothing has changed
+                if (returnResult) {
+                    returnedEntities.push(entity);
+                }
+            }
+        }
+    }
+
+    if (createPayload.length === 0 && updatePayload.length === 0) {
+        this.logger.debug("Nothing to update or create.");
+        return {
+            success: entities,
+            errors: []
+        };
+    }
+
+    const requests = [];
+    if (createPayload.length > 0) {
+        this.logger.debug("Creating %d entities.", createPayload.length);
+        requests.push(this.batch.create(createPayload, options));
+    }
+    else {
+        this.logger.debug("Nothing to create.");
+    }
+    if (updatePayload.length > 0) {
+        this.logger.debug("Updating %d entities.", updatePayload.length);
+        requests.push(this.batch.update(updatePayload, options));
+    } else {
+        this.logger.debug("Nothing to update");
+    }
+
+    const allErrors = [];
+    for (const { success, errors } of await Promise.all(requests)) {
+        if (success.length && returnResult) {
+            for (const { rows } of success) {
+                for (const row of rows) {
+                    returnedEntities.push(row);
+                }
+            }
+        }
+
+        for (const error of errors) {
+            allErrors.push(error);
+        }
+    }
+
+    return {
+        success: returnedEntities,
+        errors: allErrors
+    };
 }
 
 module.exports = {
@@ -827,5 +1146,8 @@ module.exports = {
     hisReadByFilter,
     updateByFilter,
     hisDeleteByFilter,
-    migrateHistory
+    migrateHistory,
+    addChildrenByFilter,
+    multiFind,
+    updateOrCreate
 };

@@ -37,7 +37,6 @@ const { isAxiosError } = axios;
 const SPECIAL_COLS = ['id', 'name', 'dis'];
 const MOMENT_FORMAT_MS_PRECISION = 'YYYY-MM-DDTHH:mm:ss.SSS\\Z';
 
-
 /**
  * Authentication methods supported for creating new users.
  */
@@ -60,7 +59,7 @@ class WideSkyClient {
     #clientId
     #clientSecret
     #accessToken
-    #logger
+    logger
     /**
      * If this is true (default) then all http requests made by the client
      * will have the 'Accept-Encoding' header with value of 'gzip, deflate'
@@ -192,7 +191,7 @@ class WideSkyClient {
         const assignPrototype = (thisProp, functions, withPreCheck=false) => {
             for (const [name, func] of Object.entries(functions)) {
                 if (withPreCheck) {
-                    thisProp[name] = performPreCheck(func);
+                    thisProp[name] = performPreCheck.call(this, func);
                 }
                 else {
                     thisProp[name] = func.bind(this);
@@ -399,6 +398,7 @@ class WideSkyClient {
             return await this._wsRawSubmit(method, uri, body, config);
         }
         catch (err) {
+            let parsedErr = err;
             if (isAxiosError(err)) {
                 if (err.response) {
                     // response has been received from API server
@@ -409,16 +409,12 @@ class WideSkyClient {
                         return this._wsRawSubmit(method, uri, body, config);
                     }
                     else {
-                        throw RequestError.make(err);
+                        parsedErr = RequestError.make(err);
                     }
                 }
-                else {
-                    throw err;
-                }
             }
-            else {
-                throw err;
-            }
+            this.logger.error(parsedErr);
+            throw parsedErr;
         }
     }
 
@@ -1632,6 +1628,46 @@ class WideSkyClient {
         }
 
         return this.submitRequest('POST', '/api/hisDelete', payload, {});
+    }
+
+    /**
+     * Get the number of entities to be returned from a filter.
+     * @param filter Filter to select entities.
+     * @returns {Promise<*>} Number of entities found.
+     */
+    async entityCount(filter) {
+        const query = `
+{
+  haystack {
+    search(filter: "${filter.replaceAll('"', '\\"')}", limit: 0) {
+      count
+    }
+  }
+}
+`;
+        return Number((await this.query(query)).data.haystack.search.count);
+    }
+
+    /**
+     * Perform a read by filter but only return the IDs of the entities found.
+     * @param filter Filter to select entities.
+     * @param limit Limit to be imposed on the given filter.
+     * @returns {Promise<*>} A list of UUID's of all entities found.
+     */
+    async findAsId(filter, limit=0) {
+        const query = `
+{
+  haystack {
+    search(filter: "${filter.replaceAll('"', '\\"')}", limit: ${limit}) {
+      entity {
+        id
+      }
+    }
+  }
+}
+`;
+        return (await this.query(query)).data.haystack.search.entity
+            .map((entity) => entity.id);
     }
 }
 

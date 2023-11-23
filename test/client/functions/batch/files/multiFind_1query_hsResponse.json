@@ -1,0 +1,23 @@
+[
+  {
+    "cetDRParameter": "n:12",
+    "dis": "s:Instantaneous Frequency",
+    "equipRef": "r:fbf39ab0-b706-11ec-a26f-0242ac120002",
+    "fqname": "s:300george.apt0601mtr.freqInst",
+    "freq": "m:",
+    "his": "m:",
+    "id": "r:07d9b3dc-b707-11ec-9acc-0242ac120002",
+    "kind": "s:Number",
+    "lastHisTime": "t:2023-11-17T05:45:00Z",
+    "lastHisVal": "n:50.03657531738281",
+    "modbusRegAddr": "n:12",
+    "modbusRegFormat": "s:float",
+    "modbusRegType": "n:4",
+    "modbusScale": "n:1",
+    "name": "s:freqInst",
+    "point": "m:",
+    "sensor": "m:",
+    "siteRef": "r:9a283e08-b706-11ec-8a23-0242ac120002",
+    "tz": "s:GMT-10"
+  }
+]

@@ -1,0 +1,1081 @@
+{
+  "data": {
+    "haystack": {
+      "filter0": {
+        "entity": [
+          {
+            "tags": [
+              {
+                "value": "12",
+                "name": "cetDRParameter",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "Instantaneous Frequency",
+                "name": "dis",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "fbf39ab0-b706-11ec-a26f-0242ac120002",
+                "name": "equipRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "300george.apt0601mtr.freqInst",
+                "name": "fqname",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "freq",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "his",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "07d9b3dc-b707-11ec-9acc-0242ac120002",
+                "name": "id",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "Number",
+                "name": "kind",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "2023-11-17T05:45:00Z",
+                "name": "lastHisTime",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "50.03657531738281",
+                "name": "lastHisVal",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "12",
+                "name": "modbusRegAddr",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "float",
+                "name": "modbusRegFormat",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "4",
+                "name": "modbusRegType",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "1",
+                "name": "modbusScale",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "freqInst",
+                "name": "name",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "point",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "sensor",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "9a283e08-b706-11ec-8a23-0242ac120002",
+                "name": "siteRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "GMT-10",
+                "name": "tz",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "filter1": {
+        "entity": [
+          {
+            "tags": [
+              {
+                "value": "2022-04-08T08:34:11+10:00 GMT-10",
+                "name": "commissionDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "commissioned",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "VRT_Joshua_Collins",
+                "name": "commissionedBy",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "device",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "Apt 0602 Meter",
+                "name": "dis",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "elec",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "equip",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300george.apt0602mtr",
+                "name": "fqname",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "fbf5ace2-b706-11ec-a270-0242ac120002",
+                "name": "id",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "2022-04-08T08:34:11+10:00 GMT-10",
+                "name": "installationDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "CET",
+                "name": "make",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "85",
+                "name": "modbusUnitId",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "modbusZeroBasedRegs",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "PMC-230 (WC)",
+                "name": "model",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "apt0602mtr",
+                "name": "name",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "N1",
+                "name": "nemMdmDataStreamId",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "B1E1",
+                "name": "nemNmiConfiguration",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "1000000000000000.0",
+                "name": "nemRolloverVal",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "E074U10602",
+                "name": "nmi",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "b278ab6e-b706-11ec-8d2f-0242ac120002",
+                "name": "panelRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "3009059885",
+                "name": "serialNumber",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "9a283e08-b706-11ec-8a23-0242ac120002",
+                "name": "siteRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "a605a3be-b706-11ec-93c3-0242ac120002",
+                "name": "spaceRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "GMT-10",
+                "name": "tz",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "wsgBackfill",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300",
+                "name": "wsgHistoricalInterval",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              {
+                "value": "2022-04-08T08:35:21+10:00 GMT-10",
+                "name": "commissionDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "commissioned",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "VRT_Joshua_Collins",
+                "name": "commissionedBy",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "device",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "Apt 0603 Meter",
+                "name": "dis",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "elec",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "equip",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300george.apt0603mtr",
+                "name": "fqname",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "fbf64a12-b706-11ec-a271-0242ac120002",
+                "name": "id",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "2022-04-08T08:35:21+10:00 GMT-10",
+                "name": "installationDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "CET",
+                "name": "make",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "25",
+                "name": "modbusUnitId",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "modbusZeroBasedRegs",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "PMC-230 (WC)",
+                "name": "model",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "apt0603mtr",
+                "name": "name",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "N1",
+                "name": "nemMdmDataStreamId",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "B1E1",
+                "name": "nemNmiConfiguration",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "1000000000000000.0",
+                "name": "nemRolloverVal",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "E074U10603",
+                "name": "nmi",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "b278ab6e-b706-11ec-8d2f-0242ac120002",
+                "name": "panelRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "3009059525",
+                "name": "serialNumber",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "9a283e08-b706-11ec-8a23-0242ac120002",
+                "name": "siteRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "a605ccf4-b706-11ec-93c4-0242ac120002",
+                "name": "spaceRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "GMT-10",
+                "name": "tz",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "wsgBackfill",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300",
+                "name": "wsgHistoricalInterval",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              {
+                "value": "2022-04-08T08:38:12+10:00 GMT-10",
+                "name": "commissionDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "commissioned",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "VRT_Joshua_Collins",
+                "name": "commissionedBy",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "device",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "Apt 0604 Meter",
+                "name": "dis",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "elec",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "equip",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300george.apt0604mtr",
+                "name": "fqname",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "fbf6b916-b706-11ec-a272-0242ac120002",
+                "name": "id",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "2022-04-08T08:38:12+10:00 GMT-10",
+                "name": "installationDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "CET",
+                "name": "make",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "97",
+                "name": "modbusUnitId",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "modbusZeroBasedRegs",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "PMC-230 (WC)",
+                "name": "model",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "apt0604mtr",
+                "name": "name",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "N1",
+                "name": "nemMdmDataStreamId",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "B1E1",
+                "name": "nemNmiConfiguration",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "1000000000000000.0",
+                "name": "nemRolloverVal",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "E074U10604",
+                "name": "nmi",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "b278ab6e-b706-11ec-8d2f-0242ac120002",
+                "name": "panelRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "3009059997",
+                "name": "serialNumber",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "9a283e08-b706-11ec-8a23-0242ac120002",
+                "name": "siteRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "a605f5bc-b706-11ec-93c5-0242ac120002",
+                "name": "spaceRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "GMT-10",
+                "name": "tz",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "wsgBackfill",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300",
+                "name": "wsgHistoricalInterval",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              {
+                "value": "2022-04-08T08:39:18+10:00 GMT-10",
+                "name": "commissionDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "commissioned",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "VRT_Joshua_Collins",
+                "name": "commissionedBy",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "device",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "Apt 0605 Meter",
+                "name": "dis",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "elec",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "equip",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300george.apt0605mtr",
+                "name": "fqname",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "fbf72e14-b706-11ec-a273-0242ac120002",
+                "name": "id",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "2022-04-08T08:39:18+10:00 GMT-10",
+                "name": "installationDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "CET",
+                "name": "make",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "28",
+                "name": "modbusUnitId",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "modbusZeroBasedRegs",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "PMC-230 (WC)",
+                "name": "model",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "apt0605mtr",
+                "name": "name",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "N1",
+                "name": "nemMdmDataStreamId",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "B1E1",
+                "name": "nemNmiConfiguration",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "1000000000000000.0",
+                "name": "nemRolloverVal",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "E074U10605",
+                "name": "nmi",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "b278ab6e-b706-11ec-8d2f-0242ac120002",
+                "name": "panelRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "3009059528",
+                "name": "serialNumber",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "9a283e08-b706-11ec-8a23-0242ac120002",
+                "name": "siteRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "a60619e8-b706-11ec-93c6-0242ac120002",
+                "name": "spaceRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "GMT-10",
+                "name": "tz",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "wsgBackfill",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300",
+                "name": "wsgHistoricalInterval",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              {
+                "value": "2022-04-08T08:40:31+10:00 GMT-10",
+                "name": "commissionDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "commissioned",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "VRT_Joshua_Collins",
+                "name": "commissionedBy",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "device",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "Apt 0606 Meter",
+                "name": "dis",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "elec",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "equip",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300george.apt0606mtr",
+                "name": "fqname",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "fbf7d012-b706-11ec-a274-0242ac120002",
+                "name": "id",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "2022-04-08T08:40:31+10:00 GMT-10",
+                "name": "installationDate",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "CET",
+                "name": "make",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "88",
+                "name": "modbusUnitId",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "modbusZeroBasedRegs",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "PMC-230 (WC)",
+                "name": "model",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "apt0606mtr",
+                "name": "name",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "N1",
+                "name": "nemMdmDataStreamId",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "B1E1",
+                "name": "nemNmiConfiguration",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "1000000000000000.0",
+                "name": "nemRolloverVal",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "E074U10606",
+                "name": "nmi",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "b278ab6e-b706-11ec-8d2f-0242ac120002",
+                "name": "panelRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "3009059888",
+                "name": "serialNumber",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "9a283e08-b706-11ec-8a23-0242ac120002",
+                "name": "siteRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "a6063928-b706-11ec-93c7-0242ac120002",
+                "name": "spaceRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "GMT-10",
+                "name": "tz",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "wsgBackfill",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "300",
+                "name": "wsgHistoricalInterval",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
