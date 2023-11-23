@@ -39,6 +39,27 @@ function init2DArray(size) {
 }
 
 /**
+ * Determine if the time series rows given is already sorted in ascending order.
+ * @param rows Time series rows.
+ * @returns {boolean} True if already sorted, false otherwise.
+ */
+function isRowsSorted(rows) {
+    let before;
+    for (const {ts} of rows) {
+        const epoch = Date.parse(Hs.removePrefix(ts));
+        if (before === undefined) {
+            before = epoch;
+        }
+
+        if (epoch < before) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Create a Iterator Object for the given payload.
  * @param op Operation to be performed. Only relevant for op "hisDelete".
  * @param payload Payload to be batched.
@@ -289,22 +310,25 @@ async function hisRead(ids, from, to, options={}) {
         if (ids.length === 1 || options.batchSize === 1) {
             resultByEntity[i] = res.rows;
         } else {
-            // issues found with rows not being sorted by their respective time stamp
-            // when doing multi hisRead
-            const sortedRows = res.rows.sort((rowA, rowB) => {
-                const timeA = Date.parse(Hs.removePrefix(rowA.ts));
-                const timeB = Date.parse(Hs.removePrefix(rowB.ts));
+            if (!isRowsSorted(res.rows)) {
+                // issues found with rows not being sorted by their respective time stamp
+                // when doing multi hisRead. Not a common use scenario but this an expectation for all
+                // function that use WideSkyClient.batch.hisRead
+                res.rows.sort((rowA, rowB) => {
+                    const timeA = Date.parse(Hs.removePrefix(rowA.ts));
+                    const timeB = Date.parse(Hs.removePrefix(rowB.ts));
 
-                if (timeA > timeB) {
-                    return 1;
-                } else if (timeA < timeB) {
-                    return -1;
-                } else {
-                    return 0;
-                }
-            });
+                    if (timeA > timeB) {
+                        return 1;
+                    } else if (timeA < timeB) {
+                        return -1;
+                    } else {
+                        return 0;
+                    }
+                });
+            }
 
-            for (const row of sortedRows) {
+            for (const row of res.rows) {
                 const { ts } = row;
                 for (const [vId, val] of Object.entries(row)) {
                     if (vId === "ts") {
