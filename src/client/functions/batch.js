@@ -808,7 +808,7 @@ async function migrateHistory(fromEntity, toEntity, options={}) {
 
     const from = new Date(0);
     const to = new Date(Date.now());
-    const [ history ] = await this.batch.hisRead([fromEntity], from, to);
+    const { success: [history], errors } = await this.batch.hisRead([fromEntity], from, to);
     const data = new HisWritePayload();
     data.add(`r:${toEntity}`, history, true);
 
