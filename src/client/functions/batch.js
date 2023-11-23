@@ -560,7 +560,7 @@ async function hisDelete(ids, timeStart, timeEnd, options={}) {
             idsInBatch = newIds;
         }
 
-        if (data.filter((dataSet) => dataSet.length > 0).length === 0) {
+        if (idsInBatch.length === 0 || data.filter((dataSet) => dataSet.length > 0).length === 0) {
             // no data to delete
             continue;
         }
