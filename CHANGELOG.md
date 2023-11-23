@@ -23,6 +23,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `options`: A Object containing attributes axios and client for configuring the axios and WideSky client
     respectively. The options argument is expected to have the following structure as defined in 
     [Client Options](./docs/client/options.md).
+  - `logger`: This can be one of:
+    - Empty, meaning a default Bunyan logger is used.
+    - Object, for which a Bunyan instance will be created with:
+      - name: Name of logging instance.
+      - level: Bunyan logging level to shows logs higher than
+      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+    - Bunyan logging instance
 - Added new set of functions under property `v2` of the `WideSkyClient` instance. `v2` consists of client functions:
   - `find`: Same functionality as the existing `WideSkyClient.find` but returns only the rows.
 - Added new `HisWritePayload` to more easily create payloads suitable for the `hisWrite` function.
@@ -42,6 +49,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.migrateHistory(fromEntity, toEntity)`
   - `client.batch.addChildrenByFilter(filter, children, tagMap)`
   - `client.batch.multiFind(filterAndLimits, options)`
+  - `client.batch.updateOrCreate(entities, options)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
 - Added new function `entityCount(filter)` to get the number of entities from a filter via a GraphQL query.
 - Added new function `findAsId(filter, limit)` to optimise functions that only require the ids of the entity,

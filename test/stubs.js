@@ -48,7 +48,7 @@ require('util').inherits(StubHTTPStatusCodeError, Error);
  */
 const StubHTTPClient = function() {
     const self = this;
-    var handler = null;
+    let handler = null;
 
     /**
      * Assign a new handler that will receive the request and generate the
@@ -69,7 +69,7 @@ const StubHTTPClient = function() {
      * Stub a WideSkyClient instance with this HTTP client instance.
      */
     self.stubClient = function(ws) {
-        const fakeSubmit = sinon.spy((method, uri, body, config) => {
+        ws._wsRawSubmit = sinon.spy((method, uri, body, config) => {
             if (uri === "/oauth2/token") {
                 return Promise.resolve({
                     access_token: WS_ACCESS_TOKEN
@@ -77,7 +77,6 @@ const StubHTTPClient = function() {
             }
             return Promise.resolve()
         });
-        ws._wsRawSubmit = fakeSubmit;
     };
 };
 
@@ -90,7 +89,7 @@ const getInstance = function(http, log) {
 };
 
 const authHandler = function(opts) {
-    var body;
+    let body;
     opts = opts || {};
 
     if (opts.refresh) {

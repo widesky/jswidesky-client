@@ -33,7 +33,7 @@ The Object in `client.batch.hisWrite` is expected to have the following structur
 
 | Path from `client.batch.hisWrite` | Description                                                                   | Type    | Default |
 |-----------------------------------|-------------------------------------------------------------------------------|---------|---------|
-| `batchSize`                       | Define the maximum number of rows of each payload for `hisWrite` operations.  | Number  | 2000    |
+| `batchSize`                       | Define the maximum number of rows of each payload for `hisWrite` operations.  | Number  | 10000   |
 | `batchDelay`                      | Define the time in between each batch `hisWrite` request (ms).                | Number  | 0       |
 | `parallel`                        | Define the number of batched requests to be run in parallel                   | Number  | 1       |
 | `parallelDelay`                   | Define the delay between each set of batched requests run in parallel (ms)    | Number  | 0       |
@@ -44,8 +44,8 @@ The Object in `client.batch.hisDelete` is expected to have the following structu
 
 | Path from `client.batch.hisDelete` | Description                                                                                                         | Type    | Default |
 |------------------------------------|---------------------------------------------------------------------------------------------------------------------|---------|---------|
-| `batchSize`                        | Define the maximum number of time series data to be deleted across all entities in a single `hisDelete` operations. | Number  | 100     |
-| `batchSizeEntity`                  | Define the maximum number of entities to perform a `hisDelete` operation on.                                        |         |         |
+| `batchSize`                        | Define the maximum number of time series data to be deleted across all entities in a single `hisDelete` operations. | Number  | 1500    |
+| `batchSizeEntity`                  | Define the maximum number of entities to perform a `hisDelete` operation on.                                        | Number  | 100     |
 | `batchDelay`                       | Define the time in between each batch `hisDelete` request (ms).                                                     | Number  | 0       |
 | `parallel`                         | Define the number of batched requests to be run in parallel                                                         | Number  | 1       |
 | `parallelDelay`                    | Define the delay between each set of batched requests run in parallel (ms)                                          | Number  | 0       |
@@ -136,7 +136,7 @@ The Object in `client.batch.migrateHistory` is expected to have the following st
 
 | Path from `client.batch.migrateHistory` | Description                                                                         | Type    | Default |
 |-----------------------------------------|-------------------------------------------------------------------------------------|---------|---------|
-| `batchSize`                             | Define the maximum size of each payload for `migrateHistory` operations.            | Number  | 2000    |
+| `batchSize`                             | Define the maximum size of each payload for `migrateHistory` operations.            | Number  | 10000   |
 | `batchDelay`                            | Define the time in between each batch `migrateHistory` request (ms).                | Number  | 0       |
 | `parallel`                              | Define the number of batched requests to be run in parallel                         | Number  | 1       |
 | `parallelDelay`                         | Define the delay between each set of batched requests run in parallel (ms)          | Number  | 0       |
@@ -157,13 +157,13 @@ The Object in `client.batch.hisDeleteByFilter` is expected to have the following
 ### Path `client.batch.updateOrCreate`
 The Object in `client.batch.updateOrCreate` is expected to have the following structure:
 
-| Path from `client.batch.updateOrCreate` | Description                                                                         | Type    | Default |
-|-----------------------------------------|-------------------------------------------------------------------------------------|---------|---------|
-| `batchSize`                             | Define the maximum size of each payload for `updateOrCreate` operations.            | Number  | 2000    |
-| `batchDelay`                            | Define the time in between each batch `updateOrCreate` request (ms).                | Number  | 0       |
-| `parallel`                              | Define the number of batched requests to be run in parallel                         | Number  | 1       |
-| `parallelDelay`                         | Define the delay between each set of batched requests run in parallel (ms)          | Number  | 0       |
-| `returnResult`                          | Enable the result from WideSky API server operation `updateOrCreate` to be returned | Boolean | `true`  |
+| Path from `client.batch.updateOrCreate` | Description                                                                             | Type    | Default |
+|-----------------------------------------|-----------------------------------------------------------------------------------------|---------|---------|
+| `batchSize`                             | Define the maximum size of each payload for `update` or `create` operations.            | Number  | 2000    |
+| `batchDelay`                            | Define the time in between each batch `update` or `reate` request (ms).                 | Number  | 0       |
+| `parallel`                              | Define the number of batched requests to be run in parallel                             | Number  | 1       |
+| `parallelDelay`                         | Define the delay between each set of batched requests run in parallel (ms)              | Number  | 0       |
+| `returnResult`                          | Enable the result from WideSky API server operation `update` or `create` to be returned | Boolean | `true`  |
 
 ### Path `client.batch.multiFind`
 The Object in `client.batch.multiFind` is expected to have the following structure:

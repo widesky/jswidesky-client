@@ -30,7 +30,12 @@ describe("client.batch.migrateHistory", () => {
         http = new stubs.StubHTTPClient();
         log = new stubs.StubLogger();
         ws = getInstance(http, log);
-        ws.batch.hisRead = sinon.stub().callsFake(() => [HIS_READ_SAMPLE]);
+        ws.batch.hisRead = sinon.stub().callsFake(() => {
+            return {
+                success: [HIS_READ_SAMPLE],
+                errors: []
+            };
+        });
         ws.batch.hisWrite = sinon.stub().callsFake((entities) =>  {
             return {
                 success: [["test123"]],
