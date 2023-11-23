@@ -112,5 +112,19 @@ describe("HisWritePayload", () => {
                 expect(error.message).to.equal("Row in data missing 'val' property");
             }
         });
+
+        it("should handle Number data with unit also included", () => {
+            hisWritePayload.add("r:testId", [
+                {
+                    ts: "t:123",
+                    val: "n:1278 kW"
+                }
+            ]);
+            expect(hisWritePayload.payload).to.eql({
+                "t:123": {
+                    "r:testId": "n:1278",
+                }
+            });
+        })
     });
 });

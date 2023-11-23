@@ -21,7 +21,15 @@ class HisWritePayload {
                 this.payload[ts] = {};
             }
 
-            this.payload[ts][id] = val;
+            let parsedVal = val;
+            if (val.substring(0, 2) === "n:" && val.includes(" ")) {
+                const index= val.indexOf(" ");
+                if (index !== -1) {
+                    // val has unit applied, remove
+                    parsedVal = val.substring(0, val.indexOf(" "));
+                }
+            }
+            this.payload[ts][id] = parsedVal;
         }
     }
 
