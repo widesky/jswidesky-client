@@ -513,7 +513,7 @@ function createTimeRanges(data, ids, batch, batchSize, startTime, timeEnd) {
  * @param ids An array of point entity UUIDs for the delete operations or a single string. These will be batched by
  *            options.batchSizeEntity.
  * @param timeStart Starting timestamp to be deleted as a Date Object.
- * @param timeEnd Ending timestamp to be deleted as a Data Object (not inclusive).
+ * @param timeEnd Ending timestamp to be deleted as a Date Object (not inclusive).
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
@@ -762,7 +762,7 @@ async function updateByFilter(filter, criteriaList, options={}) {
  * Perform a hisDelete using a filter to select the entities.
  * @param filter Filter to select the entities to be hisDelete'd.
  * @param start Starting timestamp to be deleted as a Date Object.
- * @param end Ending timestamp to be deleted as a Data Object (not inclusive).
+ * @param end Ending timestamp to be deleted as a Date Object (not inclusive).
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
