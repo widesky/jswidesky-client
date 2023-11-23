@@ -4,7 +4,7 @@ class HisWritePayload {
     }
 
     /**
-     * Add data to the hisWrite payload.
+     * Add data to the hisWrite payload. If the unit is present on val attribute, it will be stripped.
      * @param id Entity id with Haystack prefix applied.
      * @param data Data of the format of [{ts: String, val: String}] with the Haystack prefix applied.
      */
