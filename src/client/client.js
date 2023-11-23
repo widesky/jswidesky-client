@@ -418,6 +418,8 @@ class WideSkyClient {
         config = await this._attachReqConfig(config);
 
         try {
+            this.logger.info("Submitting request [%s] %s", method.toUpperCase(), uri);
+            this.logger.debug("With body %j and config %j", body, config);
             return await this._wsRawSubmit(method, uri, body, config);
         }
         catch (err) {
@@ -681,16 +683,25 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "GET",
+            "POST",
             `/api/${op}`,
-            {},
             {
-                params: {
-                    filter,
-                    limit
-                }
+                meta: {
+                    ver: "2.0"
+                },
+                cols: [
+                    {
+                        "name": "filter"
+                    },
+                    {
+                        "name": "limit"
+                    }
+                ],
+                rows: [
+                    { filter, limit }
+                ]
             }
-        )
+        );
     }
 
     /**
