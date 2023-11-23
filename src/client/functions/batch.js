@@ -512,14 +512,14 @@ function createTimeRanges(data, ids, batch, batchSize, startTime, timeEnd) {
  * The option batchSizeEntity will also impact the number of entities involved when performing a hisRead operation.
  * @param ids An array of point entity UUIDs for the delete operations or a single string. These will be batched by
  *            options.batchSizeEntity.
- * @param start Starting timestamp to be deleted as a Date Object.
- * @param end Ending timestamp to be deleted as a Data Object (not inclusive).
+ * @param timeStart Starting timestamp to be deleted as a Date Object.
+ * @param timeEnd Ending timestamp to be deleted as a Data Object (not inclusive).
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
  * @returns {Promise<void>}
  */
-async function hisDelete(ids, start, end, options={}) {
+async function hisDelete(ids, timeStart, timeEnd, options={}) {
     await BATCH_HIS_DELETE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisDelete, options);
     const { batchSize, batchSizeEntity } = options;
@@ -540,21 +540,24 @@ async function hisDelete(ids, start, end, options={}) {
     const batches = init2DArray(idsAsBatch.length);
     for (let i = 0; i < idsAsBatch.length; i++) {
         let idsInBatch = idsAsBatch[i];
-        const { success: data, errors } = await this.batch.hisRead(idsInBatch, start, end);
+        let { success: data, errors } = await this.batch.hisRead(idsInBatch, timeStart, timeEnd);
         if (errors.length) {
             // pass the errors encountered to the user
             for (const error of errors) {
                 errorsEncountered.push(error);
             }
 
-            // purge the ids for which a hisRead could not be performed on
-            const oldIdsInBatch = [...idsInBatch];
-            idsInBatch = [];
+            // purge the ids and data for which a hisRead could not be performed on
+            const newIds = [];
+            const newData = [];
             for (let i = 0; i < data.length; i++) {
                 if (data[i].length !== 0) {
-                    idsInBatch.push(oldIdsInBatch[i]);
+                    newIds.push(idsInBatch[i]);
+                    newData.push(data[i]);
                 }
             }
+            data = newData;
+            idsInBatch = newIds;
         }
 
         if (data.filter((dataSet) => dataSet.length > 0).length === 0) {
