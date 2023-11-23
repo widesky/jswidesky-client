@@ -13,7 +13,8 @@ const {
     BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
     BATCH_MIGRATE_HISTORY_SCHEMA,
     BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA,
-    BATCH_MULTI_FIND_SCHEMA, BATCH_UPDATE_OR_CREATE_SCHEMA
+    BATCH_MULTI_FIND_SCHEMA,
+    BATCH_UPDATE_OR_CREATE_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -1091,7 +1092,10 @@ async function updateOrCreate(entities, options={}) {
 
     if (createPayload.length === 0 && updatePayload.length === 0) {
         this.logger.debug("Nothing to update or create.");
-        return entities;
+        return {
+            success: entities,
+            errors: []
+        };
     }
 
     const requests = [];
@@ -1111,9 +1115,11 @@ async function updateOrCreate(entities, options={}) {
 
     const allErrors = [];
     for (const { success, errors } of await Promise.all(requests)) {
-        if (success.length && success.rows && returnResult) {
-            for (const row of success.rows) {
-                returnedEntities.push(row);
+        if (success.length && returnResult) {
+            for (const { rows } of success) {
+                for (const row of rows) {
+                    returnedEntities.push(row);
+                }
             }
         }
 

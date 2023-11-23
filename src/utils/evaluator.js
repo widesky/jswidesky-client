@@ -154,7 +154,7 @@ const BATCH_UPDATE_OR_CREATE_SCHEMA = yup.object({
     ...getReturnResultProp(true)
 });
 const BATCH_MULTI_FIND_SCHEMA = yup.object({
-    ...PERFORM_OP_IN_BATCH_ObJ,
+    ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(READ_BY_FILTER_BATCH_SIZE, READ_BY_FILTER_BATCH_SIZE_MAX),
     ...LIMIT_PROPERTY
 })
