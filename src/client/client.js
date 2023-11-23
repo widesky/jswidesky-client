@@ -17,8 +17,9 @@ const { CLIENT_SCHEMA, deriveFromDefaults } = require("./../utils/evaluator");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const cliProgress = require("cli-progress");
-let axios;
+const bFormat = require("bunyan-format");
 
+let axios;
 // Browser/Node axios import
 if (typeof window === 'undefined') {
     // node process
@@ -93,7 +94,7 @@ class WideSkyClient {
         this.#clientId = clientId;
         this.#clientSecret = clientSecret;
         this.#accessToken = accessToken;
-        this.logger = logger;
+        this.logger = logger || bunyan.createLogger({name: "WideSky-Client"});
         this.options = options;
         this.clientOptions = null;
         this._impersonate = null;
@@ -111,7 +112,13 @@ class WideSkyClient {
      * Create a WideSky client from a given set of configurations
      * @param config An Object defining the configurations for the WideSkyClient. Requires attributes serverURL,
      *               username, password, clientId, clientSecret. Optional attributes are logger, accessToken and
-     *               options. If no logger is specified, a Bunyan logging instance will be created.
+     *               options. Option logger can be:
+     *                  - Empty, meaning a default Bunyan logger is used
+     *                  - Object for which a Bunyan instance will be created with:
+     *                      - name: Name of logging instance
+     *                      - level: Bunyan logging level to show logs higher.
+     *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+     *                  - Bunyan logging instance.
      * @returns {WideSkyClient} A WideSky client instance.
      */
     static makeFromConfig(config={}) {
@@ -143,6 +150,18 @@ class WideSkyClient {
             logger = bunyan.createLogger({
                 name: "WideSky-Client"
             });
+        } else if (logger.constructor.name === "Object") {
+            logger = bunyan.createLogger({
+                name: logger.name || "WideSky-Client",
+                level: logger.level || "info",
+                stream: logger.raw ? process.stdout : bFormat({
+                    outputMode: 'short',
+                    color: true,
+                    levelInString: true
+                }, process.stdout)
+            })
+        } else {
+            // use Bunyan logging instance given.
         }
 
         return new WideSkyClient(

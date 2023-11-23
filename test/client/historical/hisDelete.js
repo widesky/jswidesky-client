@@ -6,7 +6,6 @@
 "use strict";
 
 const stubs = require('../../stubs'),
-    sinon = require('sinon'),
     expect = require('chai').expect,
     WS_ACCESS_TOKEN = stubs.WS_ACCESS_TOKEN,
     getInstance = stubs.getInstance;
@@ -29,7 +28,7 @@ describe('client', () => {
                 await ws.hisDelete([], TEST_RANGE);
                 throw new Error("Should not have worked.");
             } catch (err) {
-                if (err.message != err_msg) {
+                if (err.message !== err_msg) {
                     throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
                 }
             }
@@ -46,7 +45,7 @@ describe('client', () => {
                 await ws.hisDelete(TEST_POINT, "s:");
                 throw new Error("Should not have worked.");
             } catch (err) {
-                if (err.message != err_msg) {
+                if (err.message !== err_msg) {
                     throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
                 }
             }
@@ -63,7 +62,7 @@ describe('client', () => {
                 await ws.hisDelete(TEST_POINT, "last");
                 throw new Error("Should not have worked.");
             } catch (err) {
-                if (err.message != err_msg) {
+                if (err.message !== err_msg) {
                     throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
                 }
             }
@@ -81,7 +80,7 @@ describe('client', () => {
                 await ws.hisDelete(TEST_POINT, TEST_RANGE_INVALID);
                 throw new Error("Should not have worked.");
             } catch (err) {
-                if (err.message != err_msg) {
+                if (err.message !== err_msg) {
                     throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
                 }
             }
@@ -99,7 +98,7 @@ describe('client', () => {
                 await ws.hisDelete(TEST_POINT, TEST_RANGE_INVALID);
                 throw new Error("Should not have worked.");
             } catch (err) {
-                if (err.message != err_msg) {
+                if (err.message !== err_msg) {
                     throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
                 }
             }
@@ -117,7 +116,7 @@ describe('client', () => {
                 await ws.hisDelete(TEST_POINT, TEST_RANGE_INVALID);
                 throw new Error("Should not have worked.");
             } catch (err) {
-                if (err.message != err_msg) {
+                if (err.message !== err_msg) {
                     throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
                 }
             }
@@ -135,7 +134,7 @@ describe('client', () => {
                 await ws.hisDelete(TEST_POINT, TEST_RANGE_INVALID);
                 throw new Error("Should not have worked.");
             } catch (err) {
-                if (err.message != err_msg) {
+                if (err.message !== err_msg) {
                     throw new Error(`Expected [${err_msg}], but got [${err.message}]`);
                 }
             }
