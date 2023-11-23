@@ -172,7 +172,7 @@ class WideSkyClient {
         const assignPrototype = (thisProp, functions, withPreCheck=false) => {
             for (const [name, func] of Object.entries(functions)) {
                 if (withPreCheck) {
-                    thisProp[name] = performPreCheck(func);
+                    thisProp[name] = performPreCheck.call(this, func);
                 }
                 else {
                     thisProp[name] = func.bind(this);
@@ -379,6 +379,7 @@ class WideSkyClient {
             return await this._wsRawSubmit(method, uri, body, config);
         }
         catch (err) {
+            let parsedErr = err;
             if (isAxiosError(err)) {
                 if (err.response) {
                     // response has been received from API server
@@ -389,16 +390,12 @@ class WideSkyClient {
                         return this._wsRawSubmit(method, uri, body, config);
                     }
                     else {
-                        throw RequestError.make(err);
+                        parsedErr = RequestError.make(err);
                     }
                 }
-                else {
-                    throw err;
-                }
             }
-            else {
-                throw err;
-            }
+            this.logger.error(parsedErr);
+            throw parsedErr;
         }
     }
 
