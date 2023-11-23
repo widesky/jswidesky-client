@@ -11,7 +11,8 @@ const {
     BATCH_HIS_READ_BY_FILTER_SCHEMA,
     BATCH_UPDATE_BY_FILTER_SCHEMA,
     BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
-    BATCH_MIGRATE_HISTORY_SCHEMA
+    BATCH_MIGRATE_HISTORY_SCHEMA,
+    BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA
 } = require("../../utils/evaluator");
 const HisWritePayload = require("../../utils/hisWritePayload");
 const { sleep } = require("../../utils/tools");
@@ -675,9 +676,59 @@ async function migrateHistory(fromEntity, toEntity, options={}) {
     const to = new Date(Date.now());
     const [ history ] = await this.batch.hisRead([fromEntity], from, to);
     const data = new HisWritePayload();
-    data.add(`r:${toEntity}`, history, true);
+    data.add(`r:${toEntity}`, history);
 
     return this.batch.hisWrite(data, options);
+}
+
+/**
+ * Add the given children the parents found in the given filter.
+ * @param filter Filter to define the parents.
+ * @param children Children to be added to the found parents.
+ * @param tagMap A 2D Array of tags to be copied from the parent (if present) to the child entities.
+ *                Each element of the Array is an Array with elements as [tagOfParent, toTagOnChild].
+ *                For example [["id", "equipRef"]].
+ * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @returns {Promise<void>}
+ */
+async function addChildrenByFilter(filter, children, tagMap=[], options={}) {
+    if (!Array.isArray(children) || children.filter((arr) => typeof arr !== "object").length) {
+        throw new Error("parameter children is not an Array of Objects");
+    } else if (children.length === 0) {
+        throw new Error("parameter children is an empty Array");
+    } else if (!Array.isArray(tagMap) || tagMap.filter((tags) => !Array.isArray(tags) || tags.length !== 2).length) {
+        throw new Error("parameter refTags is not a 2D Array as specified");
+    }
+
+    await BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.addChildrenByFilter, options);
+    const { limit } = options;
+
+    const parents = await this.v2.find(filter, limit);
+    const createPayload = [];
+    for (const parent of parents) {
+        for (const child of JSON.parse(JSON.stringify(children))) {
+            let added = false;
+            for (const [tagOfParent, toTagOnChild] of tagMap) {
+                if (parent[tagOfParent] !== undefined) {
+                    added = true;
+                    child[toTagOnChild] = parent[tagOfParent];
+                }
+            }
+
+            if (added) {
+                createPayload.push(child);
+            }
+        }
+    }
+
+    if (createPayload.length > 0) {
+        return this.performOpInBatch(
+            "create",
+            [createPayload],
+            options
+        );
+    }
 }
 
 module.exports = {
@@ -692,5 +743,6 @@ module.exports = {
     hisReadByFilter,
     updateByFilter,
     hisDeleteByFilter,
-    migrateHistory
+    migrateHistory,
+    addChildrenByFilter
 };
