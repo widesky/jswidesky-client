@@ -1631,6 +1631,28 @@ class WideSkyClient {
 `;
         return Number((await this.query(query)).data.haystack.search.count);
     }
+
+    /**
+     * Perform a read by filter but only return the IDs of the entities found.
+     * @param filter Filter to select entities.
+     * @param limit Limit to be imposed on the given filter.
+     * @returns {Promise<*>} A list of UUID's of all entities found.
+     */
+    async findAsId(filter, limit=0) {
+        const query = `
+{
+  haystack {
+    search(filter: "${filter.replaceAll('"', '\\"')}", limit: ${limit}) {
+      entity {
+        id
+      }
+    }
+  }
+}
+`;
+        return (await this.query(query)).data.haystack.search.entity
+            .map((entity) => entity.id);
+    }
 }
 
 /* Exported symbols */

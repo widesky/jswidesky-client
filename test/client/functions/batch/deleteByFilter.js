@@ -7,21 +7,16 @@
 
 const stubs = require('../../../stubs');
 const sinon = require('sinon');
+const {RequestError} = require("../../../../src/errors");
 const expect = require('chai').expect;
 const getInstance = stubs.getInstance;
-const Hs = require("../../../../src/utils/haystack");
 
 const DELETE_BATCH_SIZE = 30;
 
 function genEntities(num) {
     const entities = [];
     for (let i = 0; i < num; i++) {
-        entities.push({
-            id: `r:${i}`,
-            name: `s:${i}-entity`,
-            dis: `s:Entity ${i}`,
-            site: "m:"
-        });
+        entities.push(`id-${i}`);
     }
 
     return entities;
@@ -33,7 +28,7 @@ describe("client.batch.deleteByFilter", () => {
         http = new stubs.StubHTTPClient();
         log = new stubs.StubLogger();
         ws = getInstance(http, log);
-        ws.v2.find = sinon.stub().callsFake(() => []);
+        ws.findAsId = sinon.stub().callsFake(() => []);
         ws.deleteById = sinon.stub().callsFake((entities) =>  {
             return {
                 rows: entities
@@ -45,32 +40,26 @@ describe("client.batch.deleteByFilter", () => {
         describe("entity payload smaller than default batchSize", () => {
             it("should deleteById 1 request", async () => {
                 const entities = genEntities(DELETE_BATCH_SIZE - 4)
-                ws.v2.find = sinon.stub().callsFake(() => entities);
+                ws.findAsId = sinon.stub().callsFake(() => [...entities]);
                 await ws.batch.deleteByFilter("point");
-                expect(ws.v2.find.calledOnce).to.be.true;
+                expect(ws.findAsId.calledOnce).to.be.true;
                 expect(ws.deleteById.calledOnce).to.be.true;
-                expect(ws.deleteById.args[0]).to.eql([
-                    entities.map((entity) => Hs.getId(entity))
-                ]);
+                expect(ws.deleteById.args[0]).to.eql([entities]);
             });
         });
 
         describe("entity payload larger than default batchSize", () => {
             it("should deleteById more than 1 request", async () => {
                 const entities = genEntities(DELETE_BATCH_SIZE + 10)
-                ws.v2.find = sinon.stub().callsFake(() => entities);
+                ws.findAsId = sinon.stub().callsFake(() => [...entities]);
                 await ws.batch.deleteByFilter("point");
-                expect(ws.v2.find.calledOnce).to.be.true;
+                expect(ws.findAsId.calledOnce).to.be.true;
                 expect(ws.deleteById.calledTwice).to.be.true;
                 expect(ws.deleteById.args[0]).to.eql([
-                    entities
-                        .slice(0, DELETE_BATCH_SIZE)
-                        .map((entity) => Hs.getId(entity))
+                    entities.slice(0, DELETE_BATCH_SIZE)
                 ]);
                 expect(ws.deleteById.args[1]).to.eql([
-                    entities
-                        .slice(DELETE_BATCH_SIZE)
-                        .map((entity) => Hs.getId(entity))
+                    entities.slice(DELETE_BATCH_SIZE)
                 ]);
             });
         });
@@ -80,36 +69,30 @@ describe("client.batch.deleteByFilter", () => {
         describe("entity payload smaller than batchSize", () => {
             it("should deleteById 1 request", async () => {
                 const entities = genEntities(10)
-                ws.v2.find = sinon.stub().callsFake(() => entities);
+                ws.findAsId = sinon.stub().callsFake(() => [...entities]);
                 await ws.batch.deleteByFilter("point", 0, {
                     batchSize: 11
                 });
-                expect(ws.v2.find.calledOnce).to.be.true;
+                expect(ws.findAsId.calledOnce).to.be.true;
                 expect(ws.deleteById.calledOnce).to.be.true;
-                expect(ws.deleteById.args[0]).to.eql([
-                    entities.map((entity) => Hs.getId(entity))
-                ]);
+                expect(ws.deleteById.args[0]).to.eql([entities]);
             });
         });
 
         describe("entity payload larger than batchSize", () => {
             it("should deleteById more than 1 request", async () => {
                 const entities = genEntities(10)
-                ws.v2.find = sinon.stub().callsFake(() => entities);
+                ws.findAsId = sinon.stub().callsFake(() => [...entities]);
                 await ws.batch.deleteByFilter("point", 0, {
                     batchSize: 6
                 });
-                expect(ws.v2.find.calledOnce).to.be.true;
+                expect(ws.findAsId.calledOnce).to.be.true;
                 expect(ws.deleteById.calledTwice).to.be.true;
                 expect(ws.deleteById.args[0]).to.eql([
-                    entities
-                        .slice(0, 6)
-                        .map((entity) => Hs.getId(entity))
+                    entities.slice(0, 6)
                 ]);
                 expect(ws.deleteById.args[1]).to.eql([
-                    entities
-                        .slice(6)
-                        .map((entity) => Hs.getId(entity))
+                    entities.slice(6)
                 ]);
             });
         });
@@ -119,12 +102,12 @@ describe("client.batch.deleteByFilter", () => {
         describe("enabled", () => {
             it("should return result", async () => {
                 const entities = genEntities(2);
-                ws.v2.find = sinon.stub().callsFake(() => entities);
+                ws.findAsId = sinon.stub().callsFake(() => [...entities]);
                 const { success, errors} = await ws.batch.deleteByFilter("point", 0, {
                     returnResult: true
                 });
                 expect(success).to.eql([{
-                    rows: entities.map((entity) => Hs.getId(entity))
+                    rows: entities
                 }]);
                 expect(errors.length).to.equal(0);
             });
@@ -133,7 +116,7 @@ describe("client.batch.deleteByFilter", () => {
         describe("disabled", () => {
             it("should not return result", async () => {
                 const entities = genEntities(2);
-                ws.v2.find = sinon.stub().callsFake(() => entities);
+                ws.findAsId = sinon.stub().callsFake(() => [...entities]);
                 const { success, errors} = await ws.batch.deleteByFilter("point", 0, {
                     returnResult: false
                 });
@@ -145,22 +128,38 @@ describe("client.batch.deleteByFilter", () => {
 
     describe("error handling", () => {
         it("should handle errors encountered by v2.filter and return them", async () => {
-            ws.v2.find = sinon.stub().callsFake(() => {
-                throw new Error("Bad filter");
+            ws.findAsId = sinon.stub().callsFake(() => {
+                const fakeError = new Error("test");
+                fakeError.response = {
+                    data: {
+                        errors: [
+                            {
+                                "locations": [
+                                    {
+                                        "column": 3,
+                                        "line": 4
+                                    }
+                                ],
+                                "message": "Invalid name start char (end of stream)"
+                            }
+                        ]
+                    }
+                }
+                throw RequestError.make(fakeError);
             });
 
             const { success, errors } = await ws.batch.deleteByFilter("bad filter");
             expect(success.length).to.equal(0);
             expect(errors.length).to.equal(1);
             expect(errors[0]).to.eql({
-                error: "Bad filter",
-                args: ["v2.find", "bad filter", 0]
+                error: "Invalid name start char (end of stream)",
+                args: ["findAsId", "bad filter", 0]
             });
         });
 
         it("should handle errors encountered by deleteById and return them", async () => {
             const entities = genEntities(2);
-            ws.v2.find = sinon.stub().callsFake(() => entities);
+            ws.findAsId = sinon.stub().callsFake(() => [...entities]);
             ws.deleteById = sinon.stub().callsFake(() => {
                 throw new Error("Not well");
             });
@@ -173,7 +172,6 @@ describe("client.batch.deleteByFilter", () => {
                 args: [
                     "deleteById",
                     entities
-                        .map((entity) => Hs.getId(entity))
                 ]
             });
         });
