@@ -4,7 +4,6 @@ const {
     getReadableName
 } = require("../../src/utils/haystack");
 const { expect } = require("chai");
-const {getImportSource} = require("@babel/preset-env/lib/polyfills/utils");
 
 const TEST_ENTITY_1 = 		{
     "id": "r:fbf64a12-b706-11ec-a271-0242ac120002 Apt 0603 Meter",

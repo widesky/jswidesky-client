@@ -15,7 +15,7 @@ describe('data', () => {
         const DUMMY_EXPECTED = {"val": "Dummy toHSJSON result"};
         function DummyType() {
             this.toHSJSON = sinon.stub().returns(DUMMY_EXPECTED);
-        };
+        }
 
         describe('simple types', () => {
             it('should return false as-is', () => {
