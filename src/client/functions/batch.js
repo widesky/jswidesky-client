@@ -626,8 +626,8 @@ async function create(entities, options={}) {
 }
 
 /**
- * Perform a update requesting using batch functionality. The request are batched based on the number of entities given.
- * @param entities Entities and respective tags to be updated.
+ * Perform an update requesting using batch functionality. The request are batched based on the number of entities given.
+ * @param entities Entities and their respective tags to be updated.
  * @param options A Object defining batch configuration to be used. See README.md for more information.
  * @returns {Promise<*>}
  */
