@@ -46,6 +46,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.hisReadByFilter(filter, from, to, options)`
   - `client.batch.updateByFilter(filter, criteriaList, options)`
   - `client.batch.hisDeleteByFilter(filter, start, end, options)`
+  - `client.batch.migrateHistory(fromEntity, toEntity)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
 
 ### CHANGED
