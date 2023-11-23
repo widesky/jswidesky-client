@@ -71,35 +71,6 @@ describe("client", () => {
     });
 
     describe("batch.hisDelete", () => {
-        describe("argument range", () => {
-            it("should reject if given '2023-10-10T00:00:00Z'", async () => {
-                try {
-                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00Z");
-                    throw new Error("Should not have worked");
-                } catch (error) {
-                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
-                }
-            });
-
-            it("should reject if 'from' part of range is not a valid Date", async () => {
-                try {
-                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00A,2023-10-10T10:00:00Z");
-                    throw new Error("Should not have worked");
-                } catch (error) {
-                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
-                }
-            });
-
-            it("should reject if 'to' part of range is not a valid Date", async () => {
-                try {
-                    await ws.batch.hisDelete(["123"], "2023-10-10T00:00:00Z,2023-10-10T10:00:00A");
-                    throw new Error("Should not have worked");
-                } catch (error) {
-                    expect(error.message).to.equal("'range' parameter is not a valid hisRead range")
-                }
-            });
-        });
-
         describe("time range batch behaviour", () => {
             describe("mix time series ranges", () => {
                 beforeEach(() => {
@@ -112,7 +83,7 @@ describe("client", () => {
                 });
 
                 it("should create all time ranges", async () => {
-                    await ws.batch.hisDelete(HIS_READ_TIME_SERIES_MIX.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                    await ws.batch.hisDelete(HIS_READ_TIME_SERIES_MIX.ids, TIME_START, TIME_END);
                     expect(ws.hisDelete.callCount).to.equal(8);
                     const expectedRanges = [
                         "s:2022-12-17T16:30:00.000Z,2022-12-23T12:25:00.001Z",
@@ -297,7 +268,7 @@ describe("client", () => {
                         };
                     });
                     await ws.batch.hisDelete(
-                        HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z", {
+                        HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END, {
                             batchSizeEntity: 1
                         }
                     );
@@ -390,15 +361,15 @@ describe("client", () => {
 
             it("should return encountered errors and arguments used for hisRead", async () => {
                 const result = await ws.batch.hisDelete(
-                    HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                    HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END);
                 expect(result.success.length).to.equal(0);
                 expect(result.errors.length).to.equal(1);
                 const { args, error } = result.errors[0];
                 expect(error).to.equal("hisRead error");
                 expect(args[0]).to.equal("hisRead");
                 expect(args[1]).to.eql(HIS_READ_SMALL_TIME_SERIES.ids);
-                expect(args[2].valueOf()).to.equal(new Date(Date.parse("1970-01-01T00:00:00.000Z")).valueOf());
-                expect(args[3].valueOf()).to.equal(new Date(Date.parse("2023-10-10T00:00:00Z")).valueOf());
+                expect(args[2].valueOf()).to.equal(TIME_START.valueOf());
+                expect(args[3].valueOf()).to.equal(TIME_END.valueOf());
             });
 
             it("should return encountered errors and arguments from both hisRead and hisDelete", async () => {
@@ -415,23 +386,23 @@ describe("client", () => {
                                 args: [
                                     "hisRead",
                                     [HIS_READ_SMALL_TIME_SERIES.ids[1]],
-                                    new Date(Date.parse("1970-01-01T00:00:00Z")),
-                                    new Date(Date.parse("2023-10-10T00:00:00Z"))
+                                    TIME_START,
+                                    TIME_END
                                 ]
                             }
                         ]
                     };
                 });
                 const { success, errors } = await ws.batch.hisDelete(
-                    HIS_READ_SMALL_TIME_SERIES.ids, "1970-01-01T00:00:00Z,2023-10-10T00:00:00Z");
+                    HIS_READ_SMALL_TIME_SERIES.ids, TIME_START, TIME_END);
                 expect(success.length).to.equal(0);
                 expect(errors.length).to.equal(2);
                 const { args: hisReadArgs, error: hisReadError } = errors[0];
                 expect(hisReadError).to.equal("hisRead error");
                 expect(hisReadArgs[0]).to.equal("hisRead");
                 expect(hisReadArgs[1]).to.eql([HIS_READ_SMALL_TIME_SERIES.ids[1]]);
-                expect(hisReadArgs[2].valueOf()).to.equal(new Date(Date.parse("1970-01-01T00:00:00.000Z")).valueOf());
-                expect(hisReadArgs[3].valueOf()).to.equal(new Date(Date.parse("2023-10-10T00:00:00Z")).valueOf());
+                expect(hisReadArgs[2].valueOf()).to.equal(TIME_START.valueOf());
+                expect(hisReadArgs[3].valueOf()).to.equal(TIME_END.valueOf());
                 const { args: hisDeleteArgs, error: hisDeleteError} = errors[1];
                 expect(hisDeleteArgs).to.eql([
                     "hisDelete",
