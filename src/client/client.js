@@ -698,7 +698,10 @@ class WideSkyClient {
                     }
                 ],
                 rows: [
-                    { filter, limit }
+                    {
+                        filter: `s:${filter}`,
+                        limit: `n:${limit}`
+                    }
                 ]
             }
         );
