@@ -553,6 +553,10 @@ function createTimeRanges(data, ids, batch, batchSize, startTime, timeEnd) {
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function hisDelete(ids, timeStart, timeEnd, options={}) {
+    if (!(timeStart instanceof Date) || !(timeEnd instanceof Date)) {
+        throw new Error("parameter timeStart or timeEnd is not of type Date");
+    }
+
     await BATCH_HIS_DELETE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisDelete, options);
     const { batchSize, batchSizeEntity } = options;
@@ -668,7 +672,7 @@ async function update(entities, options={}) {
  * given.
  * @param ids The id of each entity to be deleted.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function deleteById(ids, options={}) {
     await BATCH_DELETE_BY_ID_SCHEMA.validate(options);
@@ -753,7 +757,7 @@ async function updateByFilter(filter, criteriaList, options={}) {
 
     for (const criteria of criteriaList) {
         if (!(criteria instanceof EntityCriteria)) {
-            throw new Error("Not class EntityCriteria");
+            throw new Error("Element of parameter 'criteriaList' is not of class EntityCriteria");
         }
     }
 
