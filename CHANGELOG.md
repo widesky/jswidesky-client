@@ -4,6 +4,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.0] - 2023-11-24
 ### ADDED
 - Added Haystack utility functions for ease of use. These include:
   - `removePrefix(value)`: Remove the Haystack prefix from the given String value if applied.
@@ -157,7 +158,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.0.6
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.0
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -172,3 +173,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.0.4]: https://github.com/widesky/jswidesky-client/compare/2.0.4...2.0.3
 [2.0.5]: https://github.com/widesky/jswidesky-client/compare/2.0.5...2.0.4
 [2.0.6]: https://github.com/widesky/jswidesky-client/compare/2.0.6...2.0.5
+[2.1.0]: https://github.com/widesky/jswidesky-client/compare/2.1.0...2.0.6
