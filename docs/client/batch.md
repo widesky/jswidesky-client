@@ -1,3 +1,23 @@
+# Table of Contents
+<!-- toc -->
+
+- [Batch Operations Configuration](#batch-operations-configuration)
+  - [Path `client.batch.hisRead`](#path-clientbatchhisread)
+  - [Path `client.batch.hisWrite`](#path-clientbatchhiswrite)
+  - [Path `client.batch.hisDelete`](#path-clientbatchhisdelete)
+  - [Path `client.batch.create`](#path-clientbatchcreate)
+  - [Path `client.batch.update`](#path-clientbatchupdate)
+  - [Path `client.batch.deleteById`](#path-clientbatchdeletebyid)
+  - [Path `client.batch.deleteByFilter`](#path-clientbatchdeletebyfilter)
+  - [Path `client.batch.hisReadByFilter`](#path-clientbatchhisreadbyfilter)
+  - [Path `client.batch.addChildrenByFilter`](#path-clientbatchaddchildrenbyfilter)
+  - [Path `client.batch.updateByFilter`](#path-clientbatchupdatebyfilter)
+  - [Path `client.batch.migrateHistory`](#path-clientbatchmigratehistory)
+  - [Path `client.batch.hisDeleteByFilter`](#path-clientbatchhisdeletebyfilter)
+  - [Path `client.batch.updateOrCreate`](#path-clientbatchupdateorcreate)
+  - [Path `client.batch.multiFind`](#path-clientbatchmultifind)
+
+<!-- tocstop -->
 
 ## Batch Operations Configuration
 The `batch` property of the `options` argument used in `WideSkyClient` is expected to have the following structure:

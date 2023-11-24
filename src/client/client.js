@@ -105,13 +105,13 @@ class WideSkyClient {
 
     /**
      * Constructor for WideSky Client
-     * @param baseUri URI to access the WideSky API (excluding /api)
+     * @param baseUri URI to access the WideSky API (excluding /api).
      * @param username Username of the WideSky user to authenticate with.
      * @param password Password of the WideSky user to authenticate with.
      * @param clientId Client ID for OAuth 2.0 authentication.
      * @param clientSecret Client secret for OAuth 2.0 authentication.
      * @param logger A Object that can be:
-     *                  - Empty, meaning a default Bunyan logger is used
+     *                  - Undefined, meaning a default Bunyan logger is used
      *                  - Object for which a Bunyan instance will be created with:
      *                      - name: Name of logging instance
      *                      - level: Bunyan logging level to show logs higher.
@@ -176,26 +176,15 @@ class WideSkyClient {
             }
         }
 
-        const {
-            serverURL,
-            username,
-            password,
-            clientId,
-            clientSecret,
-            accessToken,
-            options,
-            logger
-        } = config;
-
         return new WideSkyClient(
-            serverURL,
-            username,
-            password,
-            clientId,
-            clientSecret,
-            logger,
-            accessToken,
-            options
+            config.serverURL,
+            config.username,
+            config.password,
+            config.clientId,
+            config.clientSecret,
+            config.logger,
+            config.accessToken,
+            config.options
         );
     }
 

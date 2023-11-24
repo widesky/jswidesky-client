@@ -1,3 +1,107 @@
+# WideSkyClient
+<!-- toc -->
+
+- [WideSkyClient.Constructor(baseUri, username, password, clientId, clientSecret, logger, accessToken, options)](#wideskyclientconstructorbaseuri-username-password-clientid-clientsecret-logger-accesstoken-options)
+    - [Parameter `logger` Explained](#parameter-logger-explained)
+- [WideSkyClient.makeFromConfig(config)](#wideskyclientmakefromconfigconfig)
+    - [Parameter `config` Explained](#parameter-config-explained)
+- [WideSky Functions](#widesky-functions)
+    - [WideSkyClient.login()](#wideskyclientlogin)
+    - [WideSkyClient.query(graphql)](#wideskyclientquerygraphql)
+    - [WideSkyClient.createUser(email, name, description, roles, password, method)](#wideskyclientcreateuseremail-name-description-roles-password-method)
+    - [WideSkyClient.updatePassword(newPassword)](#wideskyclientupdatepasswordnewpassword)
+    - [WideSkyClient.fileUpload(ids, ts, filename, mediaType, inlineRetrieval, cacheMaxAge, force, tags)](#wideskyclientfileuploadids-ts-filename-mediatype-inlineretrieval-cachemaxage-force-tags)
+    - [WideSkyClient.fileRetrieve(pointIds, from, to, presigned, presignExpiry)](#wideskyclientfileretrievepointids-from-to-presigned-presignexpiry)
+    - [WideSkyClient.entityCount(filter)](#wideskycliententitycountfilter)
+    - [WideSkyClient.findAsId(filter, limit)](#wideskyclientfindasidfilter-limit)
+    - [WideSkyClient.impersonateAs(userId)](#wideskyclientimpersonateasuserid)
+    - [WideSkyClient.submitRequest(method, uri, body, config)](#wideskyclientsubmitrequestmethod-uri-body-config)
+    - [WideSkyClient.setAcceptGzip(acceptGzip)](#wideskyclientsetacceptgzipacceptgzip)
+- [Haystack Functions](#haystack-functions)
+    - [WideSkyClient.read(ids)](#wideskyclientreadids)
+    - [WideSkyClient.find(filter, limit)](#wideskyclientfindfilter-limit)
+    - [WideSkyClient.create(entities)](#wideskyclientcreateentities)
+    - [WideSkyClient.update(entities)](#wideskyclientupdateentities)
+    - [WideSkyClient.deleteBYId(ids)](#wideskyclientdeletebyidids)
+    - [WideSkyClient.deleteByFilter(filter, limit)](#wideskyclientdeletebyfilterfilter-limit)
+    - [WideSkyClient.hisRead(ids, from, to, batchSize)](#wideskyclienthisreadids-from-to-batchsize)
+    - [WideSkyClient.hisWrite(records)](#wideskyclienthiswriterecords)
+    - [WideSkyClient.watchSub(pointsIds, lease, description, config)](#wideskyclientwatchsubpointsids-lease-description-config)
+    - [WideSkyClient.watchExtend(watchId, pointIds, lease, config)](#wideskyclientwatchextendwatchid-pointids-lease-config)
+    - [WideSkyClient.watchUnsub(watchId, deletePointIds, close, config)](#wideskyclientwatchunsubwatchid-deletepointids-close-config)
+    - [WideSkyClient.getWatchSocket(watchId)](#wideskyclientgetwatchsocketwatchid)
+    - [WideSkyClient.hisDelete(ids, range)](#wideskyclienthisdeleteids-range)
+- [Version 2 Functions](#version-2-functions)
+    - [WideSkyClient.v2.find(filter, limit)](#wideskyclientv2findfilter-limit)
+- [Batch Functions](#batch-functions)
+    - [WideSkyClient.performOpInBatch(op, args, options)](#wideskyclientperformopinbatchop-args-options)
+    - [WideSkyClient.batch.hisWrite(hisWriteData, options)](#wideskyclientbatchhiswritehiswritedata-options)
+    - [WideSkyClient.batch.hisRead(ids, from, to, options)](#wideskyclientbatchhisreadids-from-to-options)
+    - [WideSkyClient.batch.hisDelete(ids, start, end, options)](#wideskyclientbatchhisdeleteids-start-end-options)
+    - [WideSkyClient.batch.create(entities, options)](#wideskyclientbatchcreateentities-options)
+    - [WideSkyClient.batch.update(entities, options)](#wideskyclientbatchupdateentities-options)
+    - [WideSkyClient.batch.deleteById(ids, options)](#wideskyclientbatchdeletebyidids-options)
+    - [WideSkyClient.batch.deleteByFilter(filter, limit, options)](#wideskyclientbatchdeletebyfilterfilter-limit-options)
+    - [WideSkyClient.batch.hisReadByFilter(filter, from, to, options)](#wideskyclientbatchhisreadbyfilterfilter-from-to-options)
+    - [WideSkyClient.batch.updateByFilter(filter, criteriaList, options)](#wideskyclientbatchupdatebyfilterfilter-criterialist-options)
+    - [WideSkyClient.batch.hisDeleteByFilter(filter, start, end, options)](#wideskyclientbatchhisdeletebyfilterfilter-start-end-options)
+    - [WideSkyClient.batch.migrateHistory(fromEntity, toEntity, options)](#wideskyclientbatchmigratehistoryfromentity-toentity-options)
+    - [WideSkyClient.batch.addChildrenByFilter(filter, children, tagMap, options)](#wideskyclientbatchaddchildrenbyfilterfilter-children-tagmap-options)
+    - [WideSkyClient.batch.multiFind(filterAndLimits, options)](#wideskyclientbatchmultifindfilterandlimits-options)
+    - [WideSkyClient.batch.updateOrCreate(entities, options)](#wideskyclientbatchupdateorcreateentities-options)
+
+<!-- tocstop -->
+
+# Constructor
+A developer can create a `WideSkyClient` instance by either using the class constructor or 
+`WideSkyClient.makeFromConfig(config)`. Both of these will be described below.
+
+## WideSkyClient.Constructor(baseUri, username, password, clientId, clientSecret, logger, accessToken, options)
+**Description:** Creates a `WideSkyClient` instance.  
+**Parameters:**
+
+| Param          | Description                                                                                                                                                                                                                                                                             | Type                  | Default |
+|----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------|---------|
+| `baseUri`      | URI to access the WideSky API (excluding /api)                                                                                                                                                                                                                                          | String                |         |
+| `username`     | Username of the WideSky user to authenticate with.                                                                                                                                                                                                                                      | String                |         |
+| `password`     | Password of the WideSky user to authenticate with.                                                                                                                                                                                                                                      | String                |         |
+| `clientId`     | Client ID for OAuth 2.0 authentication.                                                                                                                                                                                                                                                 | String                |         |
+| `clientSecret` | Client secret for OAuth 2.0 authentication.                                                                                                                                                                                                                                             | String                |         |
+| `logger`       | A Bunyan logging instance, Bunyan logging configurations or nothing. For more information, see [Parameter logger Explained](#parameter-logger-explained).                                                                                                                               | Object or `undefined` |         |
+| `accessToken`  | A valid WideSky access token.                                                                                                                                                                                                                                                           | String                |         |
+| `options`      | A Object containing attributes "axios" and "client" for configuring the axios and WideSky client respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults. See [client options](options.md#client-options) for information of options available. | Object                |         |
+
+### Parameter `logger` Explained
+A Object that can be:
+- `Undefined`, meaning a default Bunyan logger is used
+- `Object` for which a Bunyan instance will be created with:
+  - `name`: Name of logging instance
+  - `level`: Bunyan logging level to show logs higher.
+  - `raw`: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+- A Bunyan logging instance.
+
+## WideSkyClient.makeFromConfig(config)
+**Description:** Creates a `WideSkyClient` instance.  
+**Parameters**
+
+| Param    | Description                                                | Type   |
+|----------|------------------------------------------------------------|--------|
+| `config` | A configuration file to create a `WideSkyClient` instance. | Object |
+
+### Parameter `config` Explained
+`config` is an Object that can have the following structure:
+
+| Property       | Description                                                                                                                                                                                                                                                                             | Type                  | Required |
+|----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------|----------|
+| `serverURL`    | URI to access the WideSky API (excluding /api).                                                                                                                                                                                                                                         | String                | ✓        |
+| `username`     | Username of the WideSky user to authenticate with.                                                                                                                                                                                                                                      | String                | ✓        |
+| `password`     | Password of the WideSky user to authenticate with.                                                                                                                                                                                                                                      | String                | ✓        |
+| `clientId`     | Client ID for OAuth 2.0 authentication.                                                                                                                                                                                                                                                 | String                | ✓        |
+| `clientSecret` | Client secret for OAuth 2.0 authentication.                                                                                                                                                                                                                                             | String                | ✓        |
+| `accessToken`  | A valid WideSky access token.                                                                                                                                                                                                                                                           | String                | ✕        |
+| `options`      | A Object containing attributes "axios" and "client" for configuring the axios and WideSky client respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults. See [client options](options.md#client-options) for information of options available. | Object                | ✕        |
+| `logger`       | A Bunyan logging instance, Bunyan logging configurations or nothing. For more information, see [Parameter logger Explained](#parameter-logger-explained).                                                                                                                               | Object or `undefined` | ✕        |
+
 # Performing an operation
 Once an instance of the `WideskyClient` has been instantiated, the client will automatically perform authentication
 and maintain the WideSky access token for you. This allows the client to be used as the instance has been

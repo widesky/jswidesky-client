@@ -1,3 +1,12 @@
+# Table of Contents
+<!-- toc -->
+
+- [Client Options](#client-options)
+  - [Path `client`](#path-client)
+  - [Path `client.progress`](#path-clientprogress)
+  - [Path `client.performOpInBatch`](#path-clientperformopinbatch)
+
+<!-- tocstop -->
 
 ## Client Options
 The argument `options` is expected to have the following structure:

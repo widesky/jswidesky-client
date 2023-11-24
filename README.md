@@ -1,11 +1,28 @@
 # JavaScript WideSky Client
-
 This is a simple `Promise`-based client for the WideSky application server.
 
 It can be used for both backend and frontend application.
-See example code below on how to import it into your project.
+See example code below on how to import it into your project. See the [API](./docs/client/api.md) 
+documentation for the available functions.
 
-### Usages
+# Table Of Contents
+<!-- toc -->
+
+- [Usages](#usages)
+- [Installing it](#installing-it)
+- [Importing it](#importing-it)
+- [Creating an instance of the client](#creating-an-instance-of-the-client)
+- [Performing an operation](#performing-an-operation)
+- [WideSky query utilities](#widesky-query-utilities)
+  - [Dynamic query](#dynamic-query)
+- [Building the library](#building-the-library)
+- [Running tests](#running-tests)
+  - [Without coverage](#without-coverage)
+  - [With coverage](#with-coverage)
+
+<!-- tocstop -->
+
+## Usages
 
 The following section describes how the library can be used in both `nodejs` and `browser` context.
 For the subsequent commands to work, we assume that you already have a running
@@ -13,8 +30,8 @@ For the subsequent commands to work, we assume that you already have a running
 
 ## Installing it
 
-You can install the Widesky client library by executing the command from your console.
-```
+You can install the WideSky client library by executing the command from your console.
+```shell
 npm install @widesky/jswidesky-client --save
 ```
 
@@ -22,7 +39,7 @@ npm install @widesky/jswidesky-client --save
 The simplest way to incorporate the library into your browser is by using the `<script>` tag.
 
 Example:
-```
+```html
 <script src="node_modules/@widesky/jswidesky-client/dist/wideskyClient.min.js"></script>
 ```
 
@@ -30,7 +47,7 @@ If this is for a sophisticated web application that is build on top of a framewo
 then it can be added by using the `import` statement.
 
 Example:
-```
+```javascript
 import jsWidesky from '@widesky/jswidesky-client/dist/wideskyClient.min.js';
 
 const myClient = new jsWidesky.WideSkyClient(
@@ -38,7 +55,7 @@ const myClient = new jsWidesky.WideSkyClient(
         "hello@widesky.cloud",
         "abcdefg",
         "client_id",
-        "client_secret);
+        "client_secret");
 ```
 
 > For your debugging convenience, there is also a non minified version of the library, `wideskyClient.js`.
@@ -52,7 +69,7 @@ const wsClient = require('@widesky/jswidesky-client');
 An instance can be instantiated by using the `WideskyClient` constructor.
 
 Example:
-```
+```javascript
 const WideSkyClient = require('jswidesky-client').WideSkyClient;
 
 let myClient = new WideSkyClient(
@@ -65,13 +82,13 @@ let myClient = new WideSkyClient(
 
 ## Performing an operation
 Once an instance of the `WideskyClient` has been instantiated.
-The client will automatically perform authentication and maintain the widesky access token for you.
+The client will automatically perform authentication and maintain the WideSky access token for you.
 That is, you can start using it as soon as the instance is instantiated.
 
 Querying for a list of points that are tagged with the `his` and `kind` tags, and looking up
 their `fqname` virtual tag value.
 
-```
+```javascript
 let myQuery = `{
   haystack {
     search(filter: "point and his and kind") {
@@ -89,9 +106,9 @@ let response = await myClient.query(myQuery);
 ```
 
 See our [documentation](https://widesky.cloud/docs/reference/apis/cloud/graphql/) for more information
-on the Widesky query language.
+on the WideSky query language.
 
-## Widesky query utilities
+## WideSky query utilities
 
 ### Dynamic query
 This library also include some of the commonly used
@@ -109,7 +126,7 @@ can be defined in the `history` node's `range` filter.
 
 Example:
 
-```
+```javascript
 let templateQuery = `{
   haystack {
     search(filter: "site", limit: 1) {
@@ -156,7 +173,7 @@ let resp = await myClient.graphql(query);
 ## Building the library
 To build a release of the project, run;
 
-```
+```shell
 npm run build
 ```
 
@@ -164,12 +181,12 @@ npm run build
 
 ### Without coverage
 
-```
+```shell
 $ npm run test
 ```
 
 ### With coverage
 
-```
+```shell
 $ npm run coverage
 ```
