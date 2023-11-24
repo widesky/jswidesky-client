@@ -125,7 +125,7 @@ const BATCH_HIS_READ_BY_FILTER_SCHEMA = yup.object({
 });
 const BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
-    ...getBatchProp(CREATE_BATCH_SIZE),
+    ...getBatchProp(CREATE_BATCH_SIZE, CREATE_BATCH_SIZE_MAX),
     ...getReturnResultProp(false),
     ...LIMIT_PROPERTY
 });
