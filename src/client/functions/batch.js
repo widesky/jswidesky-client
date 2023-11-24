@@ -60,7 +60,7 @@ function isRowsSorted(rows) {
 }
 
 /**
- * Create a Iterator Object for the given payload.
+ * Create an iterator Object for the given payload.
  * @param op Operation to be performed. Only relevant for op "hisDelete".
  * @param payload Payload to be batched.
  * @param clientArgs Arguments to be grouped with the batched payload.
@@ -188,6 +188,8 @@ function createBatchRequest(op, args, result, returnResult) {
  *                - returnResult: Enable or disable returning the result of the queries sent.
  *                - transformer: A function to transform the payload to be passed to the client operation.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Contain the responses of successful operations when options.returnResult is true.
+ *          - errors: Contain an errors encountered when performing operations.
  */
 async function performOpInBatch(op, args, options={}) {
     // evaluate options
@@ -256,6 +258,8 @@ async function performOpInBatch(op, args, options={}) {
  *                Option batchSize is determined by the maximum number of time series rows to be sent. The rows are
  *                defined as the time series for each entity.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Contain the responses of successful operations of hisWrite when options.returnResult is true.
+ *          - errors: Contain an errors encountered when performing operations.
  */
 async function hisWrite(hisWriteData, options={}) {
     if (!["Object", "HisWritePayload"].includes(hisWriteData.constructor.name)) {
@@ -287,7 +291,8 @@ async function hisWrite(hisWriteData, options={}) {
  * @param   options A Object defining batch configurations to be used. See README.md for more information.
  *                  Option batchSize is determined by the number of ids to perform a hisRead for.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
- *          A 2D array of time series data in the order of ids queried.
+ *          - success: A 2D array of time series data in the order of ids queried.
+ *          - errors: Contain an errors encountered when performing operations.
  */
 async function hisRead(ids, from, to, options={}) {
     await BATCH_HIS_READ_SCHEMA.validate(options);
@@ -551,6 +556,8 @@ function createTimeRanges(data, ids, batch, batchSize, startTime, timeEnd) {
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the responses of hisDelete operations if options.returnResult is true.
+ *          - errors: Return the errors encountered from hisDelete operations.
  */
 async function hisDelete(ids, timeStart, timeEnd, options={}) {
     if (!(timeStart instanceof Date) || !(timeEnd instanceof Date)) {
@@ -648,6 +655,8 @@ async function hisDelete(ids, timeStart, timeEnd, options={}) {
  * @param entities Entities to be created.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the result of each successful create operation if options.returnResult is true.
+ *          - errors: Return the errors encountered for each failed create operation.
  */
 async function create(entities, options={}) {
     await BATCH_CREATE_SCHEMA.validate(options);
@@ -673,6 +682,8 @@ async function update(entities, options={}) {
  * @param ids The id of each entity to be deleted.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the result of each successful update operation if options.returnResult is true.
+ *          - errors: Return the errors encountered for each failed update operation.
  */
 async function deleteById(ids, options={}) {
     await BATCH_DELETE_BY_ID_SCHEMA.validate(options);
@@ -683,11 +694,13 @@ async function deleteById(ids, options={}) {
 
 /**
  * Perform a deleteByFilter operation using batch functionality. The request are batched based on the number of entities
- * retrieved from the given filter and limit.
+ * retrieved from the given filter and limit. The batched payloads are passed to WideSkyClient.deleteById.
  * @param filter Filter to search for entities.
  * @param limit Limit to be imposed on the result of the given filter.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the result of each successful deleteByID operation if options.returnResult is true.
+ *          - errors: Return the errors encountered for each failed deleteById operation.
  */
 async function deleteByFilter(filter, limit=0, options={}) {
     await BATCH_DELETE_BY_FILTER_SCHEMA.validate(options);
@@ -719,6 +732,8 @@ async function deleteByFilter(filter, limit=0, options={}) {
  * @param to  Date Object representing where to grab historical data to (not inclusive).
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the result of each successful hisRead operation if options.returnResult is true.
+ *          - errors: Return the errors encountered for each failed hisRead operation.
  */
 async function hisReadByFilter(filter, from, to, options={}) {
     await BATCH_HIS_READ_BY_FILTER_SCHEMA.validate(options);
@@ -749,17 +764,19 @@ async function hisReadByFilter(filter, from, to, options={}) {
  * @param criteriaList A list of EntityCriteria objects defining the criteria to match against.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the result of each successful update operation if options.returnResult is true.
+ *          - errors: Return the errors encountered for each failed update operation.
  */
 async function updateByFilter(filter, criteriaList, options={}) {
-    await BATCH_UPDATE_BY_FILTER_SCHEMA.validate(options);
-    options = deriveFromDefaults(this.clientOptions.batch.updateByFilter, options);
-    const { limit } = options;
-
     for (const criteria of criteriaList) {
         if (!(criteria instanceof EntityCriteria)) {
             throw new Error("Element of parameter 'criteriaList' is not of class EntityCriteria");
         }
     }
+
+    await BATCH_UPDATE_BY_FILTER_SCHEMA.validate(options);
+    options = deriveFromDefaults(this.clientOptions.batch.updateByFilter, options);
+    const { limit } = options;
 
     let entities;
     try {
@@ -802,6 +819,8 @@ async function updateByFilter(filter, criteriaList, options={}) {
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the result of each successful hisDelete operation when options.returnResult is true.
+ *          - errors: Return any errors encountered when performing hisDelete operations.
  */
 async function hisDeleteByFilter(filter, start, end, options={}) {
     await BATCH_HIS_DELETE_BY_FILTER_SCHEMA.validate(options);
@@ -834,6 +853,9 @@ async function hisDeleteByFilter(filter, start, end, options={}) {
  *                Option batchSize is determined by the maximum number of time series rows to be sent. The rows are
  *                defined as the time series for each entity.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the success hisWrite data that has been migrated to toEntity if options.returnResult
+ *            is true.
+ *          - errors: Return all errors encountered.
  */
 async function migrateHistory(fromEntity, toEntity, options={}) {
     await BATCH_MIGRATE_HISTORY_SCHEMA.validate(options);
@@ -841,7 +863,12 @@ async function migrateHistory(fromEntity, toEntity, options={}) {
 
     const from = new Date(0);
     const to = new Date(Date.now());
-    const { success: [history], errors } = await this.batch.hisRead([fromEntity], from, to);
+    const res = await this.batch.hisRead([fromEntity], from, to);
+    if (res.errors.length) {
+        return res;
+    }
+
+    const { success: [history], errors } = res;
     const data = new HisWritePayload();
     data.add(`r:${toEntity}`, history);
 
@@ -857,6 +884,8 @@ async function migrateHistory(fromEntity, toEntity, options={}) {
  *                For example [["id", "equipRef"]].
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the result of the create operations performed when options.returnResult is true.
+ *          - errors: Return an errors encountered from the create operations performed.
  */
 async function addChildrenByFilter(filter, children, tagMap=[], options={}) {
     if (!Array.isArray(children) || children.filter((arr) => typeof arr !== "object").length) {
@@ -926,7 +955,8 @@ function getReadByFilterQuery(alias, filter, limit) {
  * @param filterAndLimits A 2D Array defining the filter and limit of each read-by-filter to be queried.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
- *          A 2D Array of the result from each read-by-filter given.
+ *          - success: A 2D Array of the result from each read-by-filter given.
+ *          - errors: All errors encountered from performing read-by-filter operations.
  */
 async function multiFind(filterAndLimits, options={}) {
     if (!Array.isArray(filterAndLimits) ||
@@ -1054,7 +1084,8 @@ const createUpdatePayload = (oldEntity, newEntity, logger) => {
  * @param entities Array of entities to be updated or created.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
- *          Array of entities in their current state in the WideSky database.
+ *          - success: Array of entities in their current state in the WideSky database.
+ *          - errors: Any errors encountered during create or update operations.
  */
 async function updateOrCreate(entities, options={}) {
     if (!Array.isArray(entities)) {
