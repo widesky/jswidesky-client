@@ -12,10 +12,8 @@ const {
     REMOVE,
     HSNumber,
     Ref,
-    String,
     Date
 }= require('../../src/data'),
-    sinon = require('sinon'),
     expect = require('chai').expect;
 
 

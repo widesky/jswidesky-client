@@ -3,6 +3,65 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [2.1.0] - 2023-11-24
+### ADDED
+- Added Haystack utility functions for ease of use. These include:
+  - `removePrefix(value)`: Remove the Haystack prefix from the given String value if applied.
+  - `getId(entity, tag)`: Get a UUID from the entity, or the Haystack reference tag is specified.
+  - `getReadableName(entity)`: Get the `fqname` or `id` tag of the entity.
+- Added new argument `options` to `WideSkyClient` constructor to accept configurations for the underlying `axios` client
+  instance and WideSky client batch operations. The options argument is expected to have the following structure as 
+  defined in [Client Options](./docs/client/options.md).
+- Added a new static function `make` to create a `WideSkyClient` instance from a configuration Object. The Object can
+  have the following options:
+  - `serverURL`: The URL to the WideSky API server (required).
+  - `username`: The username for a WideSky user (required).
+  - `password`: The password the above WideSky username (required).
+  - `clientId`: The Client ID for OAuth 2.0 authentication (required).
+  - `clientSecret`: The Client secret for OAuth 2.0 authentication (required).
+  - `accessToken`: A valid WideSky access token for OAuth 2.0 authentication (optional).
+  - `options`: An Object containing attributes axios and client for configuring the axios and WideSky client
+    respectively. The options argument is expected to have the following structure as defined in 
+    [Client Options](./docs/client/options.md).
+  - `logger`: This can be one of:
+    - Empty, meaning a default Bunyan logger is used.
+    - Object, for which a Bunyan instance will be created with:
+      - name: Name of logging instance.
+      - level: Bunyan logging level to shows logs higher than
+      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+    - Bunyan logging instance
+- Added new set of functions under property `v2` of the `WideSkyClient` instance. `v2` consists of client functions:
+  - `find`: Same functionality as the existing `WideSkyClient.find` but returns only the rows.
+- Added new `HisWritePayload` to more easily create payloads suitable for the `hisWrite` function.
+- Added new function `performOpInBatch` to perform client operations in a batched and parallel manner. Will be used
+  as the basis for all new batch functions added.
+- Add new batch functions:
+  - `client.batch.hisWrite(payload, options)`
+  - `client.batch.hisRead(ids, from, to, options)`
+  - `client.batch.hisDelete(ids, start, end, options)`
+  - `client.batch.create(entities, options)`
+  - `client.batch.update(entities, options)`
+  - `client.batch.deleteById(ids, options)`
+  - `client.batch.deleteByFilter(filter, limit, options)`
+  - `client.batch.hisReadByFilter(filter, from, to, options)`
+  - `client.batch.updateByFilter(filter, criteriaList, options)`
+  - `client.batch.hisDeleteByFilter(filter, start, end, options)`
+  - `client.batch.migrateHistory(fromEntity, toEntity)`
+  - `client.batch.addChildrenByFilter(filter, children, tagMap)`
+  - `client.batch.multiFind(filterAndLimits, options)`
+  - `client.batch.updateOrCreate(entities, options)`
+- Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
+- Added new function `entityCount(filter)` to get the number of entities from a filter via a GraphQL query.
+- Added new function `findAsId(filter, limit)` to optimise functions that only require the ids of the entity,
+  normally discarding any other information that would be returned from `client.find`.
+
+### CHANGED
+- Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
+  Instead, the error found in the response as received from a WideSky API server is used as the error message. 
+  This has been changed as the WideSky API server already created good responses to request errors and changes should 
+  only be in API server. 
+
 ## [2.0.6] - 2023-10-03
 ### FIXED
 - Fixed `hisDelete` date validation on timezone offsets.
@@ -99,7 +158,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.0.6
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.0
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -114,3 +173,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.0.4]: https://github.com/widesky/jswidesky-client/compare/2.0.4...2.0.3
 [2.0.5]: https://github.com/widesky/jswidesky-client/compare/2.0.5...2.0.4
 [2.0.6]: https://github.com/widesky/jswidesky-client/compare/2.0.6...2.0.5
+[2.1.0]: https://github.com/widesky/jswidesky-client/compare/2.1.0...2.0.6

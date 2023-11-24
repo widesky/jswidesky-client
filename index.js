@@ -5,11 +5,13 @@
  */
 "use strict";
 
-var client = require('./src/client'),
-    data = require('./src/data'),
-    replace = require('./src/graphql/replace'),
-    exprParser = require('./src/graphql/exprParser'),
-    find = require('./src/graphql/find');
+const client = require('./src/client/client');
+const data = require('./src/data');
+const replace = require('./src/graphql/replace');
+const exprParser = require('./src/graphql/exprParser');
+const find = require('./src/graphql/find');
+const HaystackTools = require('./src/utils/haystack');
+const HisWritePayload = require('./src/utils/hisWritePayload');
 
 /* Exported symbols */
 const jsWidesky = {
@@ -34,7 +36,9 @@ const jsWidesky = {
         replace,
         exprParser,
         find
-    }
+    },
+    hsTools: HaystackTools,
+    HisWritePayload
 };
 
 module.exports = jsWidesky;

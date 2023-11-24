@@ -5,14 +5,21 @@
  */
 'use strict';
 
-const data = require('./data');
-const replace = require('./graphql/replace');
+const data = require('./../data');
+const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
 const fs = require('fs');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
-let axios;
+const { RequestError } = require("./../errors");
+const bunyan = require("bunyan");
+const { CLIENT_SCHEMA, deriveFromDefaults } = require("./../utils/evaluator");
+const clientV2Functions = require("./functions/v2");
+const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
+const cliProgress = require("cli-progress");
+const bFormat = require("bunyan-format");
 
+let axios;
 // Browser/Node axios import
 if (typeof window === 'undefined') {
     // node process
@@ -24,11 +31,11 @@ else {
     // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
     axios = require('axios').default;
 }
+const { isAxiosError } = axios;
 
 /** Special columns, these will be placed in the given order */
 const SPECIAL_COLS = ['id', 'name', 'dis'];
 const MOMENT_FORMAT_MS_PRECISION = 'YYYY-MM-DDTHH:mm:ss.SSS\\Z';
-
 
 /**
  * Authentication methods supported for creating new users.
@@ -45,6 +52,40 @@ const AUTH_METHOD = Object.freeze({
     SCRAM: 'scram'
 });
 
+/**
+ * Initialise a logging instance.
+ * @param logObj An Object that can be:
+ *                  - Empty, meaning a default Bunyan logger is used
+ *                  - Object for which a Bunyan instance will be created with:
+ *                      - name: Name of logging instance
+ *                      - level: Bunyan logging level to show logs higher.
+ *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+ *                  - Bunyan logging instance.
+ * @returns {Object} A logging instance
+ */
+function initLogger(logObj) {
+    let logger;
+    if (logObj === undefined) {
+        logger = bunyan.createLogger({
+            name: "WideSky-Client"
+        });
+    } else if (logObj.constructor.name === "Object") {
+        logger = bunyan.createLogger({
+            name: logObj.name || "WideSky-Client",
+            level: logObj.level || "info",
+            stream: logObj.raw ? process.stdout : bFormat({
+                outputMode: 'short',
+                color: true,
+                levelInString: true
+            }, process.stdout)
+        })
+    } else {
+        // use Bunyan logging instance given.
+        logger = logObj;
+    }
+
+    return logger;
+}
 
 class WideSkyClient {
     base_uri
@@ -53,70 +94,194 @@ class WideSkyClient {
     #clientId
     #clientSecret
     #accessToken
+    logger
+    /**
+     * If this is true (default) then all http requests made by the client
+     * will have the 'Accept-Encoding' header with value of 'gzip, deflate'
+     * append to it.
+     */
+    _acceptGzipEncoding
+    _impersonate        // The user id which the original user is impersonating as.
 
-    constructor(base_uri,
+    /**
+     * Constructor for WideSky Client
+     * @param baseUri URI to access the WideSky API (excluding /api).
+     * @param username Username of the WideSky user to authenticate with.
+     * @param password Password of the WideSky user to authenticate with.
+     * @param clientId Client ID for OAuth 2.0 authentication.
+     * @param clientSecret Client secret for OAuth 2.0 authentication.
+     * @param logger An Object that can be:
+     *                  - Undefined, meaning a default Bunyan logger is used
+     *                  - Object for which a Bunyan instance will be created with:
+     *                      - name: Name of logging instance
+     *                      - level: Bunyan logging level to show logs higher.
+     *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+     *                  - Bunyan logging instance.
+     * @param accessToken A valid WideSky access token.
+     * @param options An Object containing attributes "axios" and "client" for configuring the axios and WideSky client
+     *                respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults.
+     */
+    constructor(baseUri,
                 username,
                 password,
                 clientId,
                 clientSecret,
-                log,
-                accessToken) {
-        this.base_uri = base_uri;
+                logger,
+                accessToken,
+                options={}) {
+        this.baseUri = baseUri;
         this.#username = username;
         this.#password = password;
         this.#clientId = clientId;
         this.#clientSecret = clientSecret;
-        this.#accessToken = accessToken
+        this.#accessToken = accessToken;
+        this.logger = initLogger(logger);
+        this.options = options;
+        this.clientOptions = null;
+        this._impersonate = null;
+        this._acceptGzipEncoding  = true;
+        this.initialised = false;
 
-        /* Logger instance */
-        this._log = log;
+        this.initAccessToken();
+        this.initAxios();
+        // Client option initiator is async. Wait for this to complete before submitting requests
+        this.initWaitFor = this.initClientOptions();
+        this.assignSubFunctions();
+    }
 
-        if (this.#accessToken) {
-            if (!this.#accessToken.hasOwnProperty('refresh_token') ||
-                !this.#accessToken.hasOwnProperty('expires_in') ||
-                !this.#accessToken.hasOwnProperty('token_type') ||
-                !this.#accessToken.hasOwnProperty('access_token')) {
-                throw new Error(`Parameter 'accessToken' is not a valid WideSky token.`);
+    /**
+     * Create a WideSky client from a given set of configurations
+     * @param config An Object defining the configurations for the WideSkyClient. Requires attributes serverURL,
+     *               username, password, clientId, clientSecret. Optional attributes are logger, accessToken and
+     *               options. Option logger can be:
+     *                  - Empty, meaning a default Bunyan logger is used
+     *                  - Object for which a Bunyan instance will be created with:
+     *                      - name: Name of logging instance
+     *                      - level: Bunyan logging level to show logs higher.
+     *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+     *                  - Bunyan logging instance.
+     * @returns {WideSkyClient} A WideSky client instance.
+     */
+    static makeFromConfig(config={}) {
+        const requiredProps = [
+            "serverURL",
+            "username",
+            "password",
+            "clientId",
+            "clientSecret"
+        ];
+        for (const prop of requiredProps) {
+            if (config[prop] === undefined) {
+                throw new Error(`Configuration parameter requires properties ${requiredProps.join(", ")}`);
             }
         }
 
+        return new WideSkyClient(
+            config.serverURL,
+            config.username,
+            config.password,
+            config.clientId,
+            config.clientSecret,
+            config.logger,
+            config.accessToken,
+            config.options
+        );
+    }
+
+    assignSubFunctions() {
+        const performPreCheck = (func) => {
+            return async (...args) => {
+                if (!this.initialised) {
+                    this.logger.info("Not finished initialising. Waiting...");
+                    await this.initWaitFor;
+                }
+
+                return func.call(this, ...args);
+            }
+        }
+
+        const assignPrototype = (thisProp, functions, withPreCheck=false) => {
+            for (const [name, func] of Object.entries(functions)) {
+                if (withPreCheck) {
+                    thisProp[name] = performPreCheck.call(this, func);
+                }
+                else {
+                    thisProp[name] = func.bind(this);
+                }
+            }
+        }
+
+        // Add function for v2 function
+        this.v2 = {};
+        assignPrototype(this.v2, clientV2Functions);
+        // Assign batch functions
+        this.performOpInBatch = performPreCheck(performOpInBatch);
+        this.batch = {};
+        assignPrototype(this.batch, allBatchFunctions, true);
+    }
+
+    /**
+     * Initialise the Client access token
+     */
+    initAccessToken() {
         /*
          * The authentication response, used for storing the access token and
          * refresh token.
          */
-        this._ws_token = this.#accessToken || null;
+        this._ws_token = null;
         /*
-         * Refresh token retrieval.  The list of waiters for a refresh token
-         * add themselves here.  If `null`, then no refresh is in progress.
+         * Refresh token retrieval. The list of waiters for a refresh token
+         * add themselves here. If `null`, then no refresh is in progress.
          */
         this._ws_token_wait = null;
 
-        /**
-         * The user id which the original user is impersonating as.
-         */
-        this._impersonate = null;
-
-        /**
-         * If this is true (default) then all http requests made by the client
-         * will have the 'Accept-Encoding' header with value of 'gzip, deflate'
-         * append to it.
-         *
-         * @type {boolean}
-         * @private
-         */
-        this._acceptGzipEncoding = true;
-
-        this.initAxios(base_uri);
+        if (this.#accessToken) {
+            for (const tokenProp of ['refresh_token', 'expires_in', 'token_type', 'access_token']) {
+                if (this.#accessToken[tokenProp] === undefined) {
+                    throw new Error(`Parameter 'accessToken' is not a valid WideSky token.`);
+                }
+            }
+            this._ws_token = this.#accessToken;
+        }
     }
 
     /**
      * Apply the config to be used for all axios requests.
-     * @param baseUri Uri of the target API server.
      */
-    initAxios(baseUri) {
-        this.axios = axios.create({
-            baseURL: baseUri
-        });
+    initAxios() {
+        this.axios = axios.create(Object.assign({
+            baseURL: this.baseUri
+        }, this.options.axios || {}));
+    }
+
+    /**
+     * Initialise the WideSkyClient with the user configurations.
+     * @returns {Promise<void>}
+     */
+    async initClientOptions() {
+        try {
+            await CLIENT_SCHEMA.validate(this.options.client);
+            this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
+            this.setAcceptGzip(this.clientOptions.acceptGzip);
+
+            if (this.clientOptions.impersonateAs !== null) {
+                this.impersonateAs(this.clientOptions.impersonateAs);
+            }
+
+            if (this.isProgressEnabled) {
+                if (this.clientOptions.progress.instance === undefined) {
+                    const cliProgress = require("cli-progress");
+                    this.clientOptions.progress.instance = new cliProgress.MultiBar({
+                        clearOnComplete: false,
+                        hideCursor: true
+                    }, cliProgress.Presets.shades_classic);
+                }
+            }
+
+            this.initialised = true;
+        } catch (error) {
+            throw new Error(error.message);
+        }
     }
 
     /**
@@ -128,11 +293,20 @@ class WideSkyClient {
     };
 
     impersonateAs(userId) {
-        this._impersonate = userId;
+        if (!this.initialised) {
+            const oldPromise = this.initWaitFor;
+            this.initWaitFor = new Promise(async (resolve) => {
+                await oldPromise;
+                this._impersonate = userId;
+                resolve();
+            });
+        } else {
+            this._impersonate = userId;
+        }
     };
 
     isImpersonating() {
-        return !!this._impersonate;
+        return this._impersonate !== null;
     };
 
     unsetImpersonate() {
@@ -147,6 +321,20 @@ class WideSkyClient {
         return this._acceptGzipEncoding;
     }
 
+    get isProgressEnabled() {
+        return this.clientOptions.progress.enable;
+    }
+
+    /**
+     * Create a progress instance
+     * @param size Highest value for the progress counter.
+     * @param initialValue Initial value for the progress counter.
+     * @returns {*}
+     */
+    progressCreate(size, initialValue=0) {
+        return this.clientOptions.progress.instance[this.clientOptions.progress.create](size, initialValue);
+    }
+
     /**
      * Protected method for submitting requests against the API server with Axios.
      * @param method Request method to be performed. Not case-sensitive.
@@ -157,9 +345,14 @@ class WideSkyClient {
      * @returns Data from response of request.
      */
     async _wsRawSubmit(method, uri, body, config) {
+        if (!this.initialised) {
+            this.logger.info("Not finished initialising. Waiting...");
+            await this.initWaitFor;
+        }
+
         /* istanbul ignore next */
-        if (this._log) {
-            this._log.trace(config, 'Raw request');
+        if (this.logger) {
+            this.logger.trace(config, 'Raw request');
         }
 
         let res;
@@ -214,19 +407,28 @@ class WideSkyClient {
         config = await this._attachReqConfig(config);
 
         try {
+            this.logger.info("Submitting request [%s] %s", method.toUpperCase(), uri);
+            this.logger.debug("With body %j and config %j", body, config);
             return await this._wsRawSubmit(method, uri, body, config);
         }
         catch (err) {
-            // If error is 401, then get new token
-            if (err.response && err.response.status === 401 && this._ws_token) {
-                this._ws_token = null;
-                config = await this._attachReqConfig(config);
-
-                return this._wsRawSubmit(method, uri, body, config);
+            let parsedErr = err;
+            if (isAxiosError(err)) {
+                if (err.response) {
+                    // response has been received from API server
+                    if (err.response.status === 401 && this._ws_token) {
+                        // If error is 401, then get new token
+                        this._ws_token = null;
+                        config = await this._attachReqConfig(config);
+                        return this._wsRawSubmit(method, uri, body, config);
+                    }
+                    else {
+                        parsedErr = RequestError.make(err);
+                    }
+                }
             }
-            else {
-                throw err;
-            }
+            this.logger.error(parsedErr);
+            throw parsedErr;
         }
     }
 
@@ -236,8 +438,8 @@ class WideSkyClient {
      */
     _doLogin() {
         /* istanbul ignore next */
-        if (this._log) {
-            this._log.trace('Performing login attempt');
+        if (this.logger) {
+            this.logger.trace('Performing login attempt');
         }
 
         return this._wsRawSubmit(
@@ -263,7 +465,7 @@ class WideSkyClient {
      */
     _doRefresh() {
         /* istanbul ignore next */
-        if (this._log) this._log.trace('Performing token refresh attempt');
+        if (this.logger) this.logger.trace('Performing token refresh attempt');
 
         return this._wsRawSubmit(
             'POST',
@@ -283,8 +485,8 @@ class WideSkyClient {
 
     _getTokenSuccess(token, resolve) {
         /* istanbul ignore next */
-        if (this._log) {
-            this._log.info('Logged in to API server');
+        if (this.logger) {
+            this.logger.info('Logged in to API server');
         }
         this._ws_token = token;
 
@@ -299,8 +501,8 @@ class WideSkyClient {
 
     _getTokenFail(err, reject) {
         /* istanbul ignore next */
-        if (this._log) {
-            this._log.warn(err, 'Failed to log into API server');
+        if (this.logger) {
+            this.logger.warn(err, 'Failed to log into API server');
         }
         this._ws_token = null;
 
@@ -325,8 +527,8 @@ class WideSkyClient {
         if (this._ws_token_wait !== null) {
             /* Join the queue */
             /* istanbul ignore next */
-            if (this._log) {
-                this._log.trace('Waiting for token acquisition');
+            if (this.logger) {
+                this.logger.trace('Waiting for token acquisition');
             }
 
             return new Promise( (resolve, reject) => {
@@ -341,8 +543,8 @@ class WideSkyClient {
             /* No token, so acquire one */
             this._ws_token_wait = [];
             /* istanbul ignore next */
-            if (this._log) {
-                this._log.trace('Begin token acquisition');
+            if (this.logger) {
+                this.logger.trace('Begin token acquisition');
             }
 
             firstStep = this._doLogin();
@@ -350,8 +552,8 @@ class WideSkyClient {
         else if (this._ws_token.expires_in < Date.now()) {
             /* Token is expired, so do a refresh */
             /* istanbul ignore next */
-            if (this._log) {
-                this._log.trace('Begin token refresh');
+            if (this.logger) {
+                this.logger.trace('Begin token refresh');
             }
 
             this._ws_token_wait = [];
@@ -369,8 +571,8 @@ class WideSkyClient {
                     /* If we're refreshing, try a full log-in */
                     if (refresh) {
                         /* istanbul ignore next */
-                        if (this._log) {
-                            this._log.info(
+                        if (this.logger) {
+                            this.logger.info(
                                 err,
                                 'Refresh fails, trying log-in instead'
                             );
@@ -470,16 +672,28 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "GET",
+            "POST",
             `/api/${op}`,
-            {},
             {
-                params: {
-                    filter,
-                    limit
-                }
+                meta: {
+                    ver: "2.0"
+                },
+                cols: [
+                    {
+                        "name": "filter"
+                    },
+                    {
+                        "name": "limit"
+                    }
+                ],
+                rows: [
+                    {
+                        filter: `s:${filter}`,
+                        limit: `n:${limit}`
+                    }
+                ]
             }
-        )
+        );
     }
 
     /**
@@ -568,8 +782,8 @@ class WideSkyClient {
         /* Ensure updateRec lists `id` */
         if ((!present.id) && (op === 'updateRec')) {
             /* istanbul ignore next */
-            if (this._log) {
-                this._log.trace(entities, 'Entities lacks id column');
+            if (this.logger) {
+                this.logger.trace(entities, 'Entities lacks id column');
             }
 
             throw new Error('id is missing');
@@ -640,8 +854,8 @@ class WideSkyClient {
      */
     createUser(email, name, description, roles, password=null, method=AUTH_METHOD.LOCAL) {
         /* istanbul ignore next */
-        if (this._log) {
-            this._log.trace('Creating a new user: ' + email);
+        if (this.logger) {
+            this.logger.trace('Creating a new user: ' + email);
         }
 
         if (email.length < 1) {
@@ -677,8 +891,8 @@ class WideSkyClient {
      */
     updatePassword(newPassword) {
         /* istanbul ignore next */
-        if (this._log) {
-            this._log.trace('Updating password');
+        if (this.logger) {
+            this.logger.trace('Updating password');
         }
 
         if (!newPassword) {
@@ -1387,7 +1601,7 @@ class WideSkyClient {
                 const ranges = range_val.split(',');
 
                 // Should not be more or less than 2 date(time) values in a range.
-                if (ranges.length != 2) {
+                if (ranges.length !== 2) {
                     throw new Error(range_err + 'Number of timestamps cannot exceed 2.');
                 }
 
@@ -1440,6 +1654,46 @@ class WideSkyClient {
         }
 
         return this.submitRequest('POST', '/api/hisDelete', payload, {});
+    }
+
+    /**
+     * Get the number of entities to be returned from a filter.
+     * @param filter Filter to select entities.
+     * @returns {Promise<*>} Number of entities found.
+     */
+    async entityCount(filter) {
+        const query = `
+{
+  haystack {
+    search(filter: "${filter.replaceAll('"', '\\"')}", limit: 0) {
+      count
+    }
+  }
+}
+`;
+        return Number((await this.query(query)).data.haystack.search.count);
+    }
+
+    /**
+     * Perform a read by filter but only return the IDs of the entities found.
+     * @param filter Filter to select entities.
+     * @param limit Limit to be imposed on the given filter.
+     * @returns {Promise<*>} A list of UUID's of all entities found.
+     */
+    async findAsId(filter, limit=0) {
+        const query = `
+{
+  haystack {
+    search(filter: "${filter.replaceAll('"', '\\"')}", limit: ${limit}) {
+      entity {
+        id
+      }
+    }
+  }
+}
+`;
+        return (await this.query(query)).data.haystack.search.entity
+            .map((entity) => entity.id);
     }
 }
 

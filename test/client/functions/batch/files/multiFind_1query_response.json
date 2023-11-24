@@ -1,0 +1,147 @@
+{
+  "data": {
+    "haystack": {
+      "filter0": {
+        "entity": [
+          {
+            "tags": [
+              {
+                "value": "12",
+                "name": "cetDRParameter",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "Instantaneous Frequency",
+                "name": "dis",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "fbf39ab0-b706-11ec-a26f-0242ac120002",
+                "name": "equipRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "300george.apt0601mtr.freqInst",
+                "name": "fqname",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "freq",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "his",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "07d9b3dc-b707-11ec-9acc-0242ac120002",
+                "name": "id",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "Number",
+                "name": "kind",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "2023-11-17T05:45:00Z",
+                "name": "lastHisTime",
+                "kindValue": {
+                  "__typename": "DateTime"
+                }
+              },
+              {
+                "value": "50.03657531738281",
+                "name": "lastHisVal",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "12",
+                "name": "modbusRegAddr",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "float",
+                "name": "modbusRegFormat",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "4",
+                "name": "modbusRegType",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "1",
+                "name": "modbusScale",
+                "kindValue": {
+                  "__typename": "Number"
+                }
+              },
+              {
+                "value": "freqInst",
+                "name": "name",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "point",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "marker",
+                "name": "sensor",
+                "kindValue": {
+                  "__typename": "Marker"
+                }
+              },
+              {
+                "value": "9a283e08-b706-11ec-8a23-0242ac120002",
+                "name": "siteRef",
+                "kindValue": {
+                  "__typename": "Ref"
+                }
+              },
+              {
+                "value": "GMT-10",
+                "name": "tz",
+                "kindValue": {
+                  "__typename": "Str"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

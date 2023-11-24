@@ -29,15 +29,11 @@ function verifyRequestCall(stubArgs, method, uri, body, config) {
 }
 
 function sleep(ms) {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            return resolve()
-        }, ms);
-    })
+    return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 module.exports = {
-    verifyTokenCall: verifyTokenCall,
-    verifyRequestCall: verifyRequestCall,
-    sleep: sleep
+    verifyTokenCall,
+    verifyRequestCall,
+    sleep
 }

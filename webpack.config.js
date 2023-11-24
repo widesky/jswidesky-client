@@ -54,9 +54,17 @@ module.exports = (env, argv) => {
                 assert: false,
                 zlib: false,
                 buffer: false,
-                https: false
+                https: false,
+                path: false
             }
-        }
+        },
+        externals: [
+            "dtrace-provider",
+            'fs',
+            'mv',
+            'os',
+            'source-map-support'
+        ]
     };
 
     if (argv.mode !== 'production') {

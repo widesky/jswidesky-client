@@ -7,7 +7,7 @@
 
 const sinon = require('sinon'),
     expect = require('chai').expect,
-    WideSkyClient = require('../src/client');
+    WideSkyClient = require('../src/client/client');
 
 const WS_URI = 'http://localhost:3000',
     WS_USER = 'user@example.com',
@@ -48,7 +48,7 @@ require('util').inherits(StubHTTPStatusCodeError, Error);
  */
 const StubHTTPClient = function() {
     const self = this;
-    var handler = null;
+    let handler = null;
 
     /**
      * Assign a new handler that will receive the request and generate the
@@ -69,7 +69,7 @@ const StubHTTPClient = function() {
      * Stub a WideSkyClient instance with this HTTP client instance.
      */
     self.stubClient = function(ws) {
-        const fakeSubmit = sinon.spy((method, uri, body, config) => {
+        ws._wsRawSubmit = sinon.spy((method, uri, body, config) => {
             if (uri === "/oauth2/token") {
                 return Promise.resolve({
                     access_token: WS_ACCESS_TOKEN
@@ -77,7 +77,6 @@ const StubHTTPClient = function() {
             }
             return Promise.resolve()
         });
-        ws._wsRawSubmit = fakeSubmit;
     };
 };
 
@@ -90,7 +89,7 @@ const getInstance = function(http, log) {
 };
 
 const authHandler = function(opts) {
-    var body;
+    let body;
     opts = opts || {};
 
     if (opts.refresh) {
@@ -134,19 +133,19 @@ const authHandler = function(opts) {
 
 /* Exported symbols */
 module.exports = Object.freeze({
-    StubLogger: StubLogger,
-    StubHTTPClient: StubHTTPClient,
-    StubHTTPStatusCodeError: StubHTTPStatusCodeError,
-    getInstance: getInstance,
-    authHandler: authHandler,
+    StubLogger,
+    StubHTTPClient,
+    StubHTTPStatusCodeError,
+    getInstance,
+    authHandler,
     /* Constants */
-    WS_URI: WS_URI,
-    WS_USER: WS_USER,
-    WS_PASSWORD: WS_PASSWORD,
-    WS_CLIENT_ID: WS_CLIENT_ID,
-    WS_CLIENT_SECRET: WS_CLIENT_SECRET,
-    WS_ACCESS_TOKEN: WS_ACCESS_TOKEN,
-    WS_REFRESH_TOKEN: WS_REFRESH_TOKEN,
-    WS_ACCESS_TOKEN2: WS_ACCESS_TOKEN2,
-    WS_REFRESH_TOKEN2: WS_REFRESH_TOKEN2
+    WS_URI,
+    WS_USER,
+    WS_PASSWORD,
+    WS_CLIENT_ID,
+    WS_CLIENT_SECRET,
+    WS_ACCESS_TOKEN,
+    WS_REFRESH_TOKEN,
+    WS_ACCESS_TOKEN2,
+    WS_REFRESH_TOKEN2
 });
