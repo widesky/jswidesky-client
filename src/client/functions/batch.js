@@ -669,6 +669,8 @@ async function create(entities, options={}) {
  * @param entities Entities and their respective tags to be updated.
  * @param options A Object defining batch configuration to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          - success: Return the result of each successful update operation if options.returnResult is true.
+ *          - errors: Return the errors encountered for each failed update operation.
  */
 async function update(entities, options={}) {
     await BATCH_UPDATE_SCHEMA.validate(options);

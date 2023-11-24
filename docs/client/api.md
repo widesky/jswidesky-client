@@ -340,9 +340,11 @@ requests.
 | `options` | Options to configure the behaviour of the batched functionality. See [batch options](options.md#path-clientperformopinbatch) for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{error: String, args: []}>}>`
+- `success`: Contain the responses of successful operations when `options.returnResult` is `true`.
+- `errors`: Contain an errors encountered when performing operations.
 
 ### WideSkyClient.batch.hisWrite(hisWriteData, options)
-**Description:** Perform a hisWrite operation using batched functionality.  
+**Description:** Perform a hisWrite operation using batch functionality.  
 **Parameters:**
 
 | Param          | Description                                                                                                                                                                                                                          | Type                      | Default |
@@ -351,6 +353,8 @@ requests.
 | `options`      | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be sent. The rows are defined as the time series for each entity. | Object                    | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Contain the responses of successful operations of hisWrite when `options.returnResult` is `true`.
+- `errors`: Contain an errors encountered when performing operations.
 
 ### WideSkyClient.batch.hisRead(ids, from, to, options)
 **Description:** Perform a history read request using batch functionality.  
@@ -364,6 +368,8 @@ requests.
 | `options` | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the number of ids to perform a hisRead for. | Object         | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: A 2D array of time series data in the order of ids queried.
+- `errors`: Contain an errors encountered when performing operations.
 
 ### WideSkyClient.batch.hisDelete(ids, start, end, options)
 **Description:** Perform a history delete request using batch functionality. A hisRead will be performed for the ids
@@ -380,6 +386,8 @@ operation.
 | `options` | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be deleted across all ids given. |      |         |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the responses of hisDelete operations if `options.returnResult` is `true`.
+- `errors`: Return the errors encountered from hisDelete operations.
 
 ### WideSkyClient.batch.create(entities, options)
 **Description:** Perform a create request using batch functionality. The request are batched based on the number of
@@ -392,6 +400,8 @@ entities given.
 | `options`  | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the result of each successful create operation if `options.returnResult` is `true`.
+- `errors`: Return the errors encountered for each failed create operation.
 
 ### WideSkyClient.batch.update(entities, options)
 **Description:** Perform an update requesting using batch functionality. The request are batched based on the number
@@ -404,6 +414,8 @@ of entities given.
 | `options`  | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the result of each successful update operation if `options.returnResult` is `true`.
+- `errors`: Return the errors encountered for each failed update operation.
 
 ### WideSkyClient.batch.deleteById(ids, options)
 **Description:** Perform a deleteById operation using batch functionality. The request are batched based on the number
@@ -416,10 +428,13 @@ of entities given.
 | `options` | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the result of each successful update operation if `options.returnResult` is `true`.
+- `errors`: Return the errors encountered for each failed update operation.
 
 ### WideSkyClient.batch.deleteByFilter(filter, limit, options)
 **Description:** Perform a deleteByFilter operation using batch functionality. The request are batched based on the
-number of entities retrieved from the given filter and limit.  
+number of entities retrieved from the given filter and limit. The batched payloads are passed to 
+`WideSkyClient.deleteById`.
 **Parameters:**
 
 | Param     | Description                                                                            | Type   | Default |
@@ -429,6 +444,8 @@ number of entities retrieved from the given filter and limit.
 | `options` | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the result of each successful deleteByID operation if `options.returnResult` is `true`.
+- `errors`: Return the errors encountered for each failed `deleteById` operation.
 
 ### WideSkyClient.batch.hisReadByFilter(filter, from, to, options)
 **Description:** Perform a hisRead using a filter to select the entities with batch functionality.  
@@ -442,6 +459,8 @@ number of entities retrieved from the given filter and limit.
 | `options` | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the result of each successful hisRead operation if `options.returnResult` is `true`.
+- `errors`: Return the errors encountered for each failed hisRead operation.
 
 ### WideSkyClient.batch.updateByFilter(filter, criteriaList, options)
 **Description:** Update the entities found in the filter by the given list of criteria using batch functionality.  
@@ -454,6 +473,8 @@ number of entities retrieved from the given filter and limit.
 | `options`      | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the result of each successful update operation if `options.returnResult` is `true`.
+- `errors`: Return the errors encountered for each failed update operation.
 
 ### WideSkyClient.batch.hisDeleteByFilter(filter, start, end, options)
 **Description:** Perform a hisDelete using a filter to select the entities.  
@@ -467,6 +488,8 @@ number of entities retrieved from the given filter and limit.
 | `options` | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be deleted across all ids given. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the result of each successful hisDelete operation when `options.returnResult` is `true`.
+- `errors`: Return any errors encountered when performing hisDelete operations.
 
 ### WideSkyClient.batch.migrateHistory(fromEntity, toEntity, options)
 **Description:** Perform a historical data migration between fromEntity and toEntity using batch functionality.  
@@ -479,6 +502,8 @@ number of entities retrieved from the given filter and limit.
 | `options`    | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be sent. The rows are defined as the time series for each entity. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the success hisWrite data that has been migrated to toEntity if `options.returnResult` is `true`.
+- `errors`: Return all errors encountered.
 
 ### WideSkyClient.batch.addChildrenByFilter(filter, children, tagMap, options)
 **Description:** Add the given children the parents found in the given filter.  
@@ -492,6 +517,8 @@ number of entities retrieved from the given filter and limit.
 | `options`  | A Object defining batch configurations to be used. See README.md for more information.                                                                                                                    | Object       | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Return the result of the create operations performed when `options.returnResult` is `true`.
+- `errors`: Return an errors encountered from the create operations performed.
 
 ### WideSkyClient.batch.multiFind(filterAndLimits, options)
 **Description:** Perform multi read-by-filter requests in a single request. The number of filters sent in a request
@@ -504,6 +531,8 @@ is determined.
 | `options`        | A Object defining batch configurations to be used. See README.md for more information. | Object       | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: A 2D Array of the result from each read-by-filter given.
+- `errors`: All errors encountered from performing read-by-filter operations.
 
 ### WideSkyClient.batch.updateOrCreate(entities, options)
 **Description:** Perform an update or create request for the list of entities given. If the entity exists, the
@@ -517,3 +546,5 @@ not exist, it will be created.
 | `options`  | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
+- `success`: Array of entities in their current state in the WideSky database.
+- `errors`: Any errors encountered during create or update operations.
