@@ -187,6 +187,7 @@ function createBatchRequest(op, args, result, returnResult) {
  *                - parallelDelay: Delay in milliseconds between each set of parallel requests.
  *                - returnResult: Enable or disable returning the result of the queries sent.
  *                - transformer: A function to transform the payload to be passed to the client operation.
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function performOpInBatch(op, args, options={}) {
     // evaluate options
@@ -254,7 +255,7 @@ async function performOpInBatch(op, args, options={}) {
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be sent. The rows are
  *                defined as the time series for each entity.
- * @returns {Promise<*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function hisWrite(hisWriteData, options={}) {
     if (!["Object", "HisWritePayload"].includes(hisWriteData.constructor.name)) {
@@ -285,7 +286,8 @@ async function hisWrite(hisWriteData, options={}) {
  * @param   to  Date Object representing where to grab historical data to (not inclusive).
  * @param   options A Object defining batch configurations to be used. See README.md for more information.
  *                  Option batchSize is determined by the number of ids to perform a hisRead for.
- * @returns A 2D array of time series data in the order of ids queried.
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          A 2D array of time series data in the order of ids queried.
  */
 async function hisRead(ids, from, to, options={}) {
     await BATCH_HIS_READ_SCHEMA.validate(options);
@@ -548,7 +550,7 @@ function createTimeRanges(data, ids, batch, batchSize, startTime, timeEnd) {
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
- * @returns {Promise<void>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function hisDelete(ids, timeStart, timeEnd, options={}) {
     await BATCH_HIS_DELETE_SCHEMA.validate(options);
@@ -641,7 +643,7 @@ async function hisDelete(ids, timeStart, timeEnd, options={}) {
  * Perform a create request using batch functionality. The request are batched based on the number of entities given.
  * @param entities Entities to be created.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function create(entities, options={}) {
     await BATCH_CREATE_SCHEMA.validate(options);
@@ -653,7 +655,7 @@ async function create(entities, options={}) {
  * Perform an update requesting using batch functionality. The request are batched based on the number of entities given.
  * @param entities Entities and their respective tags to be updated.
  * @param options A Object defining batch configuration to be used. See README.md for more information.
- * @returns {Promise<*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function update(entities, options={}) {
     await BATCH_UPDATE_SCHEMA.validate(options);
@@ -681,7 +683,7 @@ async function deleteById(ids, options={}) {
  * @param filter Filter to search for entities.
  * @param limit Limit to be imposed on the result of the given filter.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function deleteByFilter(filter, limit=0, options={}) {
     await BATCH_DELETE_BY_FILTER_SCHEMA.validate(options);
@@ -712,7 +714,7 @@ async function deleteByFilter(filter, limit=0, options={}) {
  * @param from Haystack read range or a Date Object representing where to grab historical data from.
  * @param to  Date Object representing where to grab historical data to (not inclusive).
  * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function hisReadByFilter(filter, from, to, options={}) {
     await BATCH_HIS_READ_BY_FILTER_SCHEMA.validate(options);
@@ -742,7 +744,7 @@ async function hisReadByFilter(filter, from, to, options={}) {
  * @param filter Filter to search for entities.
  * @param criteriaList A list of EntityCriteria objects defining the criteria to match against.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function updateByFilter(filter, criteriaList, options={}) {
     await BATCH_UPDATE_BY_FILTER_SCHEMA.validate(options);
@@ -795,7 +797,7 @@ async function updateByFilter(filter, criteriaList, options={}) {
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
- * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function hisDeleteByFilter(filter, start, end, options={}) {
     await BATCH_HIS_DELETE_BY_FILTER_SCHEMA.validate(options);
@@ -827,7 +829,7 @@ async function hisDeleteByFilter(filter, start, end, options={}) {
  * @param options A Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be sent. The rows are
  *                defined as the time series for each entity.
- * @returns {Promise<*>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function migrateHistory(fromEntity, toEntity, options={}) {
     await BATCH_MIGRATE_HISTORY_SCHEMA.validate(options);
@@ -850,7 +852,7 @@ async function migrateHistory(fromEntity, toEntity, options={}) {
  *                Each element of the Array is an Array with elements as [tagOfParent, toTagOnChild].
  *                For example [["id", "equipRef"]].
  * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<void>}
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  */
 async function addChildrenByFilter(filter, children, tagMap=[], options={}) {
     if (!Array.isArray(children) || children.filter((arr) => typeof arr !== "object").length) {
@@ -919,7 +921,8 @@ function getReadByFilterQuery(alias, filter, limit) {
  * by options.batchSize.
  * @param filterAndLimits A 2D Array defining the filter and limit of each read-by-filter to be queried.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<*[]>} A 2D Array of the result from each read-by-filter given.
+ * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
+ *          A 2D Array of the result from each read-by-filter given.
  */
 async function multiFind(filterAndLimits, options={}) {
     if (!Array.isArray(filterAndLimits) ||
@@ -1046,7 +1049,8 @@ const createUpdatePayload = (oldEntity, newEntity, logger) => {
  * will be created.
  * @param entities Array of entities to be updated or created.
  * @param options A Object defining batch configurations to be used. See README.md for more information.
- * @returns {Promise<Awaited<unknown>[]>} Array of entities in their current state in the WideSky database.
+ * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
+ *          Array of entities in their current state in the WideSky database.
  */
 async function updateOrCreate(entities, options={}) {
     if (!Array.isArray(entities)) {
