@@ -33,7 +33,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
     - Bunyan logging instance
 - Added new set of functions under property `v2` of the `WideSkyClient` instance. `v2` consists of client functions:
   - `find`: Same functionality as the existing `WideSkyClient.find` but returns only the rows.
-- Added new `HisWritePayload` to more easily create payloads suitable for the `hisWrite` function.
 - Added new function `performOpInBatch` to perform client operations in a batched and parallel manner. Will be used
   as the basis for all new batch functions added.
 - Add new batch functions:
@@ -52,6 +51,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `client.batch.multiFind(filterAndLimits, options)`
   - `client.batch.updateOrCreate(entities, options)`
 - Added new utility class `EntityCriteria`  to be used with `client.batch.updateByFilter`.
+- Added new utility class `HisWritePayload` to more easily create payloads suitable for the `hisWrite` function.
 - Added new function `entityCount(filter)` to get the number of entities from a filter via a GraphQL query.
 - Added new function `findAsId(filter, limit)` to optimise functions that only require the ids of the entity,
   normally discarding any other information that would be returned from `client.find`.
