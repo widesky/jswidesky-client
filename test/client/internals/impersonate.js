@@ -55,18 +55,32 @@ describe('client', () => {
                 expect(ws._wsRawSubmit.callCount).to.equal(2);
                 verifyRequestCall(
                     ws._wsRawSubmit.secondCall.args,
-                    "GET",
+                    "POST",
                     "/api/deleteRec",
-                    {},
+                    {
+                        "cols": [
+                            {
+                                "name": "filter"
+                            },
+                            {
+                                "name": "limit"
+                            }
+                        ],
+                        "meta": {
+                            "ver": "2.0"
+                        },
+                        "rows": [
+                            {
+                                "filter": "s:myTag==\"my value\"",
+                                "limit": "n:30"
+                            }
+                        ]
+                    },
                     {
                         headers: {
                             "Accept": "application/json",
                             "Authorization": "Bearer an access token",
                             "X-IMPERSONATE": targetUser
-                        },
-                        params: {
-                            filter: 'myTag=="my value"',
-                            limit: 30
                         },
                         decompress: true
                     }
@@ -83,17 +97,31 @@ describe('client', () => {
                 expect(ws._wsRawSubmit.callCount).to.equal(2);
                 verifyRequestCall(
                     ws._wsRawSubmit.secondCall.args,
-                    "GET",
+                    "POST",
                     "/api/deleteRec",
-                    {},
+                    {
+                        "cols": [
+                            {
+                                "name": "filter"
+                            },
+                            {
+                                "name": "limit"
+                            }
+                        ],
+                        "meta": {
+                            "ver": "2.0"
+                        },
+                        "rows": [
+                            {
+                                "filter": "s:myTag==\"my value\"",
+                                "limit": "n:30"
+                            }
+                        ]
+                    },
                     {
                         headers: {
                             "Accept": "application/json",
                             "Authorization": "Bearer an access token"
-                        },
-                        params: {
-                            filter: 'myTag=="my value"',
-                            limit: 30
                         },
                         decompress: true
                     }

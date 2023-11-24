@@ -20,7 +20,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `clientId`: The Client ID for OAuth 2.0 authentication (required).
   - `clientSecret`: The Client secret for OAuth 2.0 authentication (required).
   - `accessToken`: A valid WideSky access token for OAuth 2.0 authentication (optional).
-  - `options`: A Object containing attributes axios and client for configuring the axios and WideSky client
+  - `options`: An Object containing attributes axios and client for configuring the axios and WideSky client
     respectively. The options argument is expected to have the following structure as defined in 
     [Client Options](./docs/client/options.md).
   - `logger`: This can be one of:

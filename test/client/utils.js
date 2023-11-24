@@ -33,7 +33,7 @@ function sleep(ms) {
 }
 
 module.exports = {
-    verifyTokenCall: verifyTokenCall,
-    verifyRequestCall: verifyRequestCall,
-    sleep: sleep
+    verifyTokenCall,
+    verifyRequestCall,
+    sleep
 }

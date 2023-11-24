@@ -51,19 +51,33 @@ describe('client', () => {
             expect(ws._wsRawSubmit.callCount).to.equal(2);
             verifyRequestCall(
                 ws._wsRawSubmit.secondCall.args,
-                "GET",
+                "POST",
                 "/api/read",
-                {},
+                {
+                    "cols": [
+                        {
+                            "name": "filter"
+                        },
+                        {
+                            "name": "limit"
+                        }
+                    ],
+                    "meta": {
+                        "ver": "2.0"
+                    },
+                    "rows": [
+                        {
+                            "filter": "s:myTag==\"my value\"",
+                            "limit": "n:0"
+                        }
+                    ]
+                },
                 {
                     headers: {
                         Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
                         Accept: "application/json"
                     },
-                    decompress: true,
-                    params: {
-                        filter: 'myTag=="my value"',
-                        limit: 0
-                    }
+                    decompress: true
                 }
             );
         });
@@ -75,19 +89,33 @@ describe('client', () => {
             expect(ws._wsRawSubmit.callCount).to.equal(2);
             verifyRequestCall(
                 ws._wsRawSubmit.secondCall.args,
-                "GET",
+                "POST",
                 "/api/read",
-                {},
+                {
+                    "cols": [
+                        {
+                            "name": "filter"
+                        },
+                        {
+                            "name": "limit"
+                        }
+                    ],
+                    "meta": {
+                        "ver": "2.0"
+                    },
+                    "rows": [
+                        {
+                            "filter": "s:myTag==\"my value\"",
+                            "limit": "n:30"
+                        }
+                    ]
+                },
                 {
                     headers: {
                         Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
                         Accept: "application/json"
                     },
-                    decompress: true,
-                    params: {
-                        filter: 'myTag=="my value"',
-                        limit: 30
-                    }
+                    decompress: true
                 }
             );
         });

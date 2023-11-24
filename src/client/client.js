@@ -52,6 +52,41 @@ const AUTH_METHOD = Object.freeze({
     SCRAM: 'scram'
 });
 
+/**
+ * Initialise a logging instance.
+ * @param logObj An Object that can be:
+ *                  - Empty, meaning a default Bunyan logger is used
+ *                  - Object for which a Bunyan instance will be created with:
+ *                      - name: Name of logging instance
+ *                      - level: Bunyan logging level to show logs higher.
+ *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+ *                  - Bunyan logging instance.
+ * @returns {Object} A logging instance
+ */
+function initLogger(logObj) {
+    let logger;
+    if (logObj === undefined) {
+        logger = bunyan.createLogger({
+            name: "WideSky-Client"
+        });
+    } else if (logObj.constructor.name === "Object") {
+        logger = bunyan.createLogger({
+            name: logObj.name || "WideSky-Client",
+            level: logObj.level || "info",
+            stream: logObj.raw ? process.stdout : bFormat({
+                outputMode: 'short',
+                color: true,
+                levelInString: true
+            }, process.stdout)
+        })
+    } else {
+        // use Bunyan logging instance given.
+        logger = logObj;
+    }
+
+    return logger;
+}
+
 class WideSkyClient {
     base_uri
     #username
@@ -70,14 +105,20 @@ class WideSkyClient {
 
     /**
      * Constructor for WideSky Client
-     * @param baseUri URI to access the WideSky API (excluding /api)
+     * @param baseUri URI to access the WideSky API (excluding /api).
      * @param username Username of the WideSky user to authenticate with.
      * @param password Password of the WideSky user to authenticate with.
      * @param clientId Client ID for OAuth 2.0 authentication.
      * @param clientSecret Client secret for OAuth 2.0 authentication.
-     * @param logger A Bunyan logging instance.
+     * @param logger An Object that can be:
+     *                  - Undefined, meaning a default Bunyan logger is used
+     *                  - Object for which a Bunyan instance will be created with:
+     *                      - name: Name of logging instance
+     *                      - level: Bunyan logging level to show logs higher.
+     *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
+     *                  - Bunyan logging instance.
      * @param accessToken A valid WideSky access token.
-     * @param options A Object containing attributes "axios" and "client" for configuring the axios and WideSky client
+     * @param options An Object containing attributes "axios" and "client" for configuring the axios and WideSky client
      *                respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults.
      */
     constructor(baseUri,
@@ -94,7 +135,7 @@ class WideSkyClient {
         this.#clientId = clientId;
         this.#clientSecret = clientSecret;
         this.#accessToken = accessToken;
-        this.logger = logger || bunyan.createLogger({name: "WideSky-Client"});
+        this.logger = initLogger(logger);
         this.options = options;
         this.clientOptions = null;
         this._impersonate = null;
@@ -135,44 +176,15 @@ class WideSkyClient {
             }
         }
 
-        const {
-            serverURL,
-            username,
-            password,
-            clientId,
-            clientSecret,
-            accessToken,
-            options
-        } = config;
-        let { logger } = config;
-
-        if (logger === undefined) {
-            logger = bunyan.createLogger({
-                name: "WideSky-Client"
-            });
-        } else if (logger.constructor.name === "Object") {
-            logger = bunyan.createLogger({
-                name: logger.name || "WideSky-Client",
-                level: logger.level || "info",
-                stream: logger.raw ? process.stdout : bFormat({
-                    outputMode: 'short',
-                    color: true,
-                    levelInString: true
-                }, process.stdout)
-            })
-        } else {
-            // use Bunyan logging instance given.
-        }
-
         return new WideSkyClient(
-            serverURL,
-            username,
-            password,
-            clientId,
-            clientSecret,
-            logger,
-            accessToken,
-            options
+            config.serverURL,
+            config.username,
+            config.password,
+            config.clientId,
+            config.clientSecret,
+            config.logger,
+            config.accessToken,
+            config.options
         );
     }
 
@@ -395,6 +407,8 @@ class WideSkyClient {
         config = await this._attachReqConfig(config);
 
         try {
+            this.logger.info("Submitting request [%s] %s", method.toUpperCase(), uri);
+            this.logger.debug("With body %j and config %j", body, config);
             return await this._wsRawSubmit(method, uri, body, config);
         }
         catch (err) {
@@ -658,16 +672,28 @@ class WideSkyClient {
         }
 
         return this.submitRequest(
-            "GET",
+            "POST",
             `/api/${op}`,
-            {},
             {
-                params: {
-                    filter,
-                    limit
-                }
+                meta: {
+                    ver: "2.0"
+                },
+                cols: [
+                    {
+                        "name": "filter"
+                    },
+                    {
+                        "name": "limit"
+                    }
+                ],
+                rows: [
+                    {
+                        filter: `s:${filter}`,
+                        limit: `n:${limit}`
+                    }
+                ]
             }
-        )
+        );
     }
 
     /**
