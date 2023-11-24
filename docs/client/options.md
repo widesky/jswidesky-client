@@ -22,9 +22,9 @@ The Object defined in `client` is expected to have the following structure:
 | Path from `client` | Description                                                                                       | Type   | Default |
 |--------------------|---------------------------------------------------------------------------------------------------|--------|---------|
 | `impersonateAs`    | A WideSky user ID to impersonate requests as.                                                     | String | `null`  |
-| `progress`         | A Object defining live progress report configurations. Not used if `progress.enabled` is `false`. | Object | `false` |
-| `performOpInBatch` | A Object defining default configurations for the function `performOpInBatch`                      | Object |         |
-| `batch`            | A Object defining default configurations for various batch functions.                             | Object |         |
+| `progress`         | An Object defining live progress report configurations. Not used if `progress.enabled` is `false`. | Object | `false` |
+| `performOpInBatch` | An Object defining default configurations for the function `performOpInBatch`                      | Object |         |
+| `batch`            | An Object defining default configurations for various batch functions.                             | Object |         |
 
 ### Path `client.progress`
 The Object defined in `client.progress` is expected to have the following structure:

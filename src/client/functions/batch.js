@@ -178,7 +178,7 @@ function createBatchRequest(op, args, result, returnResult) {
  * Perform a WideSky client operation in batches or in parallel.
  * @param op Function to be called on the client instance.
  * @param args An Array of arguments to be passed to the client. The first index must be the batch'able payload.
- * @param options A Object of options available to configure the operation. These include:
+ * @param options An Object of options available to configure the operation. These include:
  *                - batchSize: Size of each batch sent to API server. For a payload of type Object, this is the \
  *                             number of keys.
  *                - batchDelay: Delay in milliseconds between the completion of a request and the next request to be
@@ -254,7 +254,7 @@ async function performOpInBatch(op, args, options={}) {
 /**
  * Perform a hisWrite operation using batch functionality.
  * @param hisWriteData HisWrite data to be sent. Can be the raw hisWrite payload or an instance of HisWritePayload.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be sent. The rows are
  *                defined as the time series for each entity.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
@@ -288,7 +288,7 @@ async function hisWrite(hisWriteData, options={}) {
  * @param   ids Entities to read.
  * @param   from Haystack read range or a Date Object representing where to grab historical data from.
  * @param   to  Date Object representing where to grab historical data to (not inclusive).
- * @param   options A Object defining batch configurations to be used. See README.md for more information.
+ * @param   options An Object defining batch configurations to be used. See README.md for more information.
  *                  Option batchSize is determined by the number of ids to perform a hisRead for.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: A 2D array of time series data in the order of ids queried.
@@ -552,7 +552,7 @@ function createTimeRanges(data, ids, batch, batchSize, startTime, timeEnd) {
  *            options.batchSizeEntity.
  * @param timeStart Starting timestamp to be deleted as a Date Object.
  * @param timeEnd Ending timestamp to be deleted as a Date Object (not inclusive).
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
@@ -653,7 +653,7 @@ async function hisDelete(ids, timeStart, timeEnd, options={}) {
 /**
  * Perform a create request using batch functionality. The request are batched based on the number of entities given.
  * @param entities Entities to be created.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: Return the result of each successful create operation if options.returnResult is true.
  *          - errors: Return the errors encountered for each failed create operation.
@@ -667,7 +667,7 @@ async function create(entities, options={}) {
 /**
  * Perform an update requesting using batch functionality. The request are batched based on the number of entities given.
  * @param entities Entities and their respective tags to be updated.
- * @param options A Object defining batch configuration to be used. See README.md for more information.
+ * @param options An Object defining batch configuration to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: Return the result of each successful update operation if options.returnResult is true.
  *          - errors: Return the errors encountered for each failed update operation.
@@ -682,7 +682,7 @@ async function update(entities, options={}) {
  * Perform a deleteById operation using batch functionality. The request are batched based on the number of entities
  * given.
  * @param ids The id of each entity to be deleted.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: Return the result of each successful update operation if options.returnResult is true.
  *          - errors: Return the errors encountered for each failed update operation.
@@ -699,7 +699,7 @@ async function deleteById(ids, options={}) {
  * retrieved from the given filter and limit. The batched payloads are passed to WideSkyClient.deleteById.
  * @param filter Filter to search for entities.
  * @param limit Limit to be imposed on the result of the given filter.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: Return the result of each successful deleteByID operation if options.returnResult is true.
  *          - errors: Return the errors encountered for each failed deleteById operation.
@@ -732,7 +732,7 @@ async function deleteByFilter(filter, limit=0, options={}) {
  * @param filter Filter to search for entities.
  * @param from Haystack read range or a Date Object representing where to grab historical data from.
  * @param to  Date Object representing where to grab historical data to (not inclusive).
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: Return the result of each successful hisRead operation if options.returnResult is true.
  *          - errors: Return the errors encountered for each failed hisRead operation.
@@ -764,7 +764,7 @@ async function hisReadByFilter(filter, from, to, options={}) {
  * Update the entities found in the filter by the given list of criteria using batch functionality.
  * @param filter Filter to search for entities.
  * @param criteriaList A list of EntityCriteria objects defining the criteria to match against.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: Return the result of each successful update operation if options.returnResult is true.
  *          - errors: Return the errors encountered for each failed update operation.
@@ -817,7 +817,7 @@ async function updateByFilter(filter, criteriaList, options={}) {
  * @param filter Filter to select the entities to be hisDelete'd.
  * @param start Starting timestamp to be deleted as a Date Object.
  * @param end Ending timestamp to be deleted as a Date Object (not inclusive).
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be deleted across
  *                all ids given.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
@@ -851,7 +851,7 @@ async function hisDeleteByFilter(filter, start, end, options={}) {
  * Perform a historical data migration between fromEntity and toEntity using batch functionality.
  * @param fromEntity The entity to migrate data from as a UUID or fqname.
  * @param toEntity The entity to migrate data to as a UUID or fqname.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  *                Option batchSize is determined by the maximum number of time series rows to be sent. The rows are
  *                defined as the time series for each entity.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
@@ -884,7 +884,7 @@ async function migrateHistory(fromEntity, toEntity, options={}) {
  * @param tagMap A 2D Array of tags to be copied from the parent (if present) to the child entities.
  *                Each element of the Array is an Array with elements as [tagOfParent, toTagOnChild].
  *                For example [["id", "equipRef"]].
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: Return the result of the create operations performed when options.returnResult is true.
  *          - errors: Return an errors encountered from the create operations performed.
@@ -955,7 +955,7 @@ function getReadByFilterQuery(alias, filter, limit) {
  * Perform multi read-by-filter requests in a single request. The number of filters sent in a request is determined
  * by options.batchSize.
  * @param filterAndLimits A 2D Array defining the filter and limit of each read-by-filter to be queried.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>}
  *          - success: A 2D Array of the result from each read-by-filter given.
  *          - errors: All errors encountered from performing read-by-filter operations.
@@ -1084,7 +1084,7 @@ const createUpdatePayload = (oldEntity, newEntity, logger) => {
  * checked for changes if an update is required, and send a request as necessary. If the entity does not exist, it
  * will be created.
  * @param entities Array of entities to be updated or created.
- * @param options A Object defining batch configurations to be used. See README.md for more information.
+ * @param options An Object defining batch configurations to be used. See README.md for more information.
  * @returns {Promise<{success: *[], errors: [{args: (string|*)[], error}]}|*>}
  *          - success: Array of entities in their current state in the WideSky database.
  *          - errors: Any errors encountered during create or update operations.

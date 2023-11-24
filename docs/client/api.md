@@ -69,10 +69,10 @@ A developer can create a `WideSkyClient` instance by either using the class cons
 | `clientSecret` | Client secret for OAuth 2.0 authentication.                                                                                                                                                                                                                                             | String                |         |
 | `logger`       | A Bunyan logging instance, Bunyan logging configurations or nothing. For more information, see [Parameter logger Explained](#parameter-logger-explained).                                                                                                                               | Object or `undefined` |         |
 | `accessToken`  | A valid WideSky access token.                                                                                                                                                                                                                                                           | String                |         |
-| `options`      | A Object containing attributes "axios" and "client" for configuring the axios and WideSky client respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults. See [client options](options.md#client-options) for information of options available. | Object                |         |
+| `options`      | An Object containing attributes "axios" and "client" for configuring the axios and WideSky client respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults. See [client options](options.md#client-options) for information of options available. | Object                |         |
 
 ### Parameter `logger` Explained
-A Object that can be:
+An Object that can be:
 - `Undefined`, meaning a default Bunyan logger is used
 - `Object` for which a Bunyan instance will be created with:
   - `name`: Name of logging instance
@@ -99,7 +99,7 @@ A Object that can be:
 | `clientId`     | Client ID for OAuth 2.0 authentication.                                                                                                                                                                                                                                                 | String                | ✓        |
 | `clientSecret` | Client secret for OAuth 2.0 authentication.                                                                                                                                                                                                                                             | String                | ✓        |
 | `accessToken`  | A valid WideSky access token.                                                                                                                                                                                                                                                           | String                | ✕        |
-| `options`      | A Object containing attributes "axios" and "client" for configuring the axios and WideSky client respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults. See [client options](options.md#client-options) for information of options available. | Object                | ✕        |
+| `options`      | An Object containing attributes "axios" and "client" for configuring the axios and WideSky client respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults. See [client options](options.md#client-options) for information of options available. | Object                | ✕        |
 | `logger`       | A Bunyan logging instance, Bunyan logging configurations or nothing. For more information, see [Parameter logger Explained](#parameter-logger-explained).                                                                                                                               | Object or `undefined` | ✕        |
 
 # Performing an operation
@@ -454,7 +454,7 @@ requests.
 | Param          | Description                                                                                                                                                                                                                          | Type                      | Default |
 |----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------|---------|
 | `hisWriteData` | HisWrite data to be sent. Can be the raw hisWrite payload or an instance of HisWritePayload.                                                                                                                                         | Object or HisWritePayload |         |
-| `options`      | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be sent. The rows are defined as the time series for each entity. | Object                    | `{}`    |
+| `options`      | An Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be sent. The rows are defined as the time series for each entity. | Object                    | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Contain the responses of successful operations of hisWrite when `options.returnResult` is `true`.
@@ -469,7 +469,7 @@ requests.
 | `ids`     | Entities to read.                                                                                                                                                    | Array          |         |
 | `from`    | Haystack read range or a Date Object representing where to grab historical data from.                                                                                | String or Date |         |
 | `to`      | Date Object representing where to grab historical data to (not inclusive).                                                                                           | String or Date |         |
-| `options` | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the number of ids to perform a hisRead for. | Object         | `{}`    |
+| `options` | An Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the number of ids to perform a hisRead for. | Object         | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: A 2D array of time series data in the order of ids queried.
@@ -487,7 +487,7 @@ operation.
 | `ids`     | An array of point entity UUIDs for the delete operations or a single string. These will be batched by options.batchSizeEntity.                                                                      |      |         |
 | `start`   | Starting timestamp to be deleted as a Date Object.                                                                                                                                                  |      |         |
 | `end`     | Ending timestamp to be deleted as a Data Object (not inclusive).                                                                                                                                    |      |         |
-| `options` | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be deleted across all ids given. |      |         |
+| `options` | An Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be deleted across all ids given. |      |         |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the responses of hisDelete operations if `options.returnResult` is `true`.
@@ -501,7 +501,7 @@ entities given.
 | Param      | Description                                                                            | Type   | Default |
 |------------|----------------------------------------------------------------------------------------|--------|---------|
 | `entities` | Entities to be created.                                                                | Array  |         |
-| `options`  | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
+| `options`  | An Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the result of each successful create operation if `options.returnResult` is `true`.
@@ -515,7 +515,7 @@ of entities given.
 | Param      | Description                                                                            | Type   | Default |
 |------------|----------------------------------------------------------------------------------------|--------|---------|
 | `entities` | Entities and respective tags to be updated.                                            | Array  |         |
-| `options`  | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
+| `options`  | An Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the result of each successful update operation if `options.returnResult` is `true`.
@@ -529,7 +529,7 @@ of entities given.
 | Param     | Description                                                                            | Type   | Default |
 |-----------|----------------------------------------------------------------------------------------|--------|---------|
 | `ids`     | The id of each entity to be deleted.                                                   | Array  |         |
-| `options` | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
+| `options` | An Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the result of each successful update operation if `options.returnResult` is `true`.
@@ -545,7 +545,7 @@ number of entities retrieved from the given filter and limit. The batched payloa
 |-----------|----------------------------------------------------------------------------------------|--------|---------|
 | `filter`  | Filter to search for entities.                                                         | String |         |
 | `limit`   | Limit to be imposed on the result of the given filter.                                 | Number |         |
-| `options` | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
+| `options` | An Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the result of each successful deleteByID operation if `options.returnResult` is `true`.
@@ -560,7 +560,7 @@ number of entities retrieved from the given filter and limit. The batched payloa
 | `filter`  | Filter to search for entities.                                                         | String |         |
 | `from`    | Haystack read range or a Date Object representing where to grab historical data from.  | Date   |         |
 | `to`      | Date Object representing where to grab historical data to (not inclusive).             | Date   |         |
-| `options` | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
+| `options` | An Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the result of each successful hisRead operation if `options.returnResult` is `true`.
@@ -574,7 +574,7 @@ number of entities retrieved from the given filter and limit. The batched payloa
 |----------------|----------------------------------------------------------------------------------------|--------|---------|
 | `filter`       | Filter to search for entities.                                                         | String |         |
 | `criteriaList` | A list of EntityCriteria objects defining the criteria to match against.               | Array  |         |
-| `options`      | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
+| `options`      | An Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the result of each successful update operation if `options.returnResult` is `true`.
@@ -589,7 +589,7 @@ number of entities retrieved from the given filter and limit. The batched payloa
 | `filter`  | Filter to select the entities to be hisDelete'd.                                                                                                                                                    | String |         |
 | `start`   | Starting timestamp to be deleted as a Date Object.                                                                                                                                                  | Date   |         |
 | `end`     | Ending timestamp to be deleted as a Data Object (not inclusive).                                                                                                                                    | Date   |         |
-| `options` | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be deleted across all ids given. | Object | `{}`    |
+| `options` | An Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be deleted across all ids given. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the result of each successful hisDelete operation when `options.returnResult` is `true`.
@@ -603,7 +603,7 @@ number of entities retrieved from the given filter and limit. The batched payloa
 |--------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|---------|
 | `fromEntity` | The entity to migrate data from as a UUID or fqname.                                                                                                                                                                                 | String |         |
 | `toEntity`   | The entity to migrate data to as a UUID or fqname.                                                                                                                                                                                   | String |         |
-| `options`    | A Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be sent. The rows are defined as the time series for each entity. | Object | `{}`    |
+| `options`    | An Object defining batch configurations to be used. See README.md for more information. Option batchSize is determined by the maximum number of time series rows to be sent. The rows are defined as the time series for each entity. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the success hisWrite data that has been migrated to toEntity if `options.returnResult` is `true`.
@@ -618,7 +618,7 @@ number of entities retrieved from the given filter and limit. The batched payloa
 | `filter`   | Filter to define the parents.                                                                                                                                                                             | String       |         |
 | `children` | Children to be added to the found parents.                                                                                                                                                                | Array        |         |
 | `tagMap`   | A 2D Array of tags to be copied from the parent (if present) to the child entities. Each element of the Array is an Array with elements as [tagOfParent, toTagOnChild]. For example [["id", "equipRef"]]. | Array<Array> |         |
-| `options`  | A Object defining batch configurations to be used. See README.md for more information.                                                                                                                    | Object       | `{}`    |
+| `options`  | An Object defining batch configurations to be used. See README.md for more information.                                                                                                                    | Object       | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Return the result of the create operations performed when `options.returnResult` is `true`.
@@ -632,7 +632,7 @@ is determined.
 | Param            | Description                                                                            | Type         | Default |
 |------------------|----------------------------------------------------------------------------------------|--------------|---------|
 | `filterAndLimit` | A 2D Array defining the filter and limit of each read-by-filter to be queried.         | Array<Array> |         |
-| `options`        | A Object defining batch configurations to be used. See README.md for more information. | Object       | `{}`    |
+| `options`        | An Object defining batch configurations to be used. See README.md for more information. | Object       | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: A 2D Array of the result from each read-by-filter given.
@@ -647,7 +647,7 @@ not exist, it will be created.
 | Param      | Description                                                                            | Type   | Default |
 |------------|----------------------------------------------------------------------------------------|--------|---------|
 | `entities` | Array of entities to be updated or created.                                            | Array  |         |
-| `options`  | A Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
+| `options`  | An Object defining batch configurations to be used. See README.md for more information. | Object | `{}`    |
 
 **Returns:** `Promise<{success: Array, errors: Array<{errors: String, args: Array}>}>`
 - `success`: Array of entities in their current state in the WideSky database.

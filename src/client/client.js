@@ -54,7 +54,7 @@ const AUTH_METHOD = Object.freeze({
 
 /**
  * Initialise a logging instance.
- * @param logObj A Object that can be:
+ * @param logObj An Object that can be:
  *                  - Empty, meaning a default Bunyan logger is used
  *                  - Object for which a Bunyan instance will be created with:
  *                      - name: Name of logging instance
@@ -110,7 +110,7 @@ class WideSkyClient {
      * @param password Password of the WideSky user to authenticate with.
      * @param clientId Client ID for OAuth 2.0 authentication.
      * @param clientSecret Client secret for OAuth 2.0 authentication.
-     * @param logger A Object that can be:
+     * @param logger An Object that can be:
      *                  - Undefined, meaning a default Bunyan logger is used
      *                  - Object for which a Bunyan instance will be created with:
      *                      - name: Name of logging instance
@@ -118,7 +118,7 @@ class WideSkyClient {
      *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
      *                  - Bunyan logging instance.
      * @param accessToken A valid WideSky access token.
-     * @param options A Object containing attributes "axios" and "client" for configuring the axios and WideSky client
+     * @param options An Object containing attributes "axios" and "client" for configuring the axios and WideSky client
      *                respectively. Axios configurations are described at https://axios-http.com/docs/config_defaults.
      */
     constructor(baseUri,
