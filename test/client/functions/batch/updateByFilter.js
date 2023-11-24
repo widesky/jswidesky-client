@@ -98,7 +98,8 @@ describe("client.batch.updateByFilter", () => {
                 await ws.batch.updateByFilter("point", [criteria]);
                 throw new Error("Should not have worked");
             } catch (error) {
-                expect(error.message).to.equal("Not class EntityCriteria");
+                expect(error.message).to.equal(
+                    "Element of parameter 'criteriaList' is not of class EntityCriteria");
             }
         });
     })
