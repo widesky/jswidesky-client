@@ -31,11 +31,12 @@ describe("Realtime", function () {
 
             await ws.getWatchSocket(TEST_WATCH_ID);
 
+            expect(ws.baseUri).to.not.equal(undefined);
             expect(ws.getToken.callCount).to.equal(1);
             expect(socket.connect.callCount).to.equal(1);
             expect(socket.connect.firstCall.args).to.eql(
                 [
-                    `${ws.base_uri}/${TEST_WATCH_ID}`,
+                    `${ws.baseUri}/${TEST_WATCH_ID}`,
                     {
                         query: {
                             Authorization: WS_ACCESS_TOKEN
