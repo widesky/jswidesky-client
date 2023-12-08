@@ -88,7 +88,7 @@ function initLogger(logObj) {
 }
 
 class WideSkyClient {
-    base_uri
+    baseUri
     #username
     #password
     #clientId
@@ -1556,7 +1556,9 @@ class WideSkyClient {
         const tokens = this.getToken();
         const accessToken = tokens.access_token;
 
-        const url = `${this.base_uri}/${watchId}`;
+        const url = `${this.baseUri}/${watchId}`;
+
+        this.logger.info(`Socket URL is: ${url}`)
 
         return socket.connect(url, {
             query: { Authorization: accessToken },
