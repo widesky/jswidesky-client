@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [2.1.1] - 2023-12-08
 ### FIXED
 - Fixed `getWatchSocket` function returning an invalid socket due to a missing namespace URL.
 
@@ -160,7 +162,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.0
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.1
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -176,3 +178,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.0.5]: https://github.com/widesky/jswidesky-client/compare/2.0.5...2.0.4
 [2.0.6]: https://github.com/widesky/jswidesky-client/compare/2.0.6...2.0.5
 [2.1.0]: https://github.com/widesky/jswidesky-client/compare/2.1.0...2.0.6
+[2.1.1]: https://github.com/widesky/jswidesky-client/compare/2.1.1...2.1.0
