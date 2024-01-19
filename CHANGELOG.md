@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### FIXED
+- Fixed bug `TypeError: Cannot read properties of undefined (reading '0')` when using `WideSkyClient.batch.hisWrite`.
+
+### CHANGED
+- Added empty payload check.
+
+### ADDED
+- Size property to `HisWritePayload` to get the number of rows currently added to the payload.
 
 ## [2.1.1] - 2023-12-08
 ### FIXED
