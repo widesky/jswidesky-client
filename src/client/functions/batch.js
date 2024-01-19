@@ -93,6 +93,16 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
             p1 = this.progressCreate(payload.length);
         }
     } else if (typeof payload === "object") {
+        // check if structure is as expected
+        if (Object.keys(payload).length === 0) {
+            throw new Error("Empty Object payload given");
+        }
+        for (const [key, valueAsObject] of Object.entries(payload)) {
+            if (typeof payload !== "object") {
+                throw new Error("Object payload structure for batch operation is malformed");
+            }
+        }
+
         const payloadKeys = Object.keys(payload);
         const keyValueLength = payloadKeys.map((key) => Object.keys(payload[key]).length);
         const keyValueRemaining = [...keyValueLength];

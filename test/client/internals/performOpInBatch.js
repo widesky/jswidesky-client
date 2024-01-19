@@ -263,6 +263,26 @@ describe('client', () => {
                 });
 
                 describe("payload is of type Object", () => {
+                    it("should reject if payload Object is emptyy", async () => {
+                        const badPayload = {};
+                        try {
+                            await ws.performOpInBatch("test", [badPayload, "testArg"]);
+                        } catch (error) {
+                            expect(error.message).to.equal("Empty Object payload given");
+                        }
+                    });
+
+                    it("should reject if payload Object values are not Objects", async () => {
+                        const badPayload = {
+                            "a time stamp": 123
+                        };
+                        try {
+                            await ws.performOpInBatch("test", [badPayload, "testArg"]);
+                        } catch (error) {
+                            expect(error.message).to.equal("Object payload structure for batch operation is malformed");
+                        }
+                    });
+
                     describe("same as payload size", () => {
                         it("should only send 1 request", async () => {
                             const payload = {
