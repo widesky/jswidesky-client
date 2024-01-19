@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [2.1.2] - 2024-01-19
 ### FIXED
 - Fixed bug `TypeError: Cannot read properties of undefined (reading '0')` when using `WideSkyClient.batch.hisWrite`.
 
@@ -187,3 +189,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.0.6]: https://github.com/widesky/jswidesky-client/compare/2.0.6...2.0.5
 [2.1.0]: https://github.com/widesky/jswidesky-client/compare/2.1.0...2.0.6
 [2.1.1]: https://github.com/widesky/jswidesky-client/compare/2.1.1...2.1.0
+[2.1.2]: https://github.com/widesky/jswidesky-client/compare/2.1.2...2.1.1
