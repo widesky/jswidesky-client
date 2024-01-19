@@ -263,7 +263,7 @@ describe('client', () => {
                 });
 
                 describe("payload is of type Object", () => {
-                    it("should reject if payload Object is emptyy", async () => {
+                    it("should reject if payload Object is empty", async () => {
                         const badPayload = {};
                         try {
                             await ws.performOpInBatch("test", [badPayload, "testArg"]);

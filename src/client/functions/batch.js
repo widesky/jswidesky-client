@@ -94,9 +94,6 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
         }
     } else if (typeof payload === "object") {
         // check if structure is as expected
-        if (Object.keys(payload).length === 0) {
-            throw new Error("Empty Object payload given");
-        }
         for (const [key, valueAsObject] of Object.entries(payload)) {
             if (typeof payload !== "object") {
                 throw new Error("Object payload structure for batch operation is malformed");
