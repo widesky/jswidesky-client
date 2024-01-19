@@ -4,6 +4,16 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.2] - 2024-01-19
+### FIXED
+- Fixed bug `TypeError: Cannot read properties of undefined (reading '0')` when using `WideSkyClient.batch.hisWrite`.
+
+### CHANGED
+- Added empty payload check.
+
+### ADDED
+- Size property to `HisWritePayload` to get the number of rows currently added to the payload.
+
 ## [2.1.1] - 2023-12-08
 ### FIXED
 - Fixed `getWatchSocket` function returning an invalid socket due to a missing namespace URL.
@@ -179,3 +189,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.0.6]: https://github.com/widesky/jswidesky-client/compare/2.0.6...2.0.5
 [2.1.0]: https://github.com/widesky/jswidesky-client/compare/2.1.0...2.0.6
 [2.1.1]: https://github.com/widesky/jswidesky-client/compare/2.1.1...2.1.0
+[2.1.2]: https://github.com/widesky/jswidesky-client/compare/2.1.2...2.1.1

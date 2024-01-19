@@ -17,15 +17,6 @@ const SMALL_DATA_1000 = require("./files/hisWrite_smallBatch.json");
 const LARGE_DATA_20000 = require("./files/hisWrite_largeBatch.json");
 const DEFAULT_BATCH_SIZE = 10000;
 
-function countRows(data) {
-    let rows = 0;
-    for (const values of Object.values(data)) {
-        rows += Object.keys(values).length;
-    }
-
-    return rows;
-}
-
 /**
  * Construct the expected batched payloads.
  * Note: This feels silly to nearly copy the logic used. But this is not something I wanna do manually.
@@ -122,8 +113,7 @@ describe("client.batch.hisWrite", () => {
     describe("no options specified", () => {
         describe("payload smaller than default batch size of 10000", () => {
             it("should send 1 hisWrite request", async () => {
-                const payload = new HisWritePayload();
-                payload.payload = SMALL_DATA_1000;
+                const payload = new HisWritePayload(SMALL_DATA_1000);
                 await ws.batch.hisWrite(payload);
                 expect(ws.hisWrite.calledOnce).to.be.true;
                 for (const [key, values] of Object.entries(ws.hisWrite.args[0][0])) {
@@ -135,8 +125,7 @@ describe("client.batch.hisWrite", () => {
 
         describe("payload larger than default batch size of 10000", () => {
             it("should send multiple hisWrite requests", async () => {
-                const payload = new HisWritePayload();
-                payload.payload = LARGE_DATA_20000;
+                const payload = new HisWritePayload(LARGE_DATA_20000);
                 await ws.batch.hisWrite(payload);
 
                 expect(ws.hisWrite.callCount).to.equal(3);
@@ -144,7 +133,7 @@ describe("client.batch.hisWrite", () => {
                 expect(expectedBatches.length).to.equal(ws.hisWrite.callCount);
                 for (let i = 0; i < ws.hisWrite.callCount; i++) {
                     const payload = ws.hisWrite.args[i][0];
-                    expect(countRows(payload)).to.equal(DEFAULT_BATCH_SIZE);
+                    expect(HisWritePayload.calculateSize(payload)).to.equal(DEFAULT_BATCH_SIZE);
                     expect(payload).to.eql(expectedBatches[i]);
                 }
             });
@@ -154,8 +143,7 @@ describe("client.batch.hisWrite", () => {
     describe("option batchSize", () => {
         describe("payload smaller than default batch size", () => {
             it("should send 1 hisWrite request", async () => {
-                const payload = new HisWritePayload();
-                payload.payload = SMALL_DATA_1000;
+                const payload = new HisWritePayload(SMALL_DATA_1000);
                 const batchSize = 20000;
                 await ws.batch.hisWrite(payload, { batchSize });
                 expect(ws.hisWrite.calledOnce).to.be.true;
@@ -168,8 +156,7 @@ describe("client.batch.hisWrite", () => {
 
         describe("payload larger than default batch size", () => {
             it("should send multiple hisWrite requests", async () => {
-                const payload = new HisWritePayload();
-                payload.payload = SMALL_DATA_1000;
+                const payload = new HisWritePayload(SMALL_DATA_1000);
                 const batchSize = 200;
                 await ws.batch.hisWrite(payload, { batchSize });
                 expect(ws.hisWrite.callCount).to.equal(42);
@@ -177,7 +164,7 @@ describe("client.batch.hisWrite", () => {
                 expect(expectedBatches.length).to.equal(ws.hisWrite.callCount);
                 for (let i = 0; i < ws.hisWrite.callCount; i++) {
                     const payload = ws.hisWrite.args[i][0];
-                    expect(countRows(payload)).to.be.lessThanOrEqual(batchSize);
+                    expect(HisWritePayload.calculateSize(payload)).to.be.lessThanOrEqual(batchSize);
                     expect(payload).to.eql(expectedBatches[i]);
                 }
             });
@@ -187,8 +174,7 @@ describe("client.batch.hisWrite", () => {
     describe("option returnResult", () => {
         describe("if enabled", () => {
             it("should return response", async () => {
-                const payload = new HisWritePayload();
-                payload.payload = SMALL_DATA_1000;
+                const payload = new HisWritePayload(SMALL_DATA_1000);
 
                 ws.hisWrite = sinon.stub().callsFake(() => {
                     return ["test"]
@@ -205,8 +191,7 @@ describe("client.batch.hisWrite", () => {
 
         describe("if disabled", () => {
             it("should not return response", async () => {
-                const payload = new HisWritePayload();
-                payload.payload = SMALL_DATA_1000;
+                const payload = new HisWritePayload(SMALL_DATA_1000);
 
                 ws.hisWrite = sinon.stub().callsFake(() => {
                     return ["test"]
@@ -224,8 +209,7 @@ describe("client.batch.hisWrite", () => {
 
     describe("error handling", () => {
         it("should return encountered errors and arguments used", async () => {
-            const payload = new HisWritePayload();
-            payload.payload = SMALL_DATA_1000;
+            const payload = new HisWritePayload(SMALL_DATA_1000);
 
             ws.hisWrite = sinon.stub().callsFake(() => {
                 throw new Error("Test error")
