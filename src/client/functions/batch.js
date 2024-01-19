@@ -93,41 +93,52 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
             p1 = this.progressCreate(payload.length);
         }
     } else if (typeof payload === "object") {
+        // check if structure is as expected
+        for (const [key, valueAsObject] of Object.entries(payload)) {
+            if (typeof payload !== "object") {
+                throw new Error("Object payload structure for batch operation is malformed");
+            }
+        }
+
         const payloadKeys = Object.keys(payload);
         const keyValueLength = payloadKeys.map((key) => Object.keys(payload[key]).length);
+        const keyValueRemaining = [...keyValueLength];
         let currKeyIndex = 0;
         getNext = () => {
             // get next set using batchSize as maximum number of rows, not inclusive of the key
             const next = {};
             let totalRows = 0;
-            let currKey = payloadKeys[currKeyIndex];
             while (totalRows < batchSize && currKeyIndex < payloadKeys.length) {
-                const currKeyEntries = Object.entries(payload[currKey]);
-                const keyValueStartFrom = keyValueLength[currKeyIndex];
-                if (currKeyEntries.length > (batchSize - totalRows) || keyValueStartFrom !== Object.keys(payload[currKey]).length) {
-                    // take part of the set
-                    const partTake = batchSize - totalRows;
+                if (keyValueRemaining[currKeyIndex] === 0) {
+                    // all data fetched from here
+                    currKeyIndex++;
+                    continue;
+                }
 
+                const currKey = payloadKeys[currKeyIndex];
+                const currKeyEntries = Object.entries(payload[currKey]);
+                const keyRemaining = keyValueRemaining[currKeyIndex];
+                const keyMax = keyValueLength[currKeyIndex]
+                const keyValueStartFrom = keyMax - keyRemaining;
+                if (currKeyEntries.length > (batchSize - totalRows) || keyValueStartFrom !== Object.keys(payload[currKey]).length) {
+                    // take part of the set that doesn't exceed the current batch size
                     if (next[currKey] === undefined) {
                         next[currKey] = {};
                     }
 
-                    for (let i = keyValueStartFrom; i < partTake; i++) {
+                    let taken = 0;
+                    const partTake = batchSize - totalRows;
+                    for (let i = keyValueStartFrom; i - keyValueStartFrom < partTake && i < keyMax; i++) {
                         next[currKey][currKeyEntries[i][0]] = currKeyEntries[i][1];
+                        taken++;
                     }
-                    keyValueLength[currKeyIndex] -= partTake;
-                    totalRows += partTake;
-
-                    if (keyValueLength[currKeyIndex] === 0) {
-                        currKeyIndex++;
-                        currKey = payloadKeys[currKeyIndex];
-                    }
+                    keyValueRemaining[currKeyIndex] -= taken;
+                    totalRows += taken;
                 } else {
                     next[currKey] = payload[currKey];
-                    keyValueLength[currKeyIndex] = 0;
+                    keyValueRemaining[currKeyIndex] = 0;
                     totalRows += currKeyEntries.length;
                     currKeyIndex++;
-                    currKey = payloadKeys[currKeyIndex];
                 }
             }
 
@@ -136,7 +147,13 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
                 size: totalRows
             };
         }
-        hasMore = () => currKeyIndex !== payloadKeys.length && keyValueLength[currKeyIndex] !== 0;
+        hasMore = () => {
+            // skip over empty data sets
+            while (currKeyIndex < payloadKeys.length && keyValueRemaining[currKeyIndex] === 0) {
+                currKeyIndex++;
+            }
+            return currKeyIndex !== payloadKeys.length && keyValueLength[currKeyIndex] !== 0
+        };
 
         if (this.isProgressEnabled) {
             p1 = this.progressCreate(Object.keys(payload).length);
@@ -266,14 +283,19 @@ async function hisWrite(hisWriteData, options={}) {
         throw new Error("parameter hisWriteData must be of type Object");
     }
 
-    await BATCH_HIS_WRITE_SCHEMA.validate(options);
-
-    let data;
+    let data, size;
     if (hisWriteData instanceof HisWritePayload) {
         data = hisWriteData.payload;
+        size = hisWriteData.size;
     } else {
         data = hisWriteData;
+        size = HisWritePayload.calculateSize(hisWriteData);
     }
+    if (size === 0) {
+        throw new Error("Nothing to hisWrite");
+    }
+
+    await BATCH_HIS_WRITE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisWrite, options);
 
     return this.performOpInBatch(

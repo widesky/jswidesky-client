@@ -263,12 +263,50 @@ describe('client', () => {
                 });
 
                 describe("payload is of type Object", () => {
+                    it("should reject if payload Object is empty", async () => {
+                        const badPayload = {};
+                        try {
+                            await ws.performOpInBatch("test", [badPayload, "testArg"]);
+                        } catch (error) {
+                            expect(error.message).to.equal("Empty Object payload given");
+                        }
+                    });
+
+                    it("should reject if payload Object values are not Objects", async () => {
+                        const badPayload = {
+                            "a time stamp": 123
+                        };
+                        try {
+                            await ws.performOpInBatch("test", [badPayload, "testArg"]);
+                        } catch (error) {
+                            expect(error.message).to.equal("Object payload structure for batch operation is malformed");
+                        }
+                    });
+
                     describe("same as payload size", () => {
                         it("should only send 1 request", async () => {
                             const payload = {
-                                1: [1, 2, 3, 4, 5],
-                                2: [6, 7, 8, 9, 10],
-                                3: [11, 12, 13, 14, 15]
+                                1: {
+                                    1: 1,
+                                    2: 2,
+                                    3: 3,
+                                    4: 4,
+                                    5: 5
+                                },
+                                2: {
+                                    6: 6,
+                                    7: 7,
+                                    8: 8,
+                                    9: 9,
+                                    10: 10
+                                },
+                                3: {
+                                    11: 11,
+                                    12: 12,
+                                    13: 13,
+                                    14: 14,
+                                    15: 15
+                                }
                             };
                             const res = await ws.performOpInBatch("test", [payload, "testArg"], {
                                 batchSize: 15
@@ -283,20 +321,115 @@ describe('client', () => {
                     describe("is 1 and a partial batch", () => {
                         it("should send 2 requests", async () => {
                             const payload = {
-                                1: [1, 2, 3, 4, 5],
-                                2: [6, 7, 8, 9, 10],
-                                3: [11, 12, 13, 14, 15]
+                                1: {
+                                    1: 1,
+                                    2: 2,
+                                    3: 3,
+                                    4: 4,
+                                    5: 5
+                                },
+                                2: {
+                                    6: 6,
+                                    7: 7,
+                                    8: 8,
+                                    9: 9,
+                                    10: 10
+                                },
+                                3: {
+                                    11: 11,
+                                    12: 12,
+                                    13: 13,
+                                    14: 14,
+                                    15: 15
+                                }
                             };
                             const res = await ws.performOpInBatch("test", [payload, "testArg"], {
                                 batchSize: 10
                             });
                             expect(ws.test.calledTwice).to.be.true;
                             expect(ws.test.args[0]).to.eql([{
-                                1: [1, 2, 3, 4, 5],
-                                2: [6, 7, 8, 9, 10],
+                                1: {
+                                    1: 1,
+                                    2: 2,
+                                    3: 3,
+                                    4: 4,
+                                    5: 5
+                                },
+                                2: {
+                                    6: 6,
+                                    7: 7,
+                                    8: 8,
+                                    9: 9,
+                                    10: 10
+                                },
                             }, "testArg"]);
                             expect(ws.test.args[1]).to.eql([{
-                                3: [11, 12, 13, 14, 15]
+                                3: {
+                                    11: 11,
+                                    12: 12,
+                                    13: 13,
+                                    14: 14,
+                                    15: 15
+                                }
+                            }, "testArg"]);
+                            expect(res.success.length).to.equal(0);
+                            expect(res.errors.length).to.equal(0);
+                        });
+
+                        it("should send 2 requests differently", async () => {
+                            const payload = {
+                                1: {
+                                    1: 1,
+                                    2: 2,
+                                    3: 3,
+                                    4: 4,
+                                    5: 5
+                                },
+                                2: {
+                                    6: 6,
+                                    7: 7,
+                                    8: 8,
+                                    9: 9,
+                                    10: 10
+                                },
+                                3: {
+                                    11: 11,
+                                    12: 12,
+                                    13: 13,
+                                    14: 14,
+                                    15: 15
+                                }
+                            };
+                            const res = await ws.performOpInBatch("test", [payload, "testArg"], {
+                                batchSize: 8
+                            });
+                            expect(ws.test.calledTwice).to.be.true;
+                            expect(ws.test.args[0]).to.eql([{
+                                1: {
+                                    1: 1,
+                                    2: 2,
+                                    3: 3,
+                                    4: 4,
+                                    5: 5
+                                },
+                                2: {
+                                    6: 6,
+                                    7: 7,
+                                    8: 8
+                                },
+                            }, "testArg"]);
+                            expect(ws.test.args[1]).to.eql([{
+                                2: {
+                                    9: 9,
+                                    10: 10
+                                },
+                                3: {
+                                    11: 11,
+                                    12: 12,
+                                    13: 13,
+                                    14: 14,
+                                    15: 15
+                                }
                             }, "testArg"]);
                             expect(res.success.length).to.equal(0);
                             expect(res.errors.length).to.equal(0);
@@ -306,30 +439,90 @@ describe('client', () => {
                     describe("for 5 batched requests", () => {
                         it("should send 5 requests", async () => {
                             const payload = {
-                                1: [1, 2, 3, 4, 5],
-                                2: [6, 7, 8, 9, 10],
-                                3: [11, 12, 13, 14, 15],
-                                4: [16, 17, 18, 19, 20],
-                                5: [21, 22, 23, 24, 25]
+                                1: {
+                                    1: 1,
+                                    2: 2,
+                                    3: 3,
+                                    4: 4,
+                                    5: 5
+                                },
+                                2: {
+                                    6: 6,
+                                    7: 7,
+                                    8: 8,
+                                    9: 9,
+                                    10: 10
+                                },
+                                3: {
+                                    11: 11,
+                                    12: 12,
+                                    13: 13,
+                                    14: 14,
+                                    15: 15
+                                },
+                                4: {
+                                    16: 16,
+                                    17: 17,
+                                    18: 18,
+                                    19: 19,
+                                    20: 20
+                                },
+                                5: {
+                                    21: 21,
+                                    22: 22,
+                                    23: 23,
+                                    24: 24,
+                                    25: 25
+                                }
                             };
                             const res = await ws.performOpInBatch("test", [payload, "testArg"], {
                                 batchSize: 5
                             });
                             expect(ws.test.callCount).to.equal(5);
                             expect(ws.test.args[0]).to.eql([{
-                                1: [1, 2, 3, 4, 5],
+                                1: {
+                                    1: 1,
+                                    2: 2,
+                                    3: 3,
+                                    4: 4,
+                                    5: 5
+                                }
                             }, "testArg"]);
                             expect(ws.test.args[1]).to.eql([{
-                                2: [6, 7, 8, 9, 10],
+                                2: {
+                                    6: 6,
+                                    7: 7,
+                                    8: 8,
+                                    9: 9,
+                                    10: 10
+                                },
                             }, "testArg"]);
                             expect(ws.test.args[2]).to.eql([{
-                                3: [11, 12, 13, 14, 15]
+                                3: {
+                                    11: 11,
+                                    12: 12,
+                                    13: 13,
+                                    14: 14,
+                                    15: 15
+                                },
                             }, "testArg"]);
                             expect(ws.test.args[3]).to.eql([{
-                                4: [16, 17, 18, 19, 20],
+                                4: {
+                                    16: 16,
+                                    17: 17,
+                                    18: 18,
+                                    19: 19,
+                                    20: 20
+                                },
                             }, "testArg"]);
                             expect(ws.test.args[4]).to.eql([{
-                                5: [21, 22, 23, 24, 25]
+                                5: {
+                                    21: 21,
+                                    22: 22,
+                                    23: 23,
+                                    24: 24,
+                                    25: 25
+                                }
                             }, "testArg"]);
                             expect(res.success.length).to.equal(0);
                             expect(res.errors.length).to.equal(0);
