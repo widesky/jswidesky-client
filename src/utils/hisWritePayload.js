@@ -1,6 +1,39 @@
 class HisWritePayload {
+    #payload
+    #rows
+
     constructor() {
-        this.payload = {};
+        this.#payload = {};
+        this.#rows = 0;
+    }
+
+    /**
+     * Calculate the number of rows to be written in a manually created hisWrite Object.
+     * @param {Object} data Data to be checked.
+     */
+    static calculateSize(data) {
+        let size = 0;
+        for (const [ts, timeSeriesEntries] of Object.entries(data)) {
+            size += Object.keys(data);
+        }
+
+        return size;
+    }
+
+    /**
+     * Get hisWrite payload suitable for the hisWrite function of the WideSkyClient.
+     * @returns {Object}
+     */
+    get payload() {
+        return this.#payload;
+    }
+
+    /**
+     * Get the number of rows added to the payload.
+     * @returns {Number} Number of rows added.
+     */
+    get size() {
+        return this.#rows;
     }
 
     /**
@@ -29,12 +62,14 @@ class HisWritePayload {
                     parsedVal = val.substring(0, val.indexOf(" "));
                 }
             }
-            this.payload[ts][id] = parsedVal;
+            this.#payload[ts][id] = parsedVal;
+            this.#rows++;
         }
     }
 
     reset() {
-        this.payload = {};
+        this.#payload = {};
+        this.#rows = 0;
     }
 }
 

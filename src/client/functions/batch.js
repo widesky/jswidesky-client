@@ -270,14 +270,19 @@ async function hisWrite(hisWriteData, options={}) {
         throw new Error("parameter hisWriteData must be of type Object");
     }
 
-    await BATCH_HIS_WRITE_SCHEMA.validate(options);
-
-    let data;
+    let data, size;
     if (hisWriteData instanceof HisWritePayload) {
         data = hisWriteData.payload;
+        size = hisWriteData.size;
     } else {
         data = hisWriteData;
+        size = HisWritePayload.calculateSize(hisWriteData);
     }
+    if (size === 0) {
+        throw new Error("Nothing to hisWrite");
+    }
+
+    await BATCH_HIS_WRITE_SCHEMA.validate(options);
     options = deriveFromDefaults(this.clientOptions.batch.hisWrite, options);
 
     return this.performOpInBatch(
