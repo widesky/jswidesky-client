@@ -140,7 +140,13 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
                 size: totalRows
             };
         }
-        hasMore = () => currKeyIndex !== payloadKeys.length && keyValueLength[currKeyIndex] !== 0;
+        hasMore = () => {
+            // skip over empty data sets
+            while (currKeyIndex < payloadKeys.length && keyValueRemaining[currKeyIndex] === 0) {
+                currKeyIndex++;
+            }
+            return currKeyIndex !== payloadKeys.length && keyValueLength[currKeyIndex] !== 0
+        };
 
         if (this.isProgressEnabled) {
             p1 = this.progressCreate(Object.keys(payload).length);

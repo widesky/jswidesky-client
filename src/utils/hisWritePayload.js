@@ -2,9 +2,13 @@ class HisWritePayload {
     #payload
     #rows
 
-    constructor() {
-        this.#payload = {};
-        this.#rows = 0;
+    /**
+     * Construct a HisWritePayload instance.
+     * @param {Object} payload A payload to be used.
+     */
+    constructor(payload={}) {
+        this.#payload = payload;
+        this.#rows = Object.keys(payload).length === 0 ? 0 : HisWritePayload.calculateSize(payload);
     }
 
     /**
@@ -14,7 +18,7 @@ class HisWritePayload {
     static calculateSize(data) {
         let size = 0;
         for (const [ts, timeSeriesEntries] of Object.entries(data)) {
-            size += Object.keys(data);
+            size += Object.keys(timeSeriesEntries).length;
         }
 
         return size;
