@@ -27,6 +27,11 @@ const StubLogger = function() {
     ['fatal','error','warn','info','debug','trace'].forEach((l) => {
         self[l] = sinon.stub();
     });
+    self.resetHistory = () => {
+        ['fatal','error','warn','info','debug','trace'].forEach((l) => {
+            self[l].resetHistory();
+        });
+    }
 };
 
 /**

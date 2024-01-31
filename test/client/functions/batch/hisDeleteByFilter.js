@@ -350,7 +350,7 @@ describe("client.batch.hisDeleteByFilter", () => {
                         ]
                     }
                 }
-                throw RequestError.make(fakeError);
+                throw RequestError.make(fakeError, log);
             });
 
             const { success, errors } = await ws.batch.hisDeleteByFilter("bad filter", TIME_START, TIME_END);

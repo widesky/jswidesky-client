@@ -10,7 +10,7 @@ class RequestError extends Error {
         this.stack += reqError.stack.substring(reqError.stack.indexOf("\n"));
     }
 
-    static make(reqError) {
+    static make(reqError, logger) {
         if (lodash.has(reqError, "response.data")) {
             const { data } = reqError.response;
             if (lodash.has(data, "meta.dis")) {
@@ -22,6 +22,7 @@ class RequestError extends Error {
                     errMsg = data.errors[0].message;
                 }
 
+                logger.debug("Raw GraphQL error response: %j", data);
                 return new GraphQLError(errMsg.replace(/\n/g, ""), reqError);
             }
             else {

@@ -145,7 +145,7 @@ describe("client.batch.deleteByFilter", () => {
                         ]
                     }
                 }
-                throw RequestError.make(fakeError);
+                throw RequestError.make(fakeError, log);
             });
 
             const { success, errors } = await ws.batch.deleteByFilter("bad filter");

@@ -424,7 +424,7 @@ class WideSkyClient {
                         return this._wsRawSubmit(method, uri, body, config);
                     }
                     else {
-                        parsedErr = RequestError.make(err);
+                        parsedErr = RequestError.make(err, this.logger);
                     }
                 }
             }
