@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.3] - 2024-01-31
+### FIXED
+- Added utility class `EntityCriteria` to package exports.
+
 ## [2.1.2] - 2024-01-19
 ### FIXED
 - Fixed bug `TypeError: Cannot read properties of undefined (reading '0')` when using `WideSkyClient.batch.hisWrite`.
