@@ -431,7 +431,6 @@ class WideSkyClient {
             this.logger.error(parsedErr);
             if (parsedErr instanceof GraphQLError && parsedErr.errors.length > 1) {
                 parsedErr.errors.forEach((msg, i) => this.logger.error("GraphQL error #%d: %s", i + 1, msg));
-                // this.logger.error("GraphQL errors encountered: %j", parsedErr.errors);
             }
             throw parsedErr;
         }
