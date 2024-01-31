@@ -68,7 +68,9 @@ describe("RequestError", () => {
                 expect(reqError.message).to.equal(
                     "Field \"search\" argument \"whereTag\" of type \"String!\" is required but not provided."
                 );
-                expect(reqError.errors).to.eql(error.response.data.errors);
+                expect(reqError.errors).to.eql([
+                    "Field \"search\" argument \"whereTag\" of type \"String!\" is required but not provided. @ location/s line 5:5"
+                ]);
             });
         });
 
@@ -101,8 +103,11 @@ describe("RequestError", () => {
             };
             const reqError = RequestError.make(error);
             expect(reqError).to.be.instanceof(GraphQLError);
-            expect(reqError.message).to.equal("More than 1 error encountered");
-            expect(reqError.errors).to.eql(error.response.data.errors);
+            expect(reqError.message).to.equal("More than 1 GraphQLError encountered");
+            expect(reqError.errors).to.eql([
+                "Field \"search\" argument \"whereTag\" of type \"String!\" is required but not provided. @ location/s line 5:5",
+                "Field blah not blah blah @ location/s line 5:10"
+            ]);
         });
     });
 });

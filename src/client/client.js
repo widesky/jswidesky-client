@@ -18,6 +18,7 @@ const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const cliProgress = require("cli-progress");
 const bFormat = require("bunyan-format");
+const {GraphQLError} = require("../errors");
 
 let axios;
 // Browser/Node axios import
@@ -428,6 +429,10 @@ class WideSkyClient {
                 }
             }
             this.logger.error(parsedErr);
+            if (parsedErr instanceof GraphQLError && parsedErr.errors.length > 1) {
+                parsedErr.errors.forEach((msg, i) => this.logger.error("GraphQL error #%d: %s", i + 1, msg));
+                // this.logger.error("GraphQL errors encountered: %j", parsedErr.errors);
+            }
             throw parsedErr;
         }
     }

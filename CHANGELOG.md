@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### CHANGED
+- Changed the error message produced when more than 1 GraphQL error is encountered. Previously, all that was logged
+  was "More than 1 error encountered" which is too vague. This has been changed to "More than 1 GraphQLError
+  encountered" with additional logs detailing each GraphQL error encountered as <message> @ locations/s <locations>...
+
 ## [2.1.3] - 2024-01-31
 ### FIXED
 - Added utility class `EntityCriteria` to package exports.

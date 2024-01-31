@@ -17,7 +17,7 @@ class RequestError extends Error {
                 return new HaystackError(data.meta.dis.substring(2), reqError);
             }
             else if (data.errors !== undefined && Array.isArray(data.errors) && data.errors.length > 0) {
-                let errMsg = "More than 1 error encountered";
+                let errMsg = "More than 1 GraphQLError encountered";
                 if (data.errors.length === 1) {
                     errMsg = data.errors[0].message;
                 }
@@ -49,8 +49,13 @@ class HaystackError extends RequestError {
  */
 class GraphQLError extends RequestError {
     constructor(name, reqError) {
-        super(name, reqError);
-        this.errors = reqError.response.data.errors;
+        super(name.replace(/\n/g, ""), reqError);
+        this.errors = [];
+        for (const errorMsg of reqError.response.data.errors) {
+            const {message, locations} = errorMsg;
+            const locationsStr = locations.map((loc) => `line ${loc.line}:${loc.column}`);
+            this.errors.push(`${message.replace(/\n/g, " ")} @ location/s ${locationsStr.join(", ")}`);
+        }
     }
 }
 
