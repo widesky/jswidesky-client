@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.4] - 2024-01-31
+### CHANGED
+- Changed the error message produced when more than 1 GraphQL error is encountered. Previously, all that was logged
+  was "More than 1 error encountered" which is too vague. This has been changed to "More than 1 GraphQLError
+  encountered" with additional logs detailing each GraphQL error encountered as "<message> @ locations/s <locations>...".
+
 ## [2.1.3] - 2024-01-31
 ### FIXED
 - Added utility class `EntityCriteria` to package exports.
@@ -176,7 +182,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.1
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.4
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -194,3 +200,5 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.1.0]: https://github.com/widesky/jswidesky-client/compare/2.1.0...2.0.6
 [2.1.1]: https://github.com/widesky/jswidesky-client/compare/2.1.1...2.1.0
 [2.1.2]: https://github.com/widesky/jswidesky-client/compare/2.1.2...2.1.1
+[2.1.3]: https://github.com/widesky/jswidesky-client/compare/2.1.3...2.1.2
+[2.1.4]: https://github.com/widesky/jswidesky-client/compare/2.1.4...2.1.3

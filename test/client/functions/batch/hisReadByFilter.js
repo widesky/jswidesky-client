@@ -173,7 +173,7 @@ describe("client.batch.hisReadByFilter", () => {
                         ]
                     }
                 }
-                throw RequestError.make(fakeError);
+                throw RequestError.make(fakeError, log);
             });
 
 
