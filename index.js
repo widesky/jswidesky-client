@@ -12,6 +12,7 @@ const exprParser = require('./src/graphql/exprParser');
 const find = require('./src/graphql/find');
 const HaystackTools = require('./src/utils/haystack');
 const HisWritePayload = require('./src/utils/hisWritePayload');
+const EntityCriteria = require("./src/utils/EntityCriteria");
 
 /* Exported symbols */
 const jsWidesky = {
@@ -38,7 +39,8 @@ const jsWidesky = {
         find
     },
     hsTools: HaystackTools,
-    HisWritePayload
+    HisWritePayload,
+    EntityCriteria
 };
 
 module.exports = jsWidesky;
