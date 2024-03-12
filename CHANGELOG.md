@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### CHANGED
+- `getWatchSocket` function now accounts for subpath in URL when retrieving a socket connection.
 
 ## [2.1.4] - 2024-01-31
 ### CHANGED
