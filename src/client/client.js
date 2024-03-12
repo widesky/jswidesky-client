@@ -8,6 +8,7 @@
 const data = require('./../data');
 const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
+const Url = require('url-parse');
 const fs = require('fs');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
@@ -1560,14 +1561,24 @@ class WideSkyClient {
         const tokens = this.getToken();
         const accessToken = tokens.access_token;
 
-        const url = `${this.baseUri}/${watchId}`;
+        const parsedUrl = new Url(this.baseUri);
+        const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
+        const url = `${baseUrl}/${watchId}`;
 
-        this.logger.info(`Socket URL is: ${url}`)
+        let subPath = '';
+        if (parsedUrl.pathname && parsedUrl.pathname !== '/') {
+            subPath = parsedUrl.pathname;
+        }
+
+        this.logger.debug(
+            `baseUrl: "${baseUrl}", subPath: "${subPath}", nsp: "${watchId}"`
+        );
 
         return socket.connect(url, {
             query: { Authorization: accessToken },
             'force new connection': true,
-            autoConnect: false
+            autoConnect: false,
+            path: `${subPath}/socket.io`
         });
     }
 

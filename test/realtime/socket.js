@@ -16,14 +16,18 @@ const TEST_WATCH_ID = "11111111-aaa1-bbb1-ccc1-222222222222";
 
 describe("Realtime", function () {
     describe("socket", function () {
-        it("should generate correct args for socket.connect() call", async function () {
+        beforeEach(() => {
+            sinon.restore();
+        });
+
+        it("should generate args without subpath for socket.connect() call", async function () {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
 
             // Stub the socket.connect() function
             sinon.stub(socket, "connect").returns("mockSocket");
-            
+
             // Overrwrite the stub ws.getToken() function
             sinon
                 .stub(ws, "getToken")
@@ -34,18 +38,48 @@ describe("Realtime", function () {
             expect(ws.baseUri).to.not.equal(undefined);
             expect(ws.getToken.callCount).to.equal(1);
             expect(socket.connect.callCount).to.equal(1);
-            expect(socket.connect.firstCall.args).to.eql(
-                [
-                    `${ws.baseUri}/${TEST_WATCH_ID}`,
-                    {
-                        query: {
-                            Authorization: WS_ACCESS_TOKEN
-                        },
-                        "force new connection": true,
-                        autoConnect: false
-                    }
-                ]
-            )
+            expect(socket.connect.getCall(0).args).to.eql([
+                `${ws.baseUri}/${TEST_WATCH_ID}`,
+                {
+                    query: {
+                        Authorization: WS_ACCESS_TOKEN
+                    },
+                    "force new connection": true,
+                    autoConnect: false,
+                    path: '/socket.io'
+                }
+            ]);
+        });
+
+        it("should generate args with subpath for socket.connect() call", async function () {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log, { baseUrl: 'http://localhost:3000/widesky' });
+
+            // Stub the socket.connect() function
+            sinon.stub(socket, "connect").returns("mockSocket");
+
+            // Overrwrite the stub ws.getToken() function
+            sinon
+                .stub(ws, "getToken")
+                .returns({ access_token: WS_ACCESS_TOKEN });
+
+            await ws.getWatchSocket(TEST_WATCH_ID);
+
+            expect(ws.baseUri).to.not.equal(undefined);
+            expect(ws.getToken.callCount).to.equal(1);
+            expect(socket.connect.callCount).to.equal(1);
+            expect(socket.connect.getCall(0).args).to.eql([
+                `http://localhost:3000/${TEST_WATCH_ID}`,
+                {
+                    query: {
+                        Authorization: WS_ACCESS_TOKEN
+                    },
+                    "force new connection": true,
+                    autoConnect: false,
+                    path: '/widesky/socket.io'
+                }
+            ]);
         });
     });
 });
