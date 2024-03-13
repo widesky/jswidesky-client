@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.5] - 2024-03-13
+### CHANGED
+- `getWatchSocket` function now accounts for subpath in URL when retrieving a socket connection.
+
 ## [2.1.4] - 2024-01-31
 ### CHANGED
 - Changed the error message produced when more than 1 GraphQL error is encountered. Previously, all that was logged
@@ -182,7 +186,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.4
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.5
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -202,3 +206,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.1.2]: https://github.com/widesky/jswidesky-client/compare/2.1.2...2.1.1
 [2.1.3]: https://github.com/widesky/jswidesky-client/compare/2.1.3...2.1.2
 [2.1.4]: https://github.com/widesky/jswidesky-client/compare/2.1.4...2.1.3
+[2.1.4]: https://github.com/widesky/jswidesky-client/compare/2.1.5...2.1.4
