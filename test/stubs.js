@@ -85,9 +85,21 @@ const StubHTTPClient = function() {
     };
 };
 
-const getInstance = function(http, log) {
+/**
+ * Create a stubbed instance of WideSky Client for testing.
+ * @param {Object} http An instance of a stub http client.
+ * @param {Object} log An instance of a stub logger.
+ * @param {Object} [opts] An object to override default options for client instance.
+ * @returns An instance of the WideSky Client.
+ */
+const getInstance = function(http, log, override={}) {
     let c = new WideSkyClient(
-        WS_URI, WS_USER, WS_PASSWORD, WS_CLIENT_ID, WS_CLIENT_SECRET, log
+        override.baseUrl ?? WS_URI,
+        override.user ?? WS_USER,
+        override.pass ?? WS_PASSWORD,
+        override.clientId ?? WS_CLIENT_ID,
+        override.clientSecret ?? WS_CLIENT_SECRET,
+        log
     );
     http.stubClient(c);
     return c;
