@@ -40,7 +40,19 @@ The simplest way to incorporate the library into your browser is by using the `<
 
 Example:
 ```html
-<script src="node_modules/@widesky/jswidesky-client/dist/wideskyClient.min.js"></script>
+<script src="https://unpkg.com/@widesky/jswidesky-client@2.1.5/dist/jsWideSky.min.js"></script>
+<script>
+  const WIDESKY_CONFIG = {
+    "serverURL": "https://myWideSkyServer.com",
+    "password": "abcdedfg",
+    "username": "myUser@widesky.cloud",
+    "clientId": "1231231231",
+    "clientSecret": "545454545445"
+  };
+  const wsClient = jsWideSky.WideSkyClient.makeFromConfig(FE_CONFIG);
+  wsClient.v2.find("site")
+          .then((res) => console.log(res));
+</script>
 ```
 
 If this is for a sophisticated web application that is build on top of a framework that supports `es6`
@@ -48,7 +60,7 @@ then it can be added by using the `import` statement.
 
 Example:
 ```javascript
-import jsWidesky from '@widesky/jswidesky-client/dist/wideskyClient.min.js';
+import jsWidesky from '@widesky/jswidesky-client/dist/jsWideSky.min.js';
 
 const myClient = new jsWidesky.WideSkyClient(
         "https://instanceName.on.widesky.cloud",
@@ -61,8 +73,8 @@ const myClient = new jsWidesky.WideSkyClient(
 > For your debugging convenience, there is also a non minified version of the library, `wideskyClient.js`.
 
 If this is for a NodeJS project then the following code may be used to import it.
-```
-const wsClient = require('@widesky/jswidesky-client');
+```javascript
+const jsWideSky = require('@widesky/jswidesky-client');
 ```
 
 ## Creating an instance of the client
@@ -70,7 +82,7 @@ An instance can be instantiated by using the `WideskyClient` constructor.
 
 Example:
 ```javascript
-const WideSkyClient = require('jswidesky-client').WideSkyClient;
+const { WideSkyClient } = require('@widesky/jswidesky-client');
 
 let myClient = new WideSkyClient(
                         server.url,

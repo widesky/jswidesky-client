@@ -4,6 +4,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.0.0] - 2024-03-21
+### FIXED
+- Fixed minified file error "Invalid or expected token".
+
+### CHANGED
+- BREAKING CHANGE: Changed minified file name from "wideskyClient.min.js" to "jsWideSky.min.js".
+
 ## [2.1.5] - 2024-03-13
 ### CHANGED
 - `getWatchSocket` function now accounts for subpath in URL when retrieving a socket connection.
@@ -186,7 +193,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...2.1.5
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.0.0
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -206,4 +213,5 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.1.2]: https://github.com/widesky/jswidesky-client/compare/2.1.2...2.1.1
 [2.1.3]: https://github.com/widesky/jswidesky-client/compare/2.1.3...2.1.2
 [2.1.4]: https://github.com/widesky/jswidesky-client/compare/2.1.4...2.1.3
-[2.1.4]: https://github.com/widesky/jswidesky-client/compare/2.1.5...2.1.4
+[2.1.5]: https://github.com/widesky/jswidesky-client/compare/2.1.5...2.1.4
+[3.0.0]: https://github.com/widesky/jswidesky-client/compare/3.0.0...2.1.5
