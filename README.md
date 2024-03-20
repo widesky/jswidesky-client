@@ -40,9 +40,9 @@ The simplest way to incorporate the library into your browser is by using the `<
 
 Example:
 ```html
-<script src="https://unpkg.com/@widesky/jswidesky-client@2.1.5/dist/wideskyClient.min.js"></script>
+<script src="https://unpkg.com/@widesky/jswidesky-client@2.1.5/dist/jsWideSky.min.js"></script>
 <script>
-  const FE_CONFIG = {
+  const WIDESKY_CONFIG = {
     "serverURL": "https://myWideSkyServer.com",
     "password": "abcdedfg",
     "username": "myUser@widesky.cloud",
@@ -60,7 +60,7 @@ then it can be added by using the `import` statement.
 
 Example:
 ```javascript
-import jsWidesky from '@widesky/jswidesky-client/dist/wideskyClient.min.js';
+import jsWidesky from '@widesky/jswidesky-client/dist/jsWideSky.min.js';
 
 const myClient = new jsWidesky.WideSkyClient(
         "https://instanceName.on.widesky.cloud",
@@ -82,7 +82,7 @@ An instance can be instantiated by using the `WideskyClient` constructor.
 
 Example:
 ```javascript
-const WideSkyClient = require('jswidesky-client').WideSkyClient;
+const { WideSkyClient } = require('@widesky/jswidesky-client');
 
 let myClient = new WideSkyClient(
                         server.url,
