@@ -49,7 +49,7 @@ Example:
     "clientId": "1231231231",
     "clientSecret": "545454545445"
   };
-  const wsClient = jsWideSky.WideSkyClient.makeFromConfig(FE_CONFIG);
+  const wsClient = JsWideSky.WideSkyClient.makeFromConfig(FE_CONFIG);
   wsClient.v2.find("site")
           .then((res) => console.log(res));
 </script>

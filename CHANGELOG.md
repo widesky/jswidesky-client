@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### CHANGED
 - BREAKING CHANGE: Changed minified file name from "wideskyClient.min.js" to "jsWideSky.min.js".
+- BREAKING CHANGE: Changed default export name of minified file from `wideskyClient` (assuming this was set as a default
+  when not specified in the webpack configuration) to `JsWideSky`.
 
 ## [2.1.5] - 2024-03-13
 ### CHANGED
