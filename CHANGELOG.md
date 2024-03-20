@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### FIXED
+- Fixed minified file error "Invalid or expected token".
+
+### CHANGED
+- BREAKING CHANGE: Changed minified file name from "wideskyClient.min.js" to "jsWideSky.min.js".
+
 ## [2.1.5] - 2024-03-13
 ### CHANGED
 - `getWatchSocket` function now accounts for subpath in URL when retrieving a socket connection.
