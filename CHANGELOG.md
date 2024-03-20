@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.0.1] - 2024-03-21
+No changes have been made. The package was released with a new tag `3.0.1` as NPM does not allow package version to be
+duplicated, even in the case where a package's version was unpublished. This is documented in
+[npm Unpublish Policy - Considerations](https://docs.npmjs.com/policies/unpublish#considerations).
+
 ## [3.0.0] - 2024-03-21
 ### FIXED
 - Fixed minified file error "Invalid or expected token".
@@ -195,7 +200,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.0.0
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.0.1
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -217,3 +222,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [2.1.4]: https://github.com/widesky/jswidesky-client/compare/2.1.4...2.1.3
 [2.1.5]: https://github.com/widesky/jswidesky-client/compare/2.1.5...2.1.4
 [3.0.0]: https://github.com/widesky/jswidesky-client/compare/3.0.0...2.1.5
+[3.0.1]: https://github.com/widesky/jswidesky-client/compare/3.0.1...3.0.0
