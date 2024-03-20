@@ -15,7 +15,7 @@ const HisWritePayload = require('./src/utils/hisWritePayload');
 const EntityCriteria = require("./src/utils/EntityCriteria");
 
 /* Exported symbols */
-const jsWidesky = {
+const jsWideSky = {
     /* Client code */
     WideSkyClient: client,
     /* Constants */
@@ -43,5 +43,5 @@ const jsWidesky = {
     EntityCriteria
 };
 
-module.exports = jsWidesky;
+module.exports = jsWideSky;
 

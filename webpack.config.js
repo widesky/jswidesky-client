@@ -1,9 +1,17 @@
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
+const webpack = require("webpack");
 
 module.exports = (env, argv) => {
 
     const conf = {
+        plugins: [
+            // fix "process is not defined" error:
+            new webpack.ProvidePlugin({
+                process: 'process/browser',
+            }),
+        ],
+        // mode: argv.mode === 'production' ? 'production' : 'development',
         mode: 'development',
         devServer: {
             open: true,
@@ -14,15 +22,18 @@ module.exports = (env, argv) => {
             host: argv.mode === 'production' ? `localhost` : `localhost`,
             disableHostCheck: true,
         },
-
         entry: {
-           'wideskyClient': [`./index.js`],
+           'jsWideSky': [`./index.js`],
         },
         // library building properties for (1-1)
         output: {
             path: path.join(__dirname, '/dist/'),
             filename: argv.mode === 'production' ? `[name].min.js` : `[name].develop.js`,
-            libraryTarget: 'umd',
+            library: {
+                type: 'umd',
+                name: 'jsWideSky',
+                umdNamedDefine: true
+            },
             globalObject: 'this',
         },
         optimization: {
@@ -31,6 +42,9 @@ module.exports = (env, argv) => {
                     compress: {
                         drop_console: true,
                     },
+                    output: {
+                        ascii_only: true
+                    }
                 }
             })],
         },
@@ -55,7 +69,8 @@ module.exports = (env, argv) => {
                 zlib: false,
                 buffer: false,
                 https: false,
-                path: false
+                path: false,
+                express: false
             }
         },
         externals: [

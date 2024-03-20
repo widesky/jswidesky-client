@@ -40,7 +40,19 @@ The simplest way to incorporate the library into your browser is by using the `<
 
 Example:
 ```html
-<script src="node_modules/@widesky/jswidesky-client/dist/wideskyClient.min.js"></script>
+<script src="https://unpkg.com/@widesky/jswidesky-client@2.1.5/dist/wideskyClient.min.js"></script>
+<script>
+  const FE_CONFIG = {
+    "serverURL": "https://myWideSkyServer.com",
+    "password": "abcdedfg",
+    "username": "myUser@widesky.cloud",
+    "clientId": "1231231231",
+    "clientSecret": "545454545445"
+  };
+  const wsClient = jsWideSky.WideSkyClient.makeFromConfig(FE_CONFIG);
+  wsClient.v2.find("site")
+          .then((res) => console.log(res));
+</script>
 ```
 
 If this is for a sophisticated web application that is build on top of a framework that supports `es6`
