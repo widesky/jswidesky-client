@@ -31,7 +31,7 @@ module.exports = (env, argv) => {
             filename: argv.mode === 'production' ? `[name].min.js` : `[name].develop.js`,
             library: {
                 type: 'umd',
-                name: 'jsWideSky',
+                name: 'JsWideSky',
                 umdNamedDefine: true
             },
             globalObject: 'this',
