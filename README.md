@@ -73,8 +73,8 @@ const myClient = new jsWidesky.WideSkyClient(
 > For your debugging convenience, there is also a non minified version of the library, `wideskyClient.js`.
 
 If this is for a NodeJS project then the following code may be used to import it.
-```
-const wsClient = require('@widesky/jswidesky-client');
+```javascript
+const jsWideSky = require('@widesky/jswidesky-client');
 ```
 
 ## Creating an instance of the client
