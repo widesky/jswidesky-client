@@ -15,7 +15,7 @@ The argument `options` is expected to have the following structure:
 | Path     | Description                                                                                                                                                                                     |  Type  |              Default              |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----: | :-------------------------------: |
 | `axios`  | Axios client configurations as per [Axios documentation](https://axios-http.com/docs/config_defaults).                                                                                          | Object | As defined by the `axios` library |
-| `http`   | Node HTTP agent configurations as per [Node.js documentation](https://nodejs.org/docs/latest-v16.x/api/http.html#new-agentoptions). This is used for HTTP(S) agents passed to the Axios client. | Object |               `{}`                |
+| `http`   | Node HTTP agent configurations as per [Node.js 16.x documentation](https://nodejs.org/docs/latest-v16.x/api/http.html#new-agentoptions). This is used for HTTP(S) agents passed to the Axios client. | Object |               `{}`                |
 | `client` | Object for defining `WideSkyClient` configurations.                                                                                                                                             | Object |                                   |
 
 ### Path `client`
