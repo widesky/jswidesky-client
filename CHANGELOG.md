@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.1.0] - 2024-05-23
+### ADDED
+- Added new [options](./docs/client/options.md) under `http` which allows an optional configuration
+  to be passed to the HTTP and HTTPS `Agent` used in `axios` requests. See
+  [NodeJS 16.x - HTTP Agent options](https://nodejs.org/docs/latest-v16.x/api/http.html#new-agentoptions).
+
 ## [3.0.1] - 2024-03-21
 No changes have been made. The package was released with a new tag `3.0.1` as NPM does not allow package version to be
 duplicated, even in the case where a package's version was unpublished. This is documented in
@@ -53,7 +59,7 @@ duplicated, even in the case where a package's version was unpublished. This is 
   - `getId(entity, tag)`: Get a UUID from the entity, or the Haystack reference tag is specified.
   - `getReadableName(entity)`: Get the `fqname` or `id` tag of the entity.
 - Added new argument `options` to `WideSkyClient` constructor to accept configurations for the underlying `axios` client
-  instance and WideSky client batch operations. The options argument is expected to have the following structure as 
+  instance and WideSky client batch operations. The options argument is expected to have the following structure as
   defined in [Client Options](./docs/client/options.md).
 - Added a new static function `make` to create a `WideSkyClient` instance from a configuration Object. The Object can
   have the following options:
@@ -64,7 +70,7 @@ duplicated, even in the case where a package's version was unpublished. This is 
   - `clientSecret`: The Client secret for OAuth 2.0 authentication (required).
   - `accessToken`: A valid WideSky access token for OAuth 2.0 authentication (optional).
   - `options`: An Object containing attributes axios and client for configuring the axios and WideSky client
-    respectively. The options argument is expected to have the following structure as defined in 
+    respectively. The options argument is expected to have the following structure as defined in
     [Client Options](./docs/client/options.md).
   - `logger`: This can be one of:
     - Empty, meaning a default Bunyan logger is used.
@@ -99,10 +105,10 @@ duplicated, even in the case where a package's version was unpublished. This is 
   normally discarding any other information that would be returned from `client.find`.
 
 ### CHANGED
-- Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error. 
-  Instead, the error found in the response as received from a WideSky API server is used as the error message. 
-  This has been changed as the WideSky API server already created good responses to request errors and changes should 
-  only be in API server. 
+- Client no longer throws a Axios error if a response has been received and response is a Haystack of GraphQL error.
+  Instead, the error found in the response as received from a WideSky API server is used as the error message.
+  This has been changed as the WideSky API server already created good responses to request errors and changes should
+  only be in API server.
 
 ## [2.0.6] - 2023-10-03
 ### FIXED
@@ -116,12 +122,12 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Added support for WideSky `hisDelete` endpoint, `/api/hisDelete`. This function is for deleting
   historical timeseries data within a given range for the given points.
-- On 401 unauthorised errors and having an existing token, the client will attempt to re-login to force refresh 
+- On 401 unauthorised errors and having an existing token, the client will attempt to re-login to force refresh
   the tokens and retry the request.
 
 ## [2.0.3] - 2023-04-05
 ### ADDED
-- Added support for the WideSky `createUser` endpoint, `/api/admin/user`. As its name implies, this function is use for 
+- Added support for the WideSky `createUser` endpoint, `/api/admin/user`. As its name implies, this function is use for
   creating a new user account in WideSky through one of the supported local/scram authentication method.
 - Added support for the WideSky `watchSub` endpoint, `/api/watchSub`. This allows a user to subscribe to a watch.
 - Added a function to extend the lease of a watch.
@@ -134,16 +140,16 @@ duplicated, even in the case where a package's version was unpublished. This is 
 
 ## [2.0.1] - 2022-11-07
 ### CHANGED
-- Updated build packages 
+- Updated build packages
 
 ## [2.0.0] - 2022-11-03
 ### FIXED
 - Replaced `x instanceof Array` with `Array.isArray(x)` to resolve.
   peculiar issues with passing arrays in NodeRED function nodes.
 - Formatting using `moment` includes the milliseconds of the DateTime object.
-- Invalid inputs for `WideSkyClient.find` and `WideSkyClient.deleteByFilter` are caught before 
+- Invalid inputs for `WideSkyClient.find` and `WideSkyClient.deleteByFilter` are caught before
   making a request to the given `uri` for the client.
-- An empty of array of entity id's given to functions `WideSkyClient.deleteById` and 
+- An empty of array of entity id's given to functions `WideSkyClient.deleteById` and
   `WideSkyClient.read` will now throw an error.
 
 ### CHANGED
@@ -200,7 +206,7 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.0.1
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.1.0
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -223,3 +229,4 @@ duplicated, even in the case where a package's version was unpublished. This is 
 [2.1.5]: https://github.com/widesky/jswidesky-client/compare/2.1.5...2.1.4
 [3.0.0]: https://github.com/widesky/jswidesky-client/compare/3.0.0...2.1.5
 [3.0.1]: https://github.com/widesky/jswidesky-client/compare/3.0.1...3.0.0
+[3.1.0]: https://github.com/widesky/jswidesky-client/compare/3.1.0...3.0.1
