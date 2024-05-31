@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### CHANGED
+- The `http` option `keepAlive` will now default to `true` if it is not specified.
 
 ## [3.1.0] - 2024-05-23
 ### ADDED
