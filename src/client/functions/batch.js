@@ -1077,7 +1077,7 @@ const createUpdatePayload = (oldEntity, newEntity, logger) => {
             updatePayload[tag] = value;
         } else if (Array.isArray(value) && Array.isArray(oldEntity[tag])) {
             if (value.length !== oldEntity[tag].length) {
-                // Not the same, not need to verify
+                // Not the same, no need to verify
                 updatePayload[tag] = value;
             }
 
