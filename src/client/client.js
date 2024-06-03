@@ -261,8 +261,19 @@ class WideSkyClient {
      * Apply the config to be used for all axios requests.
      */
     initAxios() {
-        this.httpAgent = new http.Agent(this.options?.http || {});
-        this.httpsAgent = new https.Agent(this.options?.http || {});
+        // If HTTP options keepAlive is undefined, default it to true.
+        if (typeof this.options.http === 'object') {
+            if (this.options.http.keepAlive === undefined) {
+                this.options.http.keepAlive = true; // default to true
+            }
+        } else {
+            this.options.http = {
+                keepAlive: true // default to true
+            };
+        }
+
+        this.httpAgent = new http.Agent(this.options.http);
+        this.httpsAgent = new https.Agent(this.options.http);
 
         this.axios = axios.create(Object.assign({
             baseURL: this.baseUri,

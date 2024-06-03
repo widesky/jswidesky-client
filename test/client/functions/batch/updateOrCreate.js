@@ -23,7 +23,7 @@ describe("client.batch.updateOrCreate", () => {
                 success: TEST_ENTITIES.map((entity) => [entity]),
                 errors: []
             };
-        })
+        });
         ws.batch.create = sinon.stub().callsFake((entities) => {
             return {
                 success: {
@@ -251,6 +251,68 @@ describe("client.batch.updateOrCreate", () => {
                     id: testEntities[0].id,
                     equip: "x:"
                 }]]
+            });
+        });
+
+        describe("tag types", () => {
+            describe("list tag", () => {
+                beforeEach(() => {
+                    const testEntities = JSON.parse(JSON.stringify(TEST_ENTITIES));
+                    testEntities[0].roleRefs = ["r:id1", "r:id2", "r:id3"];
+                    ws.batch.multiFind = sinon.stub().callsFake((filterAndLimits) => {
+                        return {
+                            success: testEntities.map((entity) => [entity]),
+                            errors: []
+                        };
+                    });
+                });
+
+                it("should not update if the list is the same", async () => {
+                    const testEntities = JSON.parse(JSON.stringify(TEST_ENTITIES));
+                    testEntities[0].roleRefs = ["r:id1", "r:id2", "r:id3"];
+                    await ws.batch.updateOrCreate(testEntities);
+                    expect(ws.batch.create.notCalled).to.be.true;
+                    expect(ws.batch.update.notCalled).to.be.true;
+                });
+
+                it("should not update if the list is the same but different order", async () => {
+                    const testEntities = JSON.parse(JSON.stringify(TEST_ENTITIES));
+                    testEntities[0].roleRefs = ["r:id3", "r:id2", "r:id1"];
+                    await ws.batch.updateOrCreate(testEntities);
+                    expect(ws.batch.create.notCalled).to.be.true;
+                    expect(ws.batch.update.notCalled).to.be.true;
+                });
+
+                it("should update if list different sizes", async () => {
+                    const testEntities = JSON.parse(JSON.stringify(TEST_ENTITIES));
+                    testEntities[0].roleRefs = ["r:id2", "r:id1"];
+                    await ws.batch.updateOrCreate(testEntities);
+                    expect(ws.batch.create.notCalled).to.be.true;
+                    expect(ws.batch.update.calledOnce).to.be.true;
+                    expect(ws.batch.update.getCall(0).args[0]).to.eql([{
+                        "id": "r:fbf5ace2-b706-11ec-a270-0242ac120002",
+                        "roleRefs": [
+                            "r:id2",
+                            "r:id1"
+                        ]
+                    }]);
+                });
+
+                it("should update if list has 1 item that is different", async () => {
+                    const testEntities = JSON.parse(JSON.stringify(TEST_ENTITIES));
+                    testEntities[0].roleRefs = ["r:id2", "r:id1", "r:id4"];
+                    await ws.batch.updateOrCreate(testEntities);
+                    expect(ws.batch.create.notCalled).to.be.true;
+                    expect(ws.batch.update.calledOnce).to.be.true;
+                    expect(ws.batch.update.getCall(0).args[0]).to.eql([{
+                        "id": "r:fbf5ace2-b706-11ec-a270-0242ac120002",
+                        "roleRefs": [
+                            "r:id2",
+                            "r:id1",
+                            "r:id4"
+                        ]
+                    }]);
+                });
             });
         });
 

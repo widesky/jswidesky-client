@@ -4,6 +4,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.1.1] - 2024-06-03
+### CHANGED
+- The `http` option `keepAlive` will now default to `true` if it is not specified.
+
+#### FIXED
+- `WideSkyClient.batch.updateOrCreate` errored with list type tags.
+
 ## [3.1.0] - 2024-05-23
 ### ADDED
 - Added new [options](./docs/client/options.md) under `http` which allows an optional configuration
@@ -206,7 +213,7 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.1.0
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.1.1
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -230,3 +237,4 @@ duplicated, even in the case where a package's version was unpublished. This is 
 [3.0.0]: https://github.com/widesky/jswidesky-client/compare/3.0.0...2.1.5
 [3.0.1]: https://github.com/widesky/jswidesky-client/compare/3.0.1...3.0.0
 [3.1.0]: https://github.com/widesky/jswidesky-client/compare/3.1.0...3.0.1
+[3.1.0]: https://github.com/widesky/jswidesky-client/compare/3.1.1...3.1.0
