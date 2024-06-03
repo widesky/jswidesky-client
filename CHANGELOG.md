@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+#### FIXED
+- `WideSkyClient.batch.updateOrCreate` errored with list type tags.
+
 ## [3.1.0] - 2024-05-23
 ### ADDED
 - Added new [options](./docs/client/options.md) under `http` which allows an optional configuration

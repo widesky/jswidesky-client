@@ -1075,6 +1075,24 @@ const createUpdatePayload = (oldEntity, newEntity, logger) => {
 
         if (oldEntity[tag] === undefined) {
             updatePayload[tag] = value;
+        } else if (Array.isArray(value) && Array.isArray(oldEntity[tag])) {
+            if (value.length !== oldEntity[tag].length) {
+                // Not the same, not need to verify
+                updatePayload[tag] = value;
+            }
+
+            // verify list changes
+            let isDifferent = false;
+            for (const item of value) {
+                if (!(oldEntity[tag].includes(item))) {
+                    isDifferent = true;
+                    break;
+                }
+            }
+
+            if (isDifferent) {
+                updatePayload[tag] = value;
+            }
         } else if (oldEntity[tag] !== value) {
             if (tag.includes("Ref") || ["metaOf"].includes(tag)) {
                 // Ref can be different by the ID is what matters here
