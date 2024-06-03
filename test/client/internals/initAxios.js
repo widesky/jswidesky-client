@@ -42,11 +42,11 @@ describe("client", () => {
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
 
             expect(passedAxiosOptions.httpAgent instanceof http.Agent).to.be.true;
-            expect(passedAxiosOptions.httpAgent.keepAlive).to.eql(false);
+            expect(passedAxiosOptions.httpAgent.keepAlive).to.eql(true);
             expect(passedAxiosOptions.httpAgent.keepAliveMsecs).to.eql(1000);
 
             expect(passedAxiosOptions.httpsAgent instanceof https.Agent).to.be.true;
-            expect(passedAxiosOptions.httpsAgent.keepAlive).to.eql(false);
+            expect(passedAxiosOptions.httpsAgent.keepAlive).to.eql(true);
             expect(passedAxiosOptions.httpsAgent.keepAliveMsecs).to.eql(1000);
         });
 
@@ -56,7 +56,30 @@ describe("client", () => {
                     test: 123
                 },
                 http: {
-                    keepAlive: true,
+                    keepAlive: false,
+                    keepAliveMsecs: 2000
+                }
+            };
+            ws.initAxios();
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
+            expect(passedAxiosOptions.test).to.equal(123);
+
+            expect(passedAxiosOptions.httpAgent instanceof http.Agent).to.be.true;
+            expect(passedAxiosOptions.httpAgent.keepAlive).to.eql(false);
+            expect(passedAxiosOptions.httpAgent.keepAliveMsecs).to.eql(2000);
+
+            expect(passedAxiosOptions.httpsAgent instanceof https.Agent).to.be.true;
+            expect(passedAxiosOptions.httpsAgent.keepAlive).to.eql(false);
+            expect(passedAxiosOptions.httpsAgent.keepAliveMsecs).to.eql(2000);
+        });
+
+        it("should set keepAlive=true if not specified", () => {
+            ws.options = {
+                axios: {
+                    test: 123
+                },
+                http: {
                     keepAliveMsecs: 2000
                 }
             };
