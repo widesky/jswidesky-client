@@ -142,7 +142,7 @@ describe("HisWritePayload", () => {
                     val: "n:2"
                 }])
             } catch (error) {
-                expect(error.message).to.equal("Id must have Haystack reference type suffix applied");
+                expect(error.message).to.equal("Id must have Haystack reference type prefix applied");
             }
         });
 

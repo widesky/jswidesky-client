@@ -49,7 +49,7 @@ class HisWritePayload {
         if (typeof id !== "string") {
             throw new Error("Id must be a string");
         } else if (id.substring(0, 2) !== "r:") {
-            throw new Error("Id must have Haystack reference type suffix applied");
+            throw new Error("Id must have Haystack reference type prefix applied");
         }
 
         for (const [i, {ts, val}] of data.entries()) {
