@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### FIXED
+- `HisWritePayload` class not accepting boolean values.
+
 ## [3.1.1] - 2024-06-03
 ### CHANGED
 - The `http` option `keepAlive` will now default to `true` if it is not specified.
