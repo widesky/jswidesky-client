@@ -89,7 +89,7 @@ describe("HisWritePayload", () => {
 
         it("should reject if row in data missing ts property", () => {
             try {
-                hisWritePayload.add("testId", [
+                hisWritePayload.add("r:testId", [
                     {
                         val: "n:123"
                     }
@@ -102,7 +102,7 @@ describe("HisWritePayload", () => {
 
         it("should reject if row in data missing val property", () => {
             try {
-                hisWritePayload.add("testId", [
+                hisWritePayload.add("r:testId", [
                     {
                         ts: "t:123"
                     }
@@ -110,6 +110,39 @@ describe("HisWritePayload", () => {
                 throw new Error("Should not have worked");
             } catch (error) {
                 expect(error.message).to.equal("Row in data missing 'val' property");
+            }
+        });
+
+        it("should reject if val in row missing haystack prefix", () => {
+            try {
+                hisWritePayload.add("r:testId", [{
+                    ts: "t:123123",
+                    val: "false"
+                }])
+            } catch (error) {
+                expect(error.message).to.equal("'val' in row 0 missing Haystack prefix");
+            }
+        });
+
+        it("should reject if id not a string", () => {
+            try {
+                hisWritePayload.add(123, [{
+                    ts: "t:123123",
+                    val: "n:1"
+                }])
+            } catch (error) {
+                expect(error.message).to.equal("Id must be a string");
+            }
+        });
+
+        it("should reject if id not a Haystack string", () => {
+            try {
+                hisWritePayload.add("testId", [{
+                    ts: "t:123123",
+                    val: "n:2"
+                }])
+            } catch (error) {
+                expect(error.message).to.equal("Id must have Haystack reference type suffix applied");
             }
         });
 
@@ -123,6 +156,18 @@ describe("HisWritePayload", () => {
             expect(hisWritePayload.payload).to.eql({
                 "t:123": {
                     "r:testId": "n:1278",
+                }
+            });
+        });
+
+        it("should accept bool values", () => {
+            hisWritePayload.add("r:testId",[{
+                ts: "t:123123",
+                val: true
+            }]);
+            expect(hisWritePayload.payload).to.eql({
+                "t:123123": {
+                    "r:testId": true,
                 }
             });
         })
