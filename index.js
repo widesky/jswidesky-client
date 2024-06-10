@@ -13,11 +13,17 @@ const find = require('./src/graphql/find');
 const HaystackTools = require('./src/utils/haystack');
 const HisWritePayload = require('./src/utils/hisWritePayload');
 const EntityCriteria = require("./src/utils/EntityCriteria");
+const {RequestError, HaystackError, GraphQLError} = require("./src/errors");
 
 /* Exported symbols */
 const jsWideSky = {
     /* Client code */
     WideSkyClient: client,
+    clientErrors: {
+        RequestError,
+        HaystackError,
+        GraphQLError,
+    },
     /* Constants */
     VER_2: data.VER_2,
     VER_3: data.VER_3,
