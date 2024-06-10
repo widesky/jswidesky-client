@@ -78,7 +78,7 @@ describe("client.batch.hisWrite", () => {
         describe("instance of HisWritePayload", () => {
             it("should use payload attribute", async () => {
                 const payload = new HisWritePayload();
-                payload.add("abc", [{ts: "t:asad", val: "n:123"}]);
+                payload.add("r:abc", [{ts: "t:asad", val: "n:123"}]);
                 await ws.batch.hisWrite(payload);
                 expect(ws.hisWrite.calledOnce).to.be.true;
                 expect(ws.hisWrite.args[0]).to.eql([payload.payload]);
@@ -88,7 +88,7 @@ describe("client.batch.hisWrite", () => {
         describe("not instance of HisWritePayload", () => {
             it("should use as is", async () => {
                 const payload = new HisWritePayload();
-                payload.add("abc", [{ts: "t:asad", val: "n:123"}]);
+                payload.add("r:abc", [{ts: "t:asad", val: "n:123"}]);
                 await ws.batch.hisWrite(payload.payload);
                 expect(ws.hisWrite.calledOnce).to.be.true;
                 expect(ws.hisWrite.args[0]).to.eql([payload.payload]);
