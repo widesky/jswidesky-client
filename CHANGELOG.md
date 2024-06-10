@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### ADDED
+- Throw errors `HaystackError` and `GraphQLError` now include the original request error thrown by the client package
+  in the `requestError` property, and the HTTP status in `status` for convenience.
+
 ### FIXED
 - `HisWritePayload` class not accepting boolean values.
 
