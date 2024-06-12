@@ -4,6 +4,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### ADDED
+- Throw errors `HaystackError` and `GraphQLError` now include the original request error thrown by the client package
+  in the `requestError` property, and the HTTP status in `status` for convenience.
+- Exported request errors:
+  - `RequestError`: A base class for all request errors created.
+  - `HaystackError`: A error for a Haystack type response error.
+  - `GraphQLError`: A error for a GraphQL type response error.
+
 ### FIXED
 - `HisWritePayload` class not accepting boolean values.
 
