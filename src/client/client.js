@@ -21,6 +21,8 @@ const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const bFormat = require("bunyan-format");
 const {GraphQLError} = require("../errors");
+const { createHTTP2Adapter } = require('axios-http2-adapter');
+const http2 = require('http2-wrapper');
 
 let axios;
 // Browser/Node axios import
@@ -278,7 +280,10 @@ class WideSkyClient {
         this.axios = axios.create(Object.assign({
             baseURL: this.baseUri,
             httpAgent: this.httpAgent,
-            httpsAgent: this.httpsAgent
+            httpsAgent: this.httpsAgent,
+            adapter: createHTTP2Adapter({
+                agent: new http2.Agent(this.options.http)
+            })
         }, this.options.axios || {}));
     }
 
@@ -373,6 +378,9 @@ class WideSkyClient {
      * @returns Data from response of request.
      */
     async _wsRawSubmit(method, uri, body, config) {
+        uri = this.baseUri + uri;
+        console.log(uri);
+
         if (!this.initialised) {
             this.logger.info("Not finished initialising. Waiting...");
             await this.initWaitFor;
@@ -411,6 +419,7 @@ class WideSkyClient {
      */
     async _attachReqConfig(config) {
         const token = await this.getToken();
+        console.log(token);
 
         config = Object.assign({}, config);       // make a copy
         if (config.headers === undefined) {
@@ -475,7 +484,7 @@ class WideSkyClient {
 
         return this._wsRawSubmit(
             'POST',
-            '/oauth2/token',
+            `/oauth2/token`,
             {
                 username: this.#username,
                 password: this.#password,
