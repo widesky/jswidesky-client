@@ -371,15 +371,14 @@ class WideSkyClient {
     /**
      * Protected method for submitting requests against the API server with Axios.
      * @param method Request method to be performed. Not case-sensitive.
-     * @param uri Endpoint to for request to be sent, relative to the base URI given to the client.
+     * @param uriPath Endpoint to for request to be sent, relative to the base URI given to the client.
      * @param body Body of the request. Ignored if given method is "GET".
      * @param config Request config to be applied. Refer to https://www.npmjs.com/package/axios#request-config for
      * more info.
      * @returns Data from response of request.
      */
-    async _wsRawSubmit(method, uri, body, config) {
-        uri = this.baseUri + uri;
-        console.log(uri);
+    async _wsRawSubmit(method, uriPath, body, config) {
+        const uri = this.baseUri + uriPath;
 
         if (!this.initialised) {
             this.logger.info("Not finished initialising. Waiting...");
@@ -419,7 +418,6 @@ class WideSkyClient {
      */
     async _attachReqConfig(config) {
         const token = await this.getToken();
-        console.log(token);
 
         config = Object.assign({}, config);       // make a copy
         if (config.headers === undefined) {
@@ -484,7 +482,7 @@ class WideSkyClient {
 
         return this._wsRawSubmit(
             'POST',
-            `/oauth2/token`,
+            '/oauth2/token',
             {
                 username: this.#username,
                 password: this.#password,
