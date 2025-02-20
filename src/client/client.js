@@ -21,6 +21,8 @@ const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const bFormat = require("bunyan-format");
 const {GraphQLError} = require("../errors");
+const { createHTTP2Adapter } = require('axios-http2-adapter');
+const http2 = require('http2-wrapper');
 
 let axios;
 // Browser/Node axios import
@@ -278,7 +280,10 @@ class WideSkyClient {
         this.axios = axios.create(Object.assign({
             baseURL: this.baseUri,
             httpAgent: this.httpAgent,
-            httpsAgent: this.httpsAgent
+            httpsAgent: this.httpsAgent,
+            adapter: createHTTP2Adapter({
+                agent: new http2.Agent(this.options.http)
+            })
         }, this.options.axios || {}));
     }
 
@@ -366,13 +371,15 @@ class WideSkyClient {
     /**
      * Protected method for submitting requests against the API server with Axios.
      * @param method Request method to be performed. Not case-sensitive.
-     * @param uri Endpoint to for request to be sent, relative to the base URI given to the client.
+     * @param uriPath Endpoint to for request to be sent, relative to the base URI given to the client.
      * @param body Body of the request. Ignored if given method is "GET".
      * @param config Request config to be applied. Refer to https://www.npmjs.com/package/axios#request-config for
      * more info.
      * @returns Data from response of request.
      */
-    async _wsRawSubmit(method, uri, body, config) {
+    async _wsRawSubmit(method, uriPath, body, config) {
+        const uri = this.baseUri + uriPath;
+
         if (!this.initialised) {
             this.logger.info("Not finished initialising. Waiting...");
             await this.initWaitFor;

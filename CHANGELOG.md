@@ -5,15 +5,25 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 ### ADDED
-- Throw errors `HaystackError` and `GraphQLError` now include the original request error thrown by the client package
-  in the `requestError` property, and the HTTP status in `status` for convenience.
-- Exported request errors:
+- [CORE-1925](https://widesky.atlassian.net/browse/CORE-1925): Throw errors
+  `HaystackError` and `GraphQLError` now include the original request error
+  thrown by the client package in the `requestError` property, and the HTTP
+  status in `status` for convenience.
+- [CORE-1925](https://widesky.atlassian.net/browse/CORE-1925): Exported request
+  errors:
   - `RequestError`: A base class for all request errors created.
   - `HaystackError`: A error for a Haystack type response error.
   - `GraphQLError`: A error for a GraphQL type response error.
+- [CORE-4036](https://widesky.atlassian.net/browse/CORE-4036): Added modules:
+  - `http2-wrapper`
+  - `axios-http2-adapter`
+- [CORE-4036](https://widesky.atlassian.net/browse/CORE-4036): `axios` module
+  now uses a `http2` adapter which allows it to make calls using the HTTP/2.0
+  protocol.
+
 
 ### FIXED
-- `HisWritePayload` class not accepting boolean values.
+- [CORE-1907](https://widesky.atlassian.net/browse/CORE-1907): `HisWritePayload` class not accepting boolean values.
 
 ## [3.1.1] - 2024-06-03
 ### CHANGED
