@@ -38,7 +38,7 @@ describe("client", () => {
             ws.initAxios();
 
             console.log(passedAxiosOptions);
-            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
 
             expect(passedAxiosOptions.httpAgent instanceof http.Agent).to.be.true;
@@ -61,7 +61,7 @@ describe("client", () => {
                 }
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(Object.keys(passedAxiosOptions).length).to.equal(5);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
             expect(passedAxiosOptions.test).to.equal(123);
 
@@ -84,7 +84,7 @@ describe("client", () => {
                 }
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(Object.keys(passedAxiosOptions).length).to.equal(5);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
             expect(passedAxiosOptions.test).to.equal(123);
 
