@@ -4,6 +4,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.1.2] - 2025-03-12
 ### ADDED
 - [CORE-1925](https://widesky.atlassian.net/browse/CORE-1925): Throw errors
   `HaystackError` and `GraphQLError` now include the original request error
@@ -21,9 +22,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   now uses a `http2` adapter which allows it to make calls using the HTTP/2.0
   protocol.
 
-
 ### FIXED
-- [CORE-1907](https://widesky.atlassian.net/browse/CORE-1907): `HisWritePayload` class not accepting boolean values.
+- [CORE-1907](https://widesky.atlassian.net/browse/CORE-1907): `HisWritePayload`
+  class not accepting boolean values.
 
 ## [3.1.1] - 2024-06-03
 ### CHANGED
