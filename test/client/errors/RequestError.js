@@ -44,9 +44,12 @@ describe("RequestError", () => {
                         }
                     }
                 };
+                error.status = 400;
                 const reqError = RequestError.make(error, logger);
                 expect(reqError).to.be.instanceof(HaystackError);
                 expect(reqError.message).to.equal("HBadRequestError: It broken");
+                expect(reqError.status).to.equal(400);
+                expect(reqError.requestError).to.eql(error);
             });
         });
 
