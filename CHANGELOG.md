@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### CHANGED
+- Added support for `DELETE` method call for `WideSkyClient.submitRequest()`.
+
 ## [3.1.2] - 2025-03-12
 ### ADDED
 - [CORE-1925](https://widesky.atlassian.net/browse/CORE-1925): Throw errors
