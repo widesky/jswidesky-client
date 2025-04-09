@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.1.3] - 2025-04-09
+
+### CHANGED
+- Added support for `DELETE` method call for `WideSkyClient.submitRequest()`.
+
 ## [3.1.2] - 2025-03-12
 ### ADDED
 - [CORE-1925](https://widesky.atlassian.net/browse/CORE-1925): Throw errors
@@ -235,7 +240,7 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.1.1
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.1.3
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -259,4 +264,6 @@ duplicated, even in the case where a package's version was unpublished. This is 
 [3.0.0]: https://github.com/widesky/jswidesky-client/compare/3.0.0...2.1.5
 [3.0.1]: https://github.com/widesky/jswidesky-client/compare/3.0.1...3.0.0
 [3.1.0]: https://github.com/widesky/jswidesky-client/compare/3.1.0...3.0.1
-[3.1.0]: https://github.com/widesky/jswidesky-client/compare/3.1.1...3.1.0
+[3.1.1]: https://github.com/widesky/jswidesky-client/compare/3.1.1...3.1.0
+[3.1.2]: https://github.com/widesky/jswidesky-client/compare/3.1.2...3.1.1
+[3.1.3]: https://github.com/widesky/jswidesky-client/compare/3.1.3...3.1.2
