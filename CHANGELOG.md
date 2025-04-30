@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### CHANGED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Remove unused deps
+
 ## [3.1.3] - 2025-04-09
 
 ### CHANGED
