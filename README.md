@@ -189,6 +189,11 @@ To build a release of the project, run;
 npm run build
 ```
 
+This will populate the `./dist` directory with all of the files required to use the jsWideSky-Client
+package.
+
+To publish execute `publish.sh`.
+
 ## Running tests
 
 ### Without coverage
