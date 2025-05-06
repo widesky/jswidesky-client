@@ -11,3 +11,4 @@ report.xml
 .eslintrc.json
 .editorconfig
 publish.sh
+src

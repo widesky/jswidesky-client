@@ -5,14 +5,8 @@ const webpack = require("webpack");
 module.exports = (env, argv) => {
 
     const conf = {
-        plugins: [
-            // fix "process is not defined" error:
-            new webpack.ProvidePlugin({
-                process: 'process/browser',
-            }),
-        ],
-        // mode: argv.mode === 'production' ? 'production' : 'development',
-        mode: 'development',
+        target: 'node',
+        mode: argv.mode === 'production' ? 'production' : 'development',
         devServer: {
             open: true,
             openPage: [`client/example.html`],
@@ -70,7 +64,9 @@ module.exports = (env, argv) => {
                 buffer: false,
                 https: false,
                 path: false,
-                express: false
+                express: false,
+                bufferutil: false,
+                'utf-8-validate': false,
             }
         },
         externals: [
