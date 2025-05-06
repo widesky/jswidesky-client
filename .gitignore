@@ -11,3 +11,4 @@ coverage/
 # JUnit test result
 report.xml
 .idea
+dist/
