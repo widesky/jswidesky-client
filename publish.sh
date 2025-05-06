@@ -6,6 +6,8 @@
 echo "Building project..."
 npm run build
 
+cd dist
+
 echo "Publishing to [npm.org] npm repository."
 npm publish \
         --access public \
