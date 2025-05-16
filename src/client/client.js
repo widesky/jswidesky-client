@@ -1382,6 +1382,31 @@ class WideSkyClient {
     }
 
     /**
+     *
+     * @param mappedData (Map) Map of pointIds -> [time1, time2]
+     */
+    fileDelete (mappedData) {
+        request = [];
+        if (!(mappedData instanceof Map)) {
+            throw new Error('Payload must be a Map.');
+        }
+
+        for (const [pointId, time] of pointMap.entries()) {
+            const payload = {
+                pointId,
+                time
+            };
+            request.push(payload);
+        }
+
+        return this.submitRequest(
+            'DELETE',
+            '/api/file/storage',
+            request
+        );
+    }
+
+    /**
      * Retrieve a previously stored file the configured WideSky server.
      * This API will return an object keyed by the requested point ids,
      * where the value is an array of file URLs which can be used to retrieve
