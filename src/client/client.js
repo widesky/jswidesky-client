@@ -1386,12 +1386,12 @@ class WideSkyClient {
      * @param mappedData (Map) Map of pointIds -> [time1, time2]
      */
     fileDelete (mappedData) {
-        request = [];
+        let request = [];
         if (!(mappedData instanceof Map)) {
             throw new Error('Payload must be a Map.');
         }
 
-        for (const [pointId, time] of pointMap.entries()) {
+        for (const [pointId, time] of mappedData.entries()) {
             const payload = {
                 pointId,
                 time
