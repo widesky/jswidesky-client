@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+- [CORE-4878](https://widesky.atlassian.net/browse/CORE-4878): Added the fileDelete function 
+  to handle [DELETE] requests. This function accepts a map with point IDs as keys and 
+  lists of timestamps as values, and sends a [DELETE] request to the api/file/storage endpoint.
 
 ## [3.2.1] - 2025-06-02
 
@@ -97,6 +100,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Client configuration validation from
   asynchronous to synchronous.
+
 
 ## [3.1.3] - 2025-04-09
 
