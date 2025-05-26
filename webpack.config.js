@@ -1,14 +1,7 @@
 const path = require("path");
 const TerserPlugin = require("terser-webpack-plugin");
-const webpack = require("webpack");
 
 module.exports = (env, argv) => ({
-    plugins: [
-        // fix "process is not defined" error:
-        new webpack.ProvidePlugin({
-            process: "process/browser",
-        }),
-    ],
     mode: argv.mode,
     devtool: argv.mode === "production" ? undefined : "inline-source-map",
     devServer: {
