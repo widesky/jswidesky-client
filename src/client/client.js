@@ -90,9 +90,6 @@ function initLogger(logObj) {
     if (isNode === false) {
         return console;
     }
-
-    bunyan = require("bunyan");
-    bFormat = require("bunyan-format");
     
     let logger;
     if (logObj === undefined) {
