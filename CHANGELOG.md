@@ -4,8 +4,23 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
-### CHANGED
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Remove unused deps
+### REMOVED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Unused dependencies. **Bold** entries
+  are NodeJS built-in modules that were improperly imported as part of unsafe browser usage:
+  - @babel/core
+  - @babel/preset-env
+  - babel-loader
+  - npm-run-all
+  - webpack-dev-server
+  - **util**
+  - **process**
+  - **readline**
+  - **http2**
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): `dist` directory from repo.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Webpack dev server. This webpack
+  config was never configured to worked, so nothing is lost here.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package no longer exports
+  `jsWideSky.min.js` and `jsWideSky.develop.js`.
 
 ### FIXED
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a check for the process 
@@ -19,6 +34,43 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   [option](./docs/client/options.md) group `http2` to allow enabling of http2 as a transport method.
   Can be enabled by setting `http2.enabled` to `true`.
   
+### CHANGED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): No longer installs and tests when
+  building (`npm run build`).
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Building with webpack
+  `--mode production` now builds with `production` mode enabled. Allowing for smaller builds and
+  minor performance increases.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): `dist` directory is now populated
+  with:
+  - `index.js`
+  - `index.js.LICENSE.txt` (module licenses)
+  - `LICENSE` (WideSky license)
+  - `README.md` (same from project root)
+  - `docs/`
+  - `CHANGELOG.md`
+  - `package.json`
+  
+  The resulting package size is `243.1 kB`, down from `2.6 MB`.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package now exports a single 
+  `index.js` source file that is the production version of the code, to access a development package
+  `npm link` should be used from source.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Now uses the correct set of webpack
+  `externals` and `fallbacks` to improve build reliability and reduce masking of incorrect browser
+  support.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): When running in a browser environment
+  the following built-in modules are no longer `require`'ed. These modules are also **not** 
+  polyfilled via a `fallback` (unchanged):
+  - `fs`
+  - `http`
+  - `https`
+  
+  Additionally, the following external modules are no longer `require`'ed, as they do not support a
+  browser runtime. These modules are marked as `externals` in the build:
+  - `bunyan`
+  - `bunyan-format`
+  - `cli-progress`
+
+
 ## [3.1.3] - 2025-04-09
 
 ### CHANGED
