@@ -19,20 +19,25 @@ const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const bFormat = require("bunyan-format");
 const {GraphQLError} = require("../errors");
-const { createHTTP2Adapter } = require('axios-http2-adapter');
-const http2 = require('http2-wrapper');
 
 const isNode = typeof window === 'undefined'
 
 let axios;
 let http = null;
 let https = null;
+let http2 = null;
+
+let createHTTP2Adapter = null;
 
 if (isNode) {
     // node process
     axios = require('axios');
     http = require('http');
     https = require('https');
+    http2 = require('http2-wrapper');
+    // This probably doesn't need to be checked for process type. But we lose nothing by delaying
+    // the import.
+    createHTTP2Adapter = require('axios-http2-adapter').createHTTP2Adapter;
 }
 else {
     // browser process
