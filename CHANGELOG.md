@@ -69,7 +69,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `bunyan`
   - `bunyan-format`
   - `cli-progress`
-
+  
+### ADDED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Support for typing in the published
+  package via the generated `index.d.ts` file.
 
 ## [3.1.3] - 2025-04-09
 
