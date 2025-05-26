@@ -9,7 +9,6 @@ const data = require('./../data');
 const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
 const Url = require('url-parse');
-const fs = require('fs');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
@@ -28,6 +27,7 @@ let https = null;
 let http2 = null;
 
 let createHTTP2Adapter = null;
+let fs = null;
 
 if (isNode) {
     // node process
@@ -38,6 +38,7 @@ if (isNode) {
     // This probably doesn't need to be checked for process type. But we lose nothing by delaying
     // the import.
     createHTTP2Adapter = require('axios-http2-adapter').createHTTP2Adapter;
+    fs = require('fs');
 }
 else {
     // browser process
@@ -1308,8 +1309,12 @@ class WideSkyClient {
                 tags={}) {
 
         if (typeof file === 'string') {
-            // Assume an absolute file path
-            file = fs.createReadStream(file);
+            if (isNode) {
+                // Assume an absolute file path
+                file = fs.createReadStream(file);
+            } else {
+                throw new Error('The file system cannot be used in a browser instance.');
+            }
         }
         else if (Buffer.isBuffer(file)) {
             // buffer is ok
