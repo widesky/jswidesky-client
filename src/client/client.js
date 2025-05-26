@@ -12,12 +12,14 @@ const Url = require('url-parse');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
-const bunyan = require("bunyan");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
-const bFormat = require("bunyan-format");
 const {GraphQLError} = require("../errors");
+
+/**
+ * @typedef {import('bunyan')} Logger
+ */
 
 const isNode = typeof window === 'undefined'
 
@@ -29,6 +31,9 @@ let http2 = null;
 let createHTTP2Adapter = null;
 let fs = null;
 
+let bunyan = null;
+let bFormat = null;
+
 if (isNode) {
     // node process
     axios = require('axios');
@@ -39,6 +44,9 @@ if (isNode) {
     // the import.
     createHTTP2Adapter = require('axios-http2-adapter').createHTTP2Adapter;
     fs = require('fs');
+
+    bunyan = require("bunyan");
+    bFormat = require("bunyan-format");
 }
 else {
     // browser process
@@ -69,16 +77,23 @@ const AUTH_METHOD = Object.freeze({
 
 /**
  * Initialise a logging instance.
- * @param logObj An Object that can be:
+ * @param logObj In the browser the Console is always used. Otherwise, an Object that can be:
  *                  - Empty, meaning a default Bunyan logger is used
  *                  - Object for which a Bunyan instance will be created with:
  *                      - name: Name of logging instance
  *                      - level: Bunyan logging level to show logs higher.
  *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
  *                  - Bunyan logging instance.
- * @returns {Object} A logging instance
+ * @returns {Logger | Console} A logging instance
  */
 function initLogger(logObj) {
+    if (isNode === false) {
+        return console;
+    }
+
+    bunyan = require("bunyan");
+    bFormat = require("bunyan-format");
+    
     let logger;
     if (logObj === undefined) {
         logger = bunyan.createLogger({
@@ -125,7 +140,7 @@ class WideSkyClient {
      * @param password Password of the WideSky user to authenticate with.
      * @param clientId Client ID for OAuth 2.0 authentication.
      * @param clientSecret Client secret for OAuth 2.0 authentication.
-     * @param logger An Object that can be:
+     * @param logger In the browser the Console is always used. Otherwise, an Object that can be:
      *                  - Undefined, meaning a default Bunyan logger is used
      *                  - Object for which a Bunyan instance will be created with:
      *                      - name: Name of logging instance
