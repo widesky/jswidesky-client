@@ -7,9 +7,8 @@
   "scripts": {
     "test": "JUNIT_REPORT_PATH=report.xml npx mocha --colors --reporter mocha-jenkins-reporter $(find test -name \"*.js\")",
     "coverage": "npx nyc --reporter=html --reporter=text mocha test/*/**.js",
-    "build:bundlejs:prd": "webpack --config webpack.config.js --mode production",
-    "build:bundlejs:dev": "webpack --config webpack.config.js --mode development",
-    "build": "npm install && run-s test build:bundlejs:prd build:bundlejs:dev"
+    "build": "webpack --config webpack.config.js --mode production",
+    "build:dev": "webpack --config webpack.config.js --mode development"
   },
   "author": "WideSky.cloud <support@widesky.com>",
   "license": "MIT",
