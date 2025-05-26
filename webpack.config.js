@@ -4,15 +4,6 @@ const TerserPlugin = require("terser-webpack-plugin");
 module.exports = (env, argv) => ({
     mode: argv.mode,
     devtool: argv.mode === "production" ? undefined : "inline-source-map",
-    devServer: {
-        open: true,
-        openPage: [`client/example.html`],
-        contentBase: path.join(__dirname, "/"),
-        watchContentBase: true,
-        port: 8080,
-        host: argv.mode === "production" ? `localhost` : `localhost`,
-        disableHostCheck: true,
-    },
     entry: {
         jsWideSky: [`./index.js`],
     },
