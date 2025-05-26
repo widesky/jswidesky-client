@@ -10,8 +10,6 @@ const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
 const Url = require('url-parse');
 const fs = require('fs');
-const http = require('http');
-const https = require('https');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
@@ -21,14 +19,18 @@ const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const bFormat = require("bunyan-format");
 const {GraphQLError} = require("../errors");
-const { createHTTP2Adapter } = require('axios-http2-adapter');
-const http2 = require('http2-wrapper');
+
+const isNode = typeof window === 'undefined'
 
 let axios;
-// Browser/Node axios import
-if (typeof window === 'undefined') {
+let http = null;
+let https = null;
+
+if (isNode) {
     // node process
     axios = require('axios');
+    http = require('http');
+    https = require('https');
 }
 else {
     // browser process
@@ -150,8 +152,6 @@ class WideSkyClient {
         this.logger = initLogger(logger);
         this.options = options;
         this.clientOptions = null;
-        this.httpAgent = null;
-        this.httpsAgent = null;
         this._impersonate = null;
         this._acceptGzipEncoding  = true;
         this.initialised = false;
@@ -263,28 +263,34 @@ class WideSkyClient {
      * Apply the config to be used for all axios requests.
      */
     initAxios() {
-        // If HTTP options keepAlive is undefined, default it to true.
-        if (typeof this.options.http === 'object') {
-            if (this.options.http.keepAlive === undefined) {
-                this.options.http.keepAlive = true; // default to true
-            }
-        } else {
-            this.options.http = {
-                keepAlive: true // default to true
+        const baseURL = this.baseUri;
+
+        const defaultAxiosOptions = {
+            baseURL,
+        };
+
+        // In the browser, low-level HTTP options like 'keepAlive' cannot be configured 
+        // manually, as the browser handles connection reuse internally. Axios options such as
+        // 'httpAgent' or 'httpsAgent' are ignored in this environment. Connection behavior is
+        // controlled by the browser's own HTTP stack.
+        if (isNode) {
+            // Enable keep-alive by default in Node.js
+            const agentOptions = {
+                keepAlive: true,
+                ...(this.options.http ?? {}),
             };
+
+            defaultAxiosOptions.httpAgent = new http.Agent(agentOptions);
+            defaultAxiosOptions.httpsAgent = new https.Agent(agentOptions);
         }
 
-        this.httpAgent = new http.Agent(this.options.http);
-        this.httpsAgent = new https.Agent(this.options.http);
+        // Merge user-provided axios options last to allow override
+        const axiosOptions = {
+            ...defaultAxiosOptions,
+            ...(this.options.axios ?? {}),
+        };
 
-        this.axios = axios.create(Object.assign({
-            baseURL: this.baseUri,
-            httpAgent: this.httpAgent,
-            httpsAgent: this.httpsAgent,
-            adapter: createHTTP2Adapter({
-                agent: new http2.Agent(this.options.http)
-            })
-        }, this.options.axios || {}));
+        this.axios = axios.create(axiosOptions);
     }
 
     /**
@@ -371,15 +377,13 @@ class WideSkyClient {
     /**
      * Protected method for submitting requests against the API server with Axios.
      * @param method Request method to be performed. Not case-sensitive.
-     * @param uriPath Endpoint to for request to be sent, relative to the base URI given to the client.
+     * @param uri Endpoint to for request to be sent, relative to the base URI given to the client.
      * @param body Body of the request. Ignored if given method is "GET".
      * @param config Request config to be applied. Refer to https://www.npmjs.com/package/axios#request-config for
      * more info.
      * @returns Data from response of request.
      */
-    async _wsRawSubmit(method, uriPath, body, config) {
-        const uri = this.baseUri + uriPath;
-
+    async _wsRawSubmit(method, uri, body, config) {
         if (!this.initialised) {
             this.logger.info("Not finished initialising. Waiting...");
             await this.initWaitFor;
