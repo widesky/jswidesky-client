@@ -48,6 +48,8 @@ describe("client", () => {
             expect(passedAxiosOptions.httpsAgent instanceof https.Agent).to.be.true;
             expect(passedAxiosOptions.httpsAgent.keepAlive).to.eql(true);
             expect(passedAxiosOptions.httpsAgent.keepAliveMsecs).to.eql(1000);
+
+            expect(passedAxiosOptions.adapter).to.be.null;
         });
 
         it("should pass options to axios client and agents if specified", () => {
@@ -95,6 +97,33 @@ describe("client", () => {
             expect(passedAxiosOptions.httpsAgent instanceof https.Agent).to.be.true;
             expect(passedAxiosOptions.httpsAgent.keepAlive).to.eql(true);
             expect(passedAxiosOptions.httpsAgent.keepAliveMsecs).to.eql(2000);
+        });
+
+        it("should not use the http2Adapter when useHttps2=false", () => {
+            ws.options = {
+                useHttp2: false,
+            };
+            ws.initAxios();
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.adapter).to.equal(null);
+        });
+
+        it("should not use the http2Adapter when useHttps2=undefined", () => {
+            ws.options = {};
+            ws.initAxios();
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.adapter).to.equal(null);
+        });
+
+        it("should use the http2Adapter when useHttps2=true", () => {
+            ws.options = {
+                http: {
+                },
+                useHttp2: true,
+            };
+            ws.initAxios();
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.adapter).to.not.equal(null);
         });
     });
 });
