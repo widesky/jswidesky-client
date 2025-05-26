@@ -99,7 +99,7 @@ describe("client", () => {
             expect(passedAxiosOptions.httpsAgent.keepAliveMsecs).to.eql(2000);
         });
 
-        it("should not use the http2Adapter when useHttps2=false", () => {
+        it("should not use the http2Adapter when http2.enabled=false", () => {
             ws.options = {
                 useHttp2: false,
             };
@@ -108,18 +108,20 @@ describe("client", () => {
             expect(passedAxiosOptions.adapter).to.equal(null);
         });
 
-        it("should not use the http2Adapter when useHttps2=undefined", () => {
-            ws.options = {};
+        it("should not use the http2Adapter when http2.enabled=undefined", () => {
+            ws.options = {
+                http2: {},
+            };
             ws.initAxios();
             expect(Object.keys(passedAxiosOptions).length).to.equal(4);
             expect(passedAxiosOptions.adapter).to.equal(null);
         });
 
-        it("should use the http2Adapter when useHttps2=true", () => {
+        it("should use the http2Adapter when http2.enabled=true", () => {
             ws.options = {
-                http: {
+                http2: {
+                    enabled: true,
                 },
-                useHttp2: true,
             };
             ws.initAxios();
             expect(Object.keys(passedAxiosOptions).length).to.equal(4);
