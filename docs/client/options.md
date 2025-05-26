@@ -6,6 +6,8 @@
     - [Path `client`](#path-client)
     - [Path `client.progress`](#path-clientprogress)
     - [Path `client.performOpInBatch`](#path-clientperformopinbatch)
+    - [Path `http`](#path-http)
+    - [Path `http2`](#path-http2)
 
 <!-- tocstop -->
 
@@ -49,3 +51,17 @@ The Object defined in `client.performOpInBatch` is expected to have the followin
 | `parallel`                          | Define the number of batched requests to be run in parallel                | Number  |    1    |
 | `parallelDelay`                     | Define the delay between each set of batched requests run in parallel (ms) | Number  |    0    |
 | `returnResult`                      | Enable the result from WideSky API server operation to be returned         | Boolean | `false` |
+
+
+### Path `http`
+
+Uses the standard Node.js [http.Agent](https://nodejs.org/docs/latest-v16.x/api/http.html#new-agentoptions) 
+options to configure HTTP request behavior.
+
+### Path `http2`
+The Object defined in `http2` is expected to have the following structure:
+
+| Path from `http2` | Description                                                                                                        |  Type   | Default |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------ | :-----: | :-----: |
+| `enabled`         | Enables `http2` as a transport protocol. The server must support HTTP/2; otherwise, it will fall back to HTTP/1.1. | Boolean | `false` |
+

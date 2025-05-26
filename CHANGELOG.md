@@ -11,7 +11,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a check for the process 
   environment so that the client can be used in the browser. `http` and `https` agent options now
   only apply in a Node.js runtime (they will not work outside of it).
-
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a new 
+  [option](./docs/client/options.md) group `http2` to allow enabling of http2 as a transport method.
+  Can be enabled by setting `http2.enabled` to `true`.
+  
 ## [3.1.3] - 2025-04-09
 
 ### CHANGED
