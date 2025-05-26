@@ -50,5 +50,6 @@ module.exports = (env, argv) => ({
     externals: {
         bunyan: "bunyan",
         "bunyan-format": "bunyan-format",
+        "cli-progress": "cli-progress",
     },
 });
