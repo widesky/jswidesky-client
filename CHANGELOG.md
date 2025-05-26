@@ -7,6 +7,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### CHANGED
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Remove unused deps
 
+### FIXED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a check for the process 
+  environment so that the client can be used in the browser. `http` and `https` agent options now
+  only apply in a Node.js runtime (they will not work outside of it).
+
 ## [3.1.3] - 2025-04-09
 
 ### CHANGED
