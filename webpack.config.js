@@ -1,4 +1,5 @@
 const TerserPlugin = require("terser-webpack-plugin");
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = (env, argv) => ({
     mode: argv.mode,
@@ -14,6 +15,17 @@ module.exports = (env, argv) => ({
         },
         globalObject: "this",
     },
+    plugins: [
+        new CopyPlugin({
+            patterns: [
+                "LICENSE",
+                "package.json",
+                "CHANGELOG.md",
+                "README.md",
+                { from: "docs/client", to: "docs" },
+            ],
+        }),
+    ],
     optimization: {
         minimizer: [
             new TerserPlugin({
