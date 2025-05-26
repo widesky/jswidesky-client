@@ -70,5 +70,8 @@ module.exports = (env, argv) => ({
             https: false,
         },
     },
-    externals: ["dtrace-provider", "fs", "mv", "os", "source-map-support"],
+    externals: {
+        bunyan: "bunyan",
+        "bunyan-format": "bunyan-format",
+    },
 });
