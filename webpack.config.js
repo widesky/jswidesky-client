@@ -9,8 +9,7 @@ module.exports = (env, argv) => ({
             process: "process/browser",
         }),
     ],
-    // mode: argv.mode === 'production' ? 'production' : 'development',
-    mode: "development",
+    mode: argv.mode,
     devtool: argv.mode === "production" ? undefined : "inline-source-map",
     devServer: {
         open: true,
