@@ -66,17 +66,8 @@ module.exports = (env, argv) => ({
     resolve: {
         fallback: {
             fs: false,
-            net: false,
-            tls: false,
-            url: false,
             http: false,
-            stream: false,
-            assert: false,
-            zlib: false,
-            buffer: false,
             https: false,
-            path: false,
-            express: false,
         },
     },
     externals: ["dtrace-provider", "fs", "mv", "os", "source-map-support"],
