@@ -388,7 +388,7 @@ class WideSkyClient {
     }
 
     get isProgressEnabled() {
-        return this.clientOptions.progress.enable;
+        return this.clientOptions.progress.enable && isNode;
     }
 
     /**
