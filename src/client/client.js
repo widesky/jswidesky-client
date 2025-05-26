@@ -284,9 +284,13 @@ class WideSkyClient {
 
             defaultAxiosOptions.httpAgent = new http.Agent(agentOptions);
             defaultAxiosOptions.httpsAgent = new https.Agent(agentOptions);
-            defaultAxiosOptions.adapter = createHTTP2Adapter({
-                agent: new http2.Agent(agentOptions)
-            });
+
+            if (this.options.useHttp2) {
+                const http2Agent = new http2.Agent(agentOptions)
+                defaultAxiosOptions.adapter = createHTTP2Adapter({
+                    agent: http2Agent,
+                });
+            }
         }
 
         // Merge user-provided axios options last to allow override
