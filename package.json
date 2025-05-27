@@ -14,7 +14,7 @@
   "author": "WideSky.cloud <support@widesky.com>",
   "license": "MIT",
   "dependencies": {
-    "axios": "1.0.3",
+    "axios": "1.9.0",
     "axios-http2-adapter": "^1.0.3",
     "bunyan": "^1.8.15",
     "bunyan-format": "^0.2.1",
