@@ -18,7 +18,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - **http2**
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): `dist` directory from repo.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Webpack dev server. This webpack
-  config was never configured to worked, so nothing is lost here.
+  config was never configured to work, so nothing is lost here.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package no longer exports
   `jsWideSky.min.js` and `jsWideSky.develop.js`.
 
