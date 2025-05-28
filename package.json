@@ -9,7 +9,7 @@
     "coverage": "npx nyc --reporter=html --reporter=text mocha test/*/**.js",
     "build": "webpack --mode production && npm run build:types",
     "build:dev": "webpack --mode development",
-    "build:types": "tsc src/**/*.js index.js --declaration --allowJs --emitDeclarationOnly --outDir types && rollup -c rollup.config.mjs && rimraf types"
+    "build:types": "tsc --project tsconfig.types.json && rollup -c rollup.config.mjs && rimraf types"
   },
   "author": "WideSky.cloud <support@widesky.com>",
   "license": "MIT",

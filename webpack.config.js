@@ -47,8 +47,12 @@ module.exports = (env, argv) => ({
     },
     resolve: {
         fallback: {
+            net: false,
+            url: false,
+            tls: false,
             http: false,
             https: false,
+            http2: false,
             // Polyfill Node modules to allow bunyan to run in the browser
             stream: require.resolve("stream-browserify"),
             util: require.resolve("util/"),
