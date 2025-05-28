@@ -84,41 +84,40 @@ const AUTH_METHOD = Object.freeze({
 
 /**
  * Initialise a logging instance.
- * @param logObj In the browser the Console is always used. Otherwise, an Object that can be:
+ * @param {bunyan | bunyan.LoggerOptions | undefined} logObj In the browser the Console is always used. Otherwise, an Object that can be:
  *                  - Empty, meaning a default Bunyan logger is used
  *                  - Object for which a Bunyan instance will be created with:
  *                      - name: Name of logging instance
  *                      - level: Bunyan logging level to show logs higher.
  *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
  *                  - Bunyan logging instance.
- * @returns {Logger | Console} A logging instance
+ * @returns {bunyan} A bunyan logging instance
  */
-function initLogger(logObj) {
-    if (isNode === false) {
-        return console;
-    }
-    
-    let logger;
-    if (logObj === undefined) {
-        logger = bunyan.createLogger({
-            name: "WideSky-Client"
-        });
-    } else if (logObj.constructor.name === "Object") {
-        logger = bunyan.createLogger({
-            name: logObj.name || "WideSky-Client",
-            level: logObj.level || "info",
-            stream: logObj.raw ? process.stdout : bFormat({
-                outputMode: 'short',
-                color: true,
-                levelInString: true
-            }, process.stdout)
-        })
-    } else {
+function initLogger(logObj = {}) {
+    if (logObj.constructor.name !== "Object") {
         // use Bunyan logging instance given.
-        logger = logObj;
+        return logObj;
     }
 
-    return logger;
+    const loggerDefaults = {
+        name: "WideSky-Client",
+        level: "info",
+        stream: bFormat(
+            {
+                outputMode: "short",
+                color: true,
+                levelInString: true,
+            },
+            process.stdout
+        ),
+        ...logObj,
+    };
+
+    if (logObj.raw || runtimeEnv == 'browser') {
+        loggerDefaults.stream = process.stdout;
+    }
+
+    return bunyan.createLogger(loggerDefaults);
 }
 
 class WideSkyClient {
