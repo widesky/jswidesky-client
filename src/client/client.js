@@ -9,29 +9,44 @@ const data = require('./../data');
 const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
 const Url = require('url-parse');
-const fs = require('fs');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
-const bunyan = require("bunyan");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
-const bFormat = require("bunyan-format");
 const {GraphQLError} = require("../errors");
+const bunyan = require("bunyan");
+const bFormat = require("bunyan-format");
 
-const isNode = typeof window === 'undefined'
+// Check for the runtime
+let runtimeEnv;
+if (typeof (process) !== 'undefined' && process.versions) {
+    if (process.versions.node) {
+        runtimeEnv = 'node';
+    }
+}
+if (!runtimeEnv && typeof (window) !== 'undefined' && window.window === window) {
+    runtimeEnv = 'browser';
+}
+if (!runtimeEnv) {
+    throw new Error('unknown runtime environment');
+}
 
 let axios;
+let fs;
+
 let http = null;
 let https = null;
 let http2 = null;
 
 let createHTTP2Adapter = null;
 
-if (isNode) {
+if (runtimeEnv == 'node') {
     // node process
     axios = require('axios');
+    fs = require('fs');
+    
     http = require('http');
     https = require('https');
     http2 = require('http2-wrapper');
@@ -44,6 +59,7 @@ else {
     // special case for commonJS as found from this issue
     // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
     axios = require('axios').default;
+    fs = {};
 }
 const { isAxiosError } = axios;
 
@@ -68,37 +84,40 @@ const AUTH_METHOD = Object.freeze({
 
 /**
  * Initialise a logging instance.
- * @param logObj An Object that can be:
+ * @param {bunyan | bunyan.LoggerOptions | undefined} logObj In the browser the Console is always used. Otherwise, an Object that can be:
  *                  - Empty, meaning a default Bunyan logger is used
  *                  - Object for which a Bunyan instance will be created with:
  *                      - name: Name of logging instance
  *                      - level: Bunyan logging level to show logs higher.
  *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
  *                  - Bunyan logging instance.
- * @returns {Object} A logging instance
+ * @returns {bunyan} A bunyan logging instance
  */
-function initLogger(logObj) {
-    let logger;
-    if (logObj === undefined) {
-        logger = bunyan.createLogger({
-            name: "WideSky-Client"
-        });
-    } else if (logObj.constructor.name === "Object") {
-        logger = bunyan.createLogger({
-            name: logObj.name || "WideSky-Client",
-            level: logObj.level || "info",
-            stream: logObj.raw ? process.stdout : bFormat({
-                outputMode: 'short',
-                color: true,
-                levelInString: true
-            }, process.stdout)
-        })
-    } else {
+function initLogger(logObj = {}) {
+    if (logObj.constructor.name !== "Object") {
         // use Bunyan logging instance given.
-        logger = logObj;
+        return logObj;
     }
 
-    return logger;
+    const loggerDefaults = {
+        name: "WideSky-Client",
+        level: "info",
+        stream: bFormat(
+            {
+                outputMode: "short",
+                color: true,
+                levelInString: true,
+            },
+            process.stdout
+        ),
+        ...logObj,
+    };
+
+    if (logObj.raw || runtimeEnv == 'browser') {
+        loggerDefaults.stream = process.stdout;
+    }
+
+    return bunyan.createLogger(loggerDefaults);
 }
 
 class WideSkyClient {
@@ -124,7 +143,7 @@ class WideSkyClient {
      * @param password Password of the WideSky user to authenticate with.
      * @param clientId Client ID for OAuth 2.0 authentication.
      * @param clientSecret Client secret for OAuth 2.0 authentication.
-     * @param logger An Object that can be:
+     * @param logger In the browser the Console is always used. Otherwise, an Object that can be:
      *                  - Undefined, meaning a default Bunyan logger is used
      *                  - Object for which a Bunyan instance will be created with:
      *                      - name: Name of logging instance
@@ -280,7 +299,7 @@ class WideSkyClient {
         // manually, as the browser handles connection reuse internally. Axios options such as
         // 'httpAgent' or 'httpsAgent' are ignored in this environment. Connection behavior is
         // controlled by the browser's own HTTP stack.
-        if (isNode) {
+        if (runtimeEnv == 'node') {
             // Enable keep-alive by default in Node.js
             const agentOptions = {
                 keepAlive: true,
@@ -375,7 +394,7 @@ class WideSkyClient {
     }
 
     get isProgressEnabled() {
-        return this.clientOptions.progress.enable;
+        return this.clientOptions.progress.enable && runtimeEnv == 'node';
     }
 
     /**
@@ -1770,6 +1789,10 @@ class WideSkyClient {
             .map((entity) => entity.id);
     }
 }
+
+
+// attach for testing
+WideSkyClient.initLogger = initLogger;
 
 /* Exported symbols */
 module.exports = WideSkyClient;

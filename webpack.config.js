@@ -1,92 +1,71 @@
-const path = require('path');
-const TerserPlugin = require('terser-webpack-plugin');
+const TerserPlugin = require("terser-webpack-plugin");
+const CopyPlugin = require("copy-webpack-plugin");
 const webpack = require("webpack");
 
-module.exports = (env, argv) => {
-
-    const conf = {
-        plugins: [
-            // fix "process is not defined" error:
-            new webpack.ProvidePlugin({
-                process: 'process/browser',
-            }),
-        ],
-        // mode: argv.mode === 'production' ? 'production' : 'development',
-        mode: 'development',
-        devServer: {
-            open: true,
-            openPage: [`client/example.html`],
-            contentBase: path.join(__dirname, '/'),
-            watchContentBase: true,
-            port: 8080,
-            host: argv.mode === 'production' ? `localhost` : `localhost`,
-            disableHostCheck: true,
+module.exports = (env, argv) => ({
+    mode: argv.mode,
+    devtool: argv.mode === "production" ? undefined : "inline-source-map",
+    entry: {
+        index: [`./index.js`],
+    },
+    output: {
+        library: {
+            type: "umd",
+            name: "JsWideSky",
+            umdNamedDefine: true,
         },
-        entry: {
-           'jsWideSky': [`./index.js`],
-        },
-        // library building properties for (1-1)
-        output: {
-            path: path.join(__dirname, '/dist/'),
-            filename: argv.mode === 'production' ? `[name].min.js` : `[name].develop.js`,
-            library: {
-                type: 'umd',
-                name: 'JsWideSky',
-                umdNamedDefine: true
-            },
-            globalObject: 'this',
-        },
-        optimization: {
-            minimizer: [new TerserPlugin({
+        globalObject: "this",
+    },
+    plugins: [
+        new CopyPlugin({
+            patterns: [
+                "LICENSE",
+                "package.json",
+                "CHANGELOG.md",
+                "README.md",
+                { from: "docs/client", to: "docs" },
+            ],
+        }),
+        // fix "process is not defined" error, so that bunyan (util module) can run in the browser
+        new webpack.ProvidePlugin({
+            process: "process/browser",
+        }),
+    ],
+    optimization: {
+        minimizer: [
+            new TerserPlugin({
                 terserOptions: {
                     compress: {
                         drop_console: true,
                     },
                     output: {
-                        ascii_only: true
-                    }
-                }
-            })],
+                        ascii_only: true,
+                    },
+                },
+            }),
+        ],
+    },
+    resolve: {
+        fallback: {
+            net: false,
+            url: false,
+            tls: false,
+            http: false,
+            https: false,
+            http2: false,
+            readline: false,
+            // Polyfill Node modules to allow bunyan to run in the browser
+            stream: require.resolve("stream-browserify"),
+            util: require.resolve("util/"),
+            assert: require.resolve("assert/"),
+            buffer: require.resolve("buffer/"),
         },
-        module: {
-            rules: [{
-                test: /\.js$/,
-                exclude: /(node_modules|bower_components)/,
-                use: [{
-                    loader: 'babel-loader',
-                }]
-            }]
-        },
-        resolve: {
-            fallback: {
-                fs: false,
-                net: false,
-                tls: false,
-                url: false,
-                http: false,
-                http2: false,
-                stream: false,
-                assert: false,
-                zlib: false,
-                buffer: false,
-                https: false,
-                path: false,
-                express: false
-            }
-        },
-        externals: [
-            "dtrace-provider",
-            'fs',
-            'mv',
-            'os',
-            'source-map-support'
-        ]
-    };
-
-    if (argv.mode !== 'production') {
-        conf.devtool = 'inline-source-map';
-    }
-
-    return conf;
-
-};
+    },
+    externals: [
+        "dtrace-provider",
+        "fs",
+        "mv",
+        "os",
+        "source-map-support"
+    ],
+});
