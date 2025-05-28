@@ -41,7 +41,6 @@ describe("client", () => {
         })
 
         it("should have all default properties", async () => {
-            await ws.initWaitFor;
             expect(ws.clientOptions).to.eql(DEFAULT_CLIENT_OPTIONS);
         });
 
