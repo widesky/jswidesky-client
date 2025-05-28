@@ -1,5 +1,6 @@
 const TerserPlugin = require("terser-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
+const webpack = require("webpack");
 
 module.exports = (env, argv) => ({
     mode: argv.mode,
@@ -25,6 +26,10 @@ module.exports = (env, argv) => ({
                 { from: "docs/client", to: "docs" },
             ],
         }),
+        // fix "process is not defined" error, so that bunyan (util module) can run in the browser
+        new webpack.ProvidePlugin({
+            process: "process/browser",
+        }),
     ],
     optimization: {
         minimizer: [
@@ -42,14 +47,21 @@ module.exports = (env, argv) => ({
     },
     resolve: {
         fallback: {
-            fs: false,
             http: false,
             https: false,
+            // Polyfill Node modules to allow bunyan to run in the browser
+            stream: require.resolve("stream-browserify"),
+            util: require.resolve("util/"),
+            assert: require.resolve("assert/"),
+            buffer: require.resolve("buffer/"),
         },
     },
-    externals: {
-        bunyan: "bunyan",
-        "bunyan-format": "bunyan-format",
-        "cli-progress": "cli-progress",
-    },
+    externals: [
+        "dtrace-provider",
+        "fs",
+        "mv",
+        "os",
+        "source-map-support",
+        "cli-progress",
+    ],
 });
