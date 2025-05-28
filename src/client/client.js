@@ -25,12 +25,19 @@ const isNode = typeof window === 'undefined'
 let axios;
 let http = null;
 let https = null;
+let http2 = null;
+
+let createHTTP2Adapter = null;
 
 if (isNode) {
     // node process
     axios = require('axios');
     http = require('http');
     https = require('https');
+    http2 = require('http2-wrapper');
+    // This probably doesn't need to be checked for process type. But we lose nothing by delaying
+    // the import.
+    createHTTP2Adapter = require('axios-http2-adapter').createHTTP2Adapter;
 }
 else {
     // browser process
@@ -282,6 +289,13 @@ class WideSkyClient {
 
             defaultAxiosOptions.httpAgent = new http.Agent(agentOptions);
             defaultAxiosOptions.httpsAgent = new https.Agent(agentOptions);
+
+            if (this.options.http2?.enabled) {
+                const http2Agent = new http2.Agent(agentOptions)
+                defaultAxiosOptions.adapter = createHTTP2Adapter({
+                    agent: http2Agent,
+                });
+            }
         }
 
         // Merge user-provided axios options last to allow override
@@ -377,13 +391,15 @@ class WideSkyClient {
     /**
      * Protected method for submitting requests against the API server with Axios.
      * @param method Request method to be performed. Not case-sensitive.
-     * @param uri Endpoint to for request to be sent, relative to the base URI given to the client.
+     * @param uriPath Endpoint to for request to be sent, relative to the base URI given to the client.
      * @param body Body of the request. Ignored if given method is "GET".
      * @param config Request config to be applied. Refer to https://www.npmjs.com/package/axios#request-config for
      * more info.
      * @returns Data from response of request.
      */
-    async _wsRawSubmit(method, uri, body, config) {
+    async _wsRawSubmit(method, uriPath, body, config) {
+        const uri = this.baseUri + uriPath;
+
         if (!this.initialised) {
             this.logger.info("Not finished initialising. Waiting...");
             await this.initWaitFor;

@@ -64,6 +64,7 @@ module.exports = (env, argv) => {
                 tls: false,
                 url: false,
                 http: false,
+                http2: false,
                 stream: false,
                 assert: false,
                 zlib: false,
