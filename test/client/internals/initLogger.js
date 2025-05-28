@@ -16,7 +16,7 @@ const { initLogger } = proxyquire("../../../src/client/client", {
     "bunyan-format": bFormatStub,
 });
 
-describe.only("initLogger", () => {
+describe("initLogger", () => {
     let createLoggerStub;
 
     beforeEach(() => {
