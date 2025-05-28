@@ -17,11 +17,19 @@ const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const {GraphQLError} = require("../errors");
 
-/**
- * @typedef {import('bunyan')} Logger
- */
-
-const isNode = typeof window === 'undefined'
+// Check for the runtime
+let runtimeEnv;
+if (typeof (process) !== 'undefined' && process.versions) {
+    if (process.versions.node) {
+        runtimeEnv = 'node';
+    }
+}
+if (!runtimeEnv && typeof (window) !== 'undefined' && window.window === window) {
+    runtimeEnv = 'browser';
+}
+if (!runtimeEnv) {
+    throw new Error('unknown runtime environment');
+}
 
 let axios;
 let http = null;
