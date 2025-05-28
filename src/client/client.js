@@ -1788,5 +1788,9 @@ class WideSkyClient {
     }
 }
 
+
+// attach for testing
+WideSkyClient.initLogger = initLogger;
+
 /* Exported symbols */
 module.exports = WideSkyClient;
