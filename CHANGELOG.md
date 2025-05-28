@@ -35,6 +35,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   Can be enabled by setting `http2.enabled` to `true`.
   
 ### CHANGED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added an `engines` field to the
+  package manifest specifying support for Node.js `>=16`. Previously, no engine requirement was
+  declared, but the package implicitly required Node.js `>=15` due to usage of
+  `String.prototype.replaceAll()`. Since development and testing have consistently used Node.js 16
+  or higher, the `engines` field now explicitly reflects this.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): No longer installs and tests when
   building (`npm run build`).
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Building with webpack
