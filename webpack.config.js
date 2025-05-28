@@ -53,6 +53,7 @@ module.exports = (env, argv) => ({
             http: false,
             https: false,
             http2: false,
+            readline: false,
             // Polyfill Node modules to allow bunyan to run in the browser
             stream: require.resolve("stream-browserify"),
             util: require.resolve("util/"),
@@ -65,7 +66,6 @@ module.exports = (env, argv) => ({
         "fs",
         "mv",
         "os",
-        "source-map-support",
-        "cli-progress",
+        "source-map-support"
     ],
 });
