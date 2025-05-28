@@ -16,6 +16,8 @@ const { CLIENT_SCHEMA } = require("./../utils/evaluator");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const {GraphQLError} = require("../errors");
+const bunyan = require("bunyan");
+const bFormat = require("bunyan-format");
 
 // Check for the runtime
 let runtimeEnv;
@@ -32,35 +34,32 @@ if (!runtimeEnv) {
 }
 
 let axios;
+let fs;
+
 let http = null;
 let https = null;
 let http2 = null;
 
 let createHTTP2Adapter = null;
-let fs = null;
 
-let bunyan = null;
-let bFormat = null;
-
-if (isNode) {
+if (runtimeEnv == 'node') {
     // node process
     axios = require('axios');
+    fs = require('fs');
+    
     http = require('http');
     https = require('https');
     http2 = require('http2-wrapper');
     // This probably doesn't need to be checked for process type. But we lose nothing by delaying
     // the import.
     createHTTP2Adapter = require('axios-http2-adapter').createHTTP2Adapter;
-    fs = require('fs');
-
-    bunyan = require("bunyan");
-    bFormat = require("bunyan-format");
 }
 else {
     // browser process
     // special case for commonJS as found from this issue
     // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
     axios = require('axios').default;
+    fs = {};
 }
 const { isAxiosError } = axios;
 
@@ -301,7 +300,7 @@ class WideSkyClient {
         // manually, as the browser handles connection reuse internally. Axios options such as
         // 'httpAgent' or 'httpsAgent' are ignored in this environment. Connection behavior is
         // controlled by the browser's own HTTP stack.
-        if (isNode) {
+        if (runtimeEnv == 'node') {
             // Enable keep-alive by default in Node.js
             const agentOptions = {
                 keepAlive: true,
@@ -396,7 +395,7 @@ class WideSkyClient {
     }
 
     get isProgressEnabled() {
-        return this.clientOptions.progress.enable && isNode;
+        return this.clientOptions.progress.enable && runtimeEnv == 'node';
     }
 
     /**
@@ -1329,12 +1328,8 @@ class WideSkyClient {
                 tags={}) {
 
         if (typeof file === 'string') {
-            if (isNode) {
-                // Assume an absolute file path
-                file = fs.createReadStream(file);
-            } else {
-                throw new Error('The file system cannot be used in a browser instance.');
-            }
+            // Assume an absolute file path
+            file = fs.createReadStream(file);
         }
         else if (Buffer.isBuffer(file)) {
             // buffer is ok
