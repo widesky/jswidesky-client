@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.2.0] - 2025-05-29
+
 ### REMOVED
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Unused dependencies. **Bold** entries
   are NodeJS built-in modules that were improperly imported as part of unsafe browser usage:
@@ -343,3 +345,4 @@ duplicated, even in the case where a package's version was unpublished. This is 
 [3.1.1]: https://github.com/widesky/jswidesky-client/compare/3.1.1...3.1.0
 [3.1.2]: https://github.com/widesky/jswidesky-client/compare/3.1.2...3.1.1
 [3.1.3]: https://github.com/widesky/jswidesky-client/compare/3.1.3...3.1.2
+[3.2.0]: https://github.com/widesky/jswidesky-client/compare/3.2.0...3.1.3

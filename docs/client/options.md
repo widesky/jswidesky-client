@@ -14,11 +14,12 @@
 ## Client Options
 The argument `options` is expected to have the following structure:
 
-| Path     | Description                                                                                                                                                                                     |  Type  |              Default              |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----: | :-------------------------------: |
-| `axios`  | Axios client configurations as per [Axios documentation](https://axios-http.com/docs/config_defaults).                                                                                          | Object | As defined by the `axios` library |
+| Path     | Description                                                                                                                                                                                          |  Type  |              Default              |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------:|:---------------------------------:|
+| `axios`  | Axios client configurations as per [Axios documentation](https://axios-http.com/docs/config_defaults).                                                                                               | Object | As defined by the `axios` library |
 | `http`   | Node HTTP agent configurations as per [Node.js 16.x documentation](https://nodejs.org/docs/latest-v16.x/api/http.html#new-agentoptions). This is used for HTTP(S) agents passed to the Axios client. | Object |               `{}`                |
-| `client` | Object for defining `WideSkyClient` configurations.                                                                                                                                             | Object |                                   |
+| `http2`  | HTTP 2 configurations as documented below.                                                                                                                                                           | Object |                                   |
+| `client` | Object for defining `WideSkyClient` configurations.                                                                                                                                                  | Object |                                   |
 
 ### Path `client`
 The Object defined in `client` is expected to have the following structure:
