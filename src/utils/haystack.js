@@ -110,4 +110,6 @@ module.exports = {
     getReadableName,
     getId,
     toHaystack
-}
+};
+
+module.exports.default = module.exports;

@@ -38,7 +38,7 @@ describe("client", () => {
             ws.initAxios();
 
             console.log(passedAxiosOptions);
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
 
             expect(passedAxiosOptions.httpAgent instanceof http.Agent).to.be.true;
@@ -48,6 +48,8 @@ describe("client", () => {
             expect(passedAxiosOptions.httpsAgent instanceof https.Agent).to.be.true;
             expect(passedAxiosOptions.httpsAgent.keepAlive).to.eql(true);
             expect(passedAxiosOptions.httpsAgent.keepAliveMsecs).to.eql(1000);
+
+            expect(passedAxiosOptions.adapter).to.be.undefined;
         });
 
         it("should pass options to axios client and agents if specified", () => {
@@ -61,7 +63,7 @@ describe("client", () => {
                 }
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(5);
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
             expect(passedAxiosOptions.test).to.equal(123);
 
@@ -84,7 +86,7 @@ describe("client", () => {
                 }
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(5);
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
             expect(passedAxiosOptions.test).to.equal(123);
 
@@ -95,6 +97,37 @@ describe("client", () => {
             expect(passedAxiosOptions.httpsAgent instanceof https.Agent).to.be.true;
             expect(passedAxiosOptions.httpsAgent.keepAlive).to.eql(true);
             expect(passedAxiosOptions.httpsAgent.keepAliveMsecs).to.eql(2000);
+        });
+
+        it("should not use the http2Adapter when http2.enabled=false", () => {
+            ws.options = {
+                http2: {
+                    enabled: false,
+                },
+            };
+            ws.initAxios();
+            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            expect(passedAxiosOptions.adapter).to.be.undefined;
+        });
+
+        it("should not use the http2Adapter when http2.enabled=undefined", () => {
+            ws.options = {
+                http2: {},
+            };
+            ws.initAxios();
+            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            expect(passedAxiosOptions.adapter).to.be.undefined;
+        });
+
+        it("should use the http2Adapter when http2.enabled=true", () => {
+            ws.options = {
+                http2: {
+                    enabled: true,
+                },
+            };
+            ws.initAxios();
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.adapter).to.not.equal(null);
         });
     });
 });

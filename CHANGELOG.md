@@ -4,8 +4,81 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### REMOVED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Unused dependencies. **Bold** entries
+  are NodeJS built-in modules that were improperly imported as part of unsafe browser usage:
+  - @babel/core
+  - @babel/preset-env
+  - babel-loader
+  - npm-run-all
+  - webpack-dev-server
+  - **readline**
+  - **http2**
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): `dist` directory from repo.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Webpack dev server. This webpack
+  config was never configured to work, so nothing is lost here.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package no longer exports
+  `jsWideSky.min.js` and `jsWideSky.develop.js`.
+
+### FIXED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a check for the process 
+  environment so that the client can be used in the browser. `http` and `https` agent options now
+  only apply in a Node.js runtime (they will not work outside of it).
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Audited packages and updated to
+  remove potential vulnerabilities.
+
+### ADDED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a new 
+  [option](./docs/client/options.md) group `http2` to allow enabling of http2 as a transport method.
+  Can be enabled by setting `http2.enabled` to `true`.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Support for typing in the published
+  package via the generated `index.d.ts` file.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Updated build to support ES6 import
+  style.
+
 ### CHANGED
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Remove unused deps
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added an `engines` field to the
+  package manifest specifying support for Node.js `>=16`. Previously, no engine requirement was
+  declared, but the package implicitly required Node.js `>=15` due to usage of
+  `String.prototype.replaceAll()`. Since development and testing have consistently used Node.js 16
+  or higher, the `engines` field now explicitly reflects this.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): No longer installs and tests when
+  building (`npm run build`).
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Building with webpack
+  `--mode production` now builds with `production` mode enabled. Allowing for smaller builds and
+  minor performance increases.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): `dist` directory is now populated
+  with:
+  - `index.js`
+  - `index.js.LICENSE.txt` (module licenses)
+  - `LICENSE` (WideSky license)
+  - `README.md` (same from project root)
+  - `docs/`
+  - `CHANGELOG.md`
+  - `package.json`
+  
+  The resulting package size is `243.1 kB`, down from `2.6 MB`.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package now exports a single 
+  `index.js` source file that is the production version of the code, to access a development package
+  `npm link` should be used from source.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Now uses the correct set of webpack
+  `externals` and `fallbacks` to improve build reliability and reduce masking of incorrect browser
+  support.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): When running in a browser environment
+  the following built-in modules are no longer `require`'ed. These modules are also **not** 
+  polyfilled via a `fallback` (unchanged):
+  - `http`
+  - `https`
+  
+  Additionally, the following external modules are no longer `require`'ed, as they do not support a
+  browser runtime. These modules are marked as `externals` in the build:
+  - `dtrace-provider`
+  - `fs`
+  - `mv`
+  - `os`
+  - `source-map-support`
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Client configuration validation from
+  asynchronous to synchronous.
 
 ## [3.1.3] - 2025-04-09
 
@@ -30,9 +103,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   now uses a `http2` adapter which allows it to make calls using the HTTP/2.0
   protocol.
 
+
 ### FIXED
-- [CORE-1907](https://widesky.atlassian.net/browse/CORE-1907): `HisWritePayload`
-  class not accepting boolean values.
+- [CORE-1907](https://widesky.atlassian.net/browse/CORE-1907): `HisWritePayload` class not accepting boolean values.
 
 ## [3.1.1] - 2024-06-03
 ### CHANGED
