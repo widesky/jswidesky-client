@@ -12,8 +12,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - babel-loader
   - npm-run-all
   - webpack-dev-server
-  - **util**
-  - **process**
   - **readline**
   - **http2**
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): `dist` directory from repo.
@@ -65,15 +63,16 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): When running in a browser environment
   the following built-in modules are no longer `require`'ed. These modules are also **not** 
   polyfilled via a `fallback` (unchanged):
-  - `fs`
   - `http`
   - `https`
   
   Additionally, the following external modules are no longer `require`'ed, as they do not support a
   browser runtime. These modules are marked as `externals` in the build:
-  - `bunyan`
-  - `bunyan-format`
-  - `cli-progress`
+  - `dtrace-provider`
+  - `fs`
+  - `mv`
+  - `os`
+  - `source-map-support`
   
 ### ADDED
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Support for typing in the published
