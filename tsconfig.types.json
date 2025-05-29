@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+      "types": [],
+      "lib": ["ES2020", "DOM"],
+      "outDir": "types",
+      "target": "ES2020",
+      "emitDeclarationOnly": true,
+      "allowJs": true,
+      "declaration": true
+    },
+    "include": ["src", "index.js"]
+}

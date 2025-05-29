@@ -9,32 +9,57 @@ const data = require('./../data');
 const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
 const Url = require('url-parse');
-const fs = require('fs');
-const http = require('http');
-const https = require('https');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
-const bunyan = require("bunyan");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
-const bFormat = require("bunyan-format");
 const {GraphQLError} = require("../errors");
-const { createHTTP2Adapter } = require('axios-http2-adapter');
-const http2 = require('http2-wrapper');
+const bunyan = require("bunyan");
+const bFormat = require("bunyan-format");
+
+// Check for the runtime
+let runtimeEnv;
+if (typeof (process) !== 'undefined' && process.versions) {
+    if (process.versions.node) {
+        runtimeEnv = 'node';
+    }
+}
+if (!runtimeEnv && typeof (window) !== 'undefined' && window.window === window) {
+    runtimeEnv = 'browser';
+}
+if (!runtimeEnv) {
+    throw new Error('unknown runtime environment');
+}
 
 let axios;
-// Browser/Node axios import
-if (typeof window === 'undefined') {
+let fs;
+
+let http = null;
+let https = null;
+let http2 = null;
+
+let createHTTP2Adapter = null;
+
+if (runtimeEnv == 'node') {
     // node process
     axios = require('axios');
+    fs = require('fs');
+    
+    http = require('http');
+    https = require('https');
+    http2 = require('http2-wrapper');
+    // This probably doesn't need to be checked for process type. But we lose nothing by delaying
+    // the import.
+    createHTTP2Adapter = require('axios-http2-adapter').createHTTP2Adapter;
 }
 else {
     // browser process
     // special case for commonJS as found from this issue
     // https://github.com/axios/axios/issues/5038#:~:text=Since%20the%20latest,stated%20in%20README
     axios = require('axios').default;
+    fs = {};
 }
 const { isAxiosError } = axios;
 
@@ -59,37 +84,40 @@ const AUTH_METHOD = Object.freeze({
 
 /**
  * Initialise a logging instance.
- * @param logObj An Object that can be:
+ * @param {bunyan | bunyan.LoggerOptions | undefined} logObj In the browser the Console is always used. Otherwise, an Object that can be:
  *                  - Empty, meaning a default Bunyan logger is used
  *                  - Object for which a Bunyan instance will be created with:
  *                      - name: Name of logging instance
  *                      - level: Bunyan logging level to show logs higher.
  *                      - raw: If true, output in JSON format. If false, output in prettified Bunyan logging format.
  *                  - Bunyan logging instance.
- * @returns {Object} A logging instance
+ * @returns {bunyan} A bunyan logging instance
  */
-function initLogger(logObj) {
-    let logger;
-    if (logObj === undefined) {
-        logger = bunyan.createLogger({
-            name: "WideSky-Client"
-        });
-    } else if (logObj.constructor.name === "Object") {
-        logger = bunyan.createLogger({
-            name: logObj.name || "WideSky-Client",
-            level: logObj.level || "info",
-            stream: logObj.raw ? process.stdout : bFormat({
-                outputMode: 'short',
-                color: true,
-                levelInString: true
-            }, process.stdout)
-        })
-    } else {
+function initLogger(logObj = {}) {
+    if (logObj.constructor.name !== "Object") {
         // use Bunyan logging instance given.
-        logger = logObj;
+        return logObj;
     }
 
-    return logger;
+    const loggerDefaults = {
+        name: "WideSky-Client",
+        level: "info",
+        stream: bFormat(
+            {
+                outputMode: "short",
+                color: true,
+                levelInString: true,
+            },
+            process.stdout
+        ),
+        ...logObj,
+    };
+
+    if (logObj.raw || runtimeEnv == 'browser') {
+        loggerDefaults.stream = process.stdout;
+    }
+
+    return bunyan.createLogger(loggerDefaults);
 }
 
 class WideSkyClient {
@@ -115,7 +143,7 @@ class WideSkyClient {
      * @param password Password of the WideSky user to authenticate with.
      * @param clientId Client ID for OAuth 2.0 authentication.
      * @param clientSecret Client secret for OAuth 2.0 authentication.
-     * @param logger An Object that can be:
+     * @param logger In the browser the Console is always used. Otherwise, an Object that can be:
      *                  - Undefined, meaning a default Bunyan logger is used
      *                  - Object for which a Bunyan instance will be created with:
      *                      - name: Name of logging instance
@@ -150,16 +178,12 @@ class WideSkyClient {
         this.logger = initLogger(logger);
         this.options = options;
         this.clientOptions = null;
-        this.httpAgent = null;
-        this.httpsAgent = null;
         this._impersonate = null;
         this._acceptGzipEncoding  = true;
-        this.initialised = false;
 
         this.initAccessToken();
         this.initAxios();
-        // Client option initiator is async. Wait for this to complete before submitting requests
-        this.initWaitFor = this.initClientOptions();
+        this.initClientOptions();
         this.assignSubFunctions();
     }
 
@@ -203,35 +227,17 @@ class WideSkyClient {
     }
 
     assignSubFunctions() {
-        const performPreCheck = (func) => {
-            return async (...args) => {
-                if (!this.initialised) {
-                    this.logger.info("Not finished initialising. Waiting...");
-                    await this.initWaitFor;
-                }
-
-                return func.call(this, ...args);
-            }
-        }
-
-        const assignPrototype = (thisProp, functions, withPreCheck=false) => {
-            for (const [name, func] of Object.entries(functions)) {
-                if (withPreCheck) {
-                    thisProp[name] = performPreCheck.call(this, func);
-                }
-                else {
-                    thisProp[name] = func.bind(this);
-                }
-            }
-        }
-
         // Add function for v2 function
         this.v2 = {};
-        assignPrototype(this.v2, clientV2Functions);
+        for (const [name, func] of Object.entries(clientV2Functions)) {
+            this.v2[name] = func.bind(this);
+        }
         // Assign batch functions
-        this.performOpInBatch = performPreCheck(performOpInBatch);
+        this.performOpInBatch = performOpInBatch;
         this.batch = {};
-        assignPrototype(this.batch, allBatchFunctions, true);
+        for (const [name, func] of Object.entries(allBatchFunctions)) {
+            this.batch[name] = func.bind(this);
+        }
     }
 
     /**
@@ -263,57 +269,64 @@ class WideSkyClient {
      * Apply the config to be used for all axios requests.
      */
     initAxios() {
-        // If HTTP options keepAlive is undefined, default it to true.
-        if (typeof this.options.http === 'object') {
-            if (this.options.http.keepAlive === undefined) {
-                this.options.http.keepAlive = true; // default to true
-            }
-        } else {
-            this.options.http = {
-                keepAlive: true // default to true
+        const baseURL = this.baseUri;
+
+        const defaultAxiosOptions = {
+            baseURL,
+        };
+
+        // In the browser, low-level HTTP options like 'keepAlive' cannot be configured 
+        // manually, as the browser handles connection reuse internally. Axios options such as
+        // 'httpAgent' or 'httpsAgent' are ignored in this environment. Connection behavior is
+        // controlled by the browser's own HTTP stack.
+        if (runtimeEnv == 'node') {
+            // Enable keep-alive by default in Node.js
+            const agentOptions = {
+                keepAlive: true,
+                ...(this.options.http ?? {}),
             };
+
+            defaultAxiosOptions.httpAgent = new http.Agent(agentOptions);
+            defaultAxiosOptions.httpsAgent = new https.Agent(agentOptions);
+
+            if (this.options.http2?.enabled) {
+                const http2Agent = new http2.Agent(agentOptions)
+                defaultAxiosOptions.adapter = createHTTP2Adapter({
+                    agent: http2Agent,
+                });
+            }
         }
 
-        this.httpAgent = new http.Agent(this.options.http);
-        this.httpsAgent = new https.Agent(this.options.http);
+        // Merge user-provided axios options last to allow override
+        const axiosOptions = {
+            ...defaultAxiosOptions,
+            ...(this.options.axios ?? {}),
+        };
 
-        this.axios = axios.create(Object.assign({
-            baseURL: this.baseUri,
-            httpAgent: this.httpAgent,
-            httpsAgent: this.httpsAgent,
-            adapter: createHTTP2Adapter({
-                agent: new http2.Agent(this.options.http)
-            })
-        }, this.options.axios || {}));
+        this.axios = axios.create(axiosOptions);
     }
 
     /**
      * Initialise the WideSkyClient with the user configurations.
-     * @returns {Promise<void>}
+     * @returns {void}
      */
     async initClientOptions() {
-        try {
-            await CLIENT_SCHEMA.validate(this.options.client);
-            this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
-            this.setAcceptGzip(this.clientOptions.acceptGzip);
+        CLIENT_SCHEMA.validateSync(this.options.client);
+        this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
+        this.setAcceptGzip(this.clientOptions.acceptGzip);
 
-            if (this.clientOptions.impersonateAs !== null) {
-                this.impersonateAs(this.clientOptions.impersonateAs);
+        if (this.clientOptions.impersonateAs !== null) {
+            this.impersonateAs(this.clientOptions.impersonateAs);
+        }
+
+        if (this.isProgressEnabled) {
+            if (this.clientOptions.progress.instance === undefined) {
+                const cliProgress = require("cli-progress");
+                this.clientOptions.progress.instance = new cliProgress.MultiBar({
+                    clearOnComplete: false,
+                    hideCursor: true
+                }, cliProgress.Presets.shades_classic);
             }
-
-            if (this.isProgressEnabled) {
-                if (this.clientOptions.progress.instance === undefined) {
-                    const cliProgress = require("cli-progress");
-                    this.clientOptions.progress.instance = new cliProgress.MultiBar({
-                        clearOnComplete: false,
-                        hideCursor: true
-                    }, cliProgress.Presets.shades_classic);
-                }
-            }
-
-            this.initialised = true;
-        } catch (error) {
-            throw new Error(error.message);
         }
     }
 
@@ -326,16 +339,7 @@ class WideSkyClient {
     };
 
     impersonateAs(userId) {
-        if (!this.initialised) {
-            const oldPromise = this.initWaitFor;
-            this.initWaitFor = new Promise(async (resolve) => {
-                await oldPromise;
-                this._impersonate = userId;
-                resolve();
-            });
-        } else {
-            this._impersonate = userId;
-        }
+        this._impersonate = userId;
     };
 
     isImpersonating() {
@@ -355,7 +359,7 @@ class WideSkyClient {
     }
 
     get isProgressEnabled() {
-        return this.clientOptions.progress.enable;
+        return this.clientOptions.progress.enable && runtimeEnv == 'node';
     }
 
     /**
@@ -379,11 +383,6 @@ class WideSkyClient {
      */
     async _wsRawSubmit(method, uriPath, body, config) {
         const uri = this.baseUri + uriPath;
-
-        if (!this.initialised) {
-            this.logger.info("Not finished initialising. Waiting...");
-            await this.initWaitFor;
-        }
 
         /* istanbul ignore next */
         if (this.logger) {
@@ -1750,6 +1749,10 @@ class WideSkyClient {
             .map((entity) => entity.id);
     }
 }
+
+
+// attach for testing
+WideSkyClient.initLogger = initLogger;
 
 /* Exported symbols */
 module.exports = WideSkyClient;

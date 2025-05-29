@@ -7,10 +7,8 @@
 
 const stubs = require('../../../stubs');
 const sinon = require('sinon');
-const {readFileSync} = require("fs");
 const expect = require('chai').expect;
 const getInstance = stubs.getInstance;
-const path = require('path');
 
 const QUERY_1_FILTER_LIMIT =
     "\n{\n  " +

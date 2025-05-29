@@ -1,5 +1,7 @@
 const lodash = require("lodash");
-const { Logger } = require("bunyan")
+/**
+ * @typedef {import('bunyan')} Logger
+ */
 
 /**
  * Error class to capture different types of request errors
@@ -25,7 +27,8 @@ class RequestError extends Error {
      * Make a HaystackError, GraphQLError where applicable. If the given reqError is not determined to be either a
      * HaystackError or GraphQL error, the original error is returned.
      * @param {AxiosError | Error} reqError Error to be parsed.
-     * @param {Logger} logger A Bunyan logging instance to log the creation of a new Error instance.
+     * @param {Logger | Console} logger A Bunyan or console logging instance to log the creation of
+     *                                  a new Error instance.
      */
     static make(reqError, logger) {
         if (lodash.has(reqError, "response.data")) {
