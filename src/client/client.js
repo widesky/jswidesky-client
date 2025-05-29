@@ -180,12 +180,10 @@ class WideSkyClient {
         this.clientOptions = null;
         this._impersonate = null;
         this._acceptGzipEncoding  = true;
-        this.initialised = false;
 
         this.initAccessToken();
         this.initAxios();
-        // Client option initiator is async. Wait for this to complete before submitting requests
-        this.initWaitFor = this.initClientOptions();
+        this.initClientOptions();
         this.assignSubFunctions();
     }
 
@@ -229,35 +227,17 @@ class WideSkyClient {
     }
 
     assignSubFunctions() {
-        const performPreCheck = (func) => {
-            return async (...args) => {
-                if (!this.initialised) {
-                    this.logger.info("Not finished initialising. Waiting...");
-                    await this.initWaitFor;
-                }
-
-                return func.call(this, ...args);
-            }
-        }
-
-        const assignPrototype = (thisProp, functions, withPreCheck=false) => {
-            for (const [name, func] of Object.entries(functions)) {
-                if (withPreCheck) {
-                    thisProp[name] = performPreCheck.call(this, func);
-                }
-                else {
-                    thisProp[name] = func.bind(this);
-                }
-            }
-        }
-
         // Add function for v2 function
         this.v2 = {};
-        assignPrototype(this.v2, clientV2Functions);
+        for (const [name, func] of Object.entries(clientV2Functions)) {
+            this.v2[name] = func.bind(this);
+        }
         // Assign batch functions
-        this.performOpInBatch = performPreCheck(performOpInBatch);
+        this.performOpInBatch = performOpInBatch;
         this.batch = {};
-        assignPrototype(this.batch, allBatchFunctions, true);
+        for (const [name, func] of Object.entries(allBatchFunctions)) {
+            this.batch[name] = func.bind(this);
+        }
     }
 
     /**
@@ -328,31 +308,25 @@ class WideSkyClient {
 
     /**
      * Initialise the WideSkyClient with the user configurations.
-     * @returns {Promise<void>}
+     * @returns {void}
      */
     async initClientOptions() {
-        try {
-            await CLIENT_SCHEMA.validate(this.options.client);
-            this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
-            this.setAcceptGzip(this.clientOptions.acceptGzip);
+        CLIENT_SCHEMA.validateSync(this.options.client);
+        this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
+        this.setAcceptGzip(this.clientOptions.acceptGzip);
 
-            if (this.clientOptions.impersonateAs !== null) {
-                this.impersonateAs(this.clientOptions.impersonateAs);
+        if (this.clientOptions.impersonateAs !== null) {
+            this.impersonateAs(this.clientOptions.impersonateAs);
+        }
+
+        if (this.isProgressEnabled) {
+            if (this.clientOptions.progress.instance === undefined) {
+                const cliProgress = require("cli-progress");
+                this.clientOptions.progress.instance = new cliProgress.MultiBar({
+                    clearOnComplete: false,
+                    hideCursor: true
+                }, cliProgress.Presets.shades_classic);
             }
-
-            if (this.isProgressEnabled) {
-                if (this.clientOptions.progress.instance === undefined) {
-                    const cliProgress = require("cli-progress");
-                    this.clientOptions.progress.instance = new cliProgress.MultiBar({
-                        clearOnComplete: false,
-                        hideCursor: true
-                    }, cliProgress.Presets.shades_classic);
-                }
-            }
-
-            this.initialised = true;
-        } catch (error) {
-            throw new Error(error.message);
         }
     }
 
@@ -365,16 +339,7 @@ class WideSkyClient {
     };
 
     impersonateAs(userId) {
-        if (!this.initialised) {
-            const oldPromise = this.initWaitFor;
-            this.initWaitFor = new Promise(async (resolve) => {
-                await oldPromise;
-                this._impersonate = userId;
-                resolve();
-            });
-        } else {
-            this._impersonate = userId;
-        }
+        this._impersonate = userId;
     };
 
     isImpersonating() {
@@ -418,11 +383,6 @@ class WideSkyClient {
      */
     async _wsRawSubmit(method, uriPath, body, config) {
         const uri = this.baseUri + uriPath;
-
-        if (!this.initialised) {
-            this.logger.info("Not finished initialising. Waiting...");
-            await this.initWaitFor;
-        }
 
         /* istanbul ignore next */
         if (this.logger) {

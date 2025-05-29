@@ -31,7 +31,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a new 
   [option](./docs/client/options.md) group `http2` to allow enabling of http2 as a transport method.
   Can be enabled by setting `http2.enabled` to `true`.
-  
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Support for typing in the published
+  package via the generated `index.d.ts` file.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Updated build to support ES6 import
+  style.
+
 ### CHANGED
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added an `engines` field to the
   package manifest specifying support for Node.js `>=16`. Previously, no engine requirement was
@@ -73,12 +77,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `mv`
   - `os`
   - `source-map-support`
-  
-### ADDED
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Support for typing in the published
-  package via the generated `index.d.ts` file.
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Updated build to support ES6 import
-  style.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Client configuration validation from
+  asynchronous to synchronous.
 
 ## [3.1.3] - 2025-04-09
 
