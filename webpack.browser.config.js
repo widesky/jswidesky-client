@@ -30,13 +30,6 @@ module.exports = {
             process: "process/browser",
         }),
     ],
-    resolve: {
-        fallback: {
-            stream: require.resolve("stream-browserify"),
-            http: false,
-            https: false,
-        },
-    },
     optimization: {
         minimizer: [
             new TerserPlugin({
