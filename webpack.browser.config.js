@@ -1,18 +1,18 @@
+const path = require("path");
+const webpack = require("webpack");
 const TerserPlugin = require("terser-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
-const webpack = require("webpack");
 
-module.exports = (env, argv) => ({
-    mode: argv.mode,
-    devtool: argv.mode === "production" ? undefined : "inline-source-map",
-    entry: {
-        index: [`./index.js`],
-    },
+module.exports = {
+    target: "web",
+    mode: "development",
+    entry: "./index.js",
     output: {
+        path: path.resolve(__dirname, "dist"),
+        filename: "index.browser.js",
         library: {
             type: "umd",
             name: "JsWideSky",
-            umdNamedDefine: true,
         },
         globalObject: "this",
     },
@@ -26,7 +26,6 @@ module.exports = (env, argv) => ({
                 { from: "docs/client", to: "docs" },
             ],
         }),
-        // fix "process is not defined" error, so that bunyan (util module) can run in the browser
         new webpack.ProvidePlugin({
             process: "process/browser",
         }),
@@ -47,18 +46,12 @@ module.exports = (env, argv) => ({
     },
     resolve: {
         fallback: {
-            net: false,
-            url: false,
-            tls: false,
+            assert: false,
             http: false,
             https: false,
-            http2: false,
-            readline: false,
-            // Polyfill Node modules to allow bunyan to run in the browser
-            stream: require.resolve("stream-browserify"),
             util: require.resolve("util/"),
-            assert: require.resolve("assert/"),
-            buffer: require.resolve("buffer/"),
+            stream: require.resolve("stream-browserify"),
+            buffer: false,
         },
     },
     externals: [
@@ -66,6 +59,9 @@ module.exports = (env, argv) => ({
         "fs",
         "mv",
         "os",
-        "source-map-support"
+        "source-map-support",
+        "http2-wrapper",
+        "axios-http2-adapter",
+        "cli-progress",
     ],
-});
+};

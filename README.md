@@ -2,7 +2,7 @@
 This is a simple `Promise`-based client for the WideSky application server.
 
 It can be used for both backend and frontend application.
-See example code below on how to import it into your project. See the [API](./docs/client/api.md) 
+See example code below on how to import it into your project. See the [API](https://github.com/widesky/jswidesky-client/blob/master/docs/client/api.md) 
 documentation for the available functions.
 
 # Table Of Contents
@@ -40,7 +40,7 @@ The simplest way to incorporate the library into your browser is by using the `<
 
 Example:
 ```html
-<script src="https://unpkg.com/@widesky/jswidesky-client@2.1.5/dist/jsWideSky.min.js"></script>
+<script src="https://unpkg.com/@widesky/jswidesky-client@3.2.0"></script>
 <script>
   const WIDESKY_CONFIG = {
     "serverURL": "https://myWideSkyServer.com",
@@ -49,7 +49,7 @@ Example:
     "clientId": "1231231231",
     "clientSecret": "545454545445"
   };
-  const wsClient = JsWideSky.WideSkyClient.makeFromConfig(FE_CONFIG);
+  const wsClient = JsWideSky.WideSkyClient.makeFromConfig(WIDESKY_CONFIG);
   wsClient.v2.find("site")
           .then((res) => console.log(res));
 </script>
@@ -60,9 +60,9 @@ then it can be added by using the `import` statement.
 
 Example:
 ```javascript
-import jsWidesky from '@widesky/jswidesky-client/dist/jsWideSky.min.js';
+import { WideSkyClient } from '@widesky/jswidesky-client';
 
-const myClient = new jsWidesky.WideSkyClient(
+const myClient = new WideSkyClient(
         "https://instanceName.on.widesky.cloud",
         "hello@widesky.cloud",
         "abcdefg",
@@ -117,7 +117,7 @@ let myQuery = `{
 let response = await myClient.query(myQuery);
 ```
 
-See our [documentation](https://widesky.cloud/docs/reference/apis/cloud/graphql/) for more information
+See our [documentation](https://docs.widesky.cloud/reference/apis/cloud/graphql/) for more information
 on the WideSky query language.
 
 ## WideSky query utilities
