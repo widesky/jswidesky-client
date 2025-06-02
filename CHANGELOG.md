@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - webpack-dev-server
   - **readline**
   - **http2**
+
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): `dist` directory from repo.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Webpack dev server. This webpack
   config was never configured to work, so nothing is lost here.
@@ -60,6 +61,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `package.json`
   
   The resulting package size is `243.1 kB`, down from `2.6 MB`.
+
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package now exports a single 
   `index.js` source file that is the production version of the code, to access a development package
   `npm link` should be used from source.
@@ -79,6 +81,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `mv`
   - `os`
   - `source-map-support`
+
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Client configuration validation from
   asynchronous to synchronous.
 
