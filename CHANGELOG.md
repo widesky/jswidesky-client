@@ -4,6 +4,19 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.2.1] - 2025-06-02
+
+### FIXED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): `window undefined error` when used in a non-browser
+  environment.
+
+### CHANGED
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Defined property `unpkg` and `browser` in
+  the `package.json` permit browser environments to use `unpkg` or similar to directly import the package
+  rather than a file in the package.
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Created specific build files for browser and
+  non-browser environments. These are minified files `index.browser.js` and `index.js`.
+
 ## [3.2.0] - 2025-05-29
 
 ### REMOVED
@@ -321,7 +334,7 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.1.3
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.2.1
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
@@ -349,3 +362,4 @@ duplicated, even in the case where a package's version was unpublished. This is 
 [3.1.2]: https://github.com/widesky/jswidesky-client/compare/3.1.2...3.1.1
 [3.1.3]: https://github.com/widesky/jswidesky-client/compare/3.1.3...3.1.2
 [3.2.0]: https://github.com/widesky/jswidesky-client/compare/3.2.0...3.1.3
+[3.2.1]: https://github.com/widesky/jswidesky-client/compare/3.2.1...3.2.0
