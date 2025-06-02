@@ -40,7 +40,7 @@ The simplest way to incorporate the library into your browser is by using the `<
 
 Example:
 ```html
-<script src="https://unpkg.com/@widesky/jswidesky-client@3.2.0/index.js"></script>
+<script src="https://unpkg.com/@widesky/jswidesky-client@3.2.0"></script>
 <script>
   const WIDESKY_CONFIG = {
     "serverURL": "https://myWideSkyServer.com",

@@ -4,6 +4,7 @@
   "description": "WideSky Client in JavaScript",
   "main": "index.js",
   "browser": "index.browser.js",
+  "unpkg": "index.browser.js",
   "private": false,
   "scripts": {
     "test": "JUNIT_REPORT_PATH=report.xml npx mocha --colors --reporter mocha-jenkins-reporter $(find test -name \"*.js\")",
