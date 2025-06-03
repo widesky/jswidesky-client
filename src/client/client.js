@@ -1385,24 +1385,29 @@ class WideSkyClient {
      *
      * @param mappedData (Map) Map of pointIds -> [time1, time2]
      */
-    fileDelete (mappedData) {
-        let request = [];
-        if (!(mappedData instanceof Map)) {
-            throw new Error('Payload must be a Map.');
+    fileDelete (pointId, start, end) {
+
+        const mStart = moment(start);
+        if (mStart.isValid() !== true) {
+            throw new Error('From date ' + start + ' is not a valid date.');
         }
 
-        for (const [pointId, time] of mappedData.entries()) {
-            const payload = {
-                pointId,
-                time
-            };
-            request.push(payload);
+        const mEnd = moment(end);
+        if (mEnd.isValid() !== true) {
+            throw new Error('To date ' + end + ' is not a valid date.');
         }
 
         return this.submitRequest(
             'DELETE',
             '/api/file/storage',
-            request
+            {},
+            {
+                params: {
+                    id: pointId,
+                    start: mStart.utc().format(MOMENT_FORMAT_MS_PRECISION),
+                    end: mEnd.utc().format(MOMENT_FORMAT_MS_PRECISION),
+                }
+            }
         );
     }
 
