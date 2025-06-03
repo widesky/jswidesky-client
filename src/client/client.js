@@ -1383,7 +1383,23 @@ class WideSkyClient {
 
     /**
      *
-     * @param mappedData (Map) Map of pointIds -> [time1, time2]
+     * @param   pointId       (string)    The file point identifier, one with kind=File
+     * @param   start          (date)      Starting ISO8601 timestamp of the retrieve.
+     * @param   end            (date)      Ending ISO8601 timestamp of the retrieve.
+     *
+     *
+     * @returns Promise that resolves to the following format.
+     * [
+     *       {
+     *           "pointId": 'ff681fb8-cc87-4982-9139-1faafa173dcd',
+     *           "removed": [
+     *               {
+     *                   "time": '2034-02-12T08:00:00.000Z',
+     *                   "fileId": '347a4d75-3a5e-4cd3-8925-e0a3d2521f8c'
+     *               }
+     *           ]
+     *       }
+     *   ]
      */
     fileDelete (pointId, start, end) {
 
