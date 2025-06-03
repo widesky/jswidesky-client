@@ -404,7 +404,6 @@ class WideSkyClient {
                 res = await this.axios.put(uri, body, config);
                 break;
             case 'DELETE':
-                config.data = body;
                 res = await this.axios.delete(uri, config);
                 break;
             default:
