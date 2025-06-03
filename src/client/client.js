@@ -1387,7 +1387,6 @@ class WideSkyClient {
      * @param   start          (date)      Starting ISO8601 timestamp of the retrieve.
      * @param   end            (date)      Ending ISO8601 timestamp of the retrieve.
      *
-     *
      * @returns Promise that resolves to the following format.
      * [
      *       {
