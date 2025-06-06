@@ -1401,14 +1401,26 @@ class WideSkyClient {
      */
     fileDelete (pointId, start, end) {
 
+        if (start === 'last' ||
+            start === 'first' ||
+            start === 'today' ||
+            start === 'yesterday') {
+            throw new Error("File delete does not support " +
+                "input that is not in date format (YYYY-MM-DD).");
+        }
+
+        if (end === "") {
+            throw new Error("Missing end date input for file delete.");
+        }
+
         const mStart = moment(start);
         if (mStart.isValid() !== true) {
-            throw new Error('From date ' + start + ' is not a valid date.');
+            throw new Error('Start date ' + start + ' is not a valid date.');
         }
 
         const mEnd = moment(end);
         if (mEnd.isValid() !== true) {
-            throw new Error('To date ' + end + ' is not a valid date.');
+            throw new Error('End date ' + end + ' is not a valid date.');
         }
 
         return this.submitRequest(
