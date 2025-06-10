@@ -1381,7 +1381,10 @@ class WideSkyClient {
     }
 
     /**
-     *
+     * Request a DELETE endpoint to /api/file/storage to delete the file.
+     * This API will return an object keyed by the requested point id,
+     * where the value is an array of removed file uuid.
+     * 
      * @param   pointId       (string)    The file point identifier, one with kind=File
      * @param   start          (date)      Starting ISO8601 timestamp of the retrieve.
      * @param   end            (date)      Ending ISO8601 timestamp of the retrieve.
@@ -1401,10 +1404,7 @@ class WideSkyClient {
      */
     fileDelete (pointId, start, end) {
 
-        if (start === 'last' ||
-            start === 'first' ||
-            start === 'today' ||
-            start === 'yesterday') {
+        if (["last", "first", "today", "yesterday"].includes(start)) {
             throw new Error("File delete does not support " +
                 "input that is not in date format (YYYY-MM-DD).");
         }
@@ -1414,11 +1414,12 @@ class WideSkyClient {
         }
 
         const mStart = moment(start);
+        const mEnd = moment(end);
+
         if (mStart.isValid() !== true) {
             throw new Error('Start date ' + start + ' is not a valid date.');
         }
 
-        const mEnd = moment(end);
         if (mEnd.isValid() !== true) {
             throw new Error('End date ' + end + ' is not a valid date.');
         }
