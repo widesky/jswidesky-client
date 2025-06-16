@@ -1408,11 +1408,15 @@ class WideSkyClient {
      */
     fileDelete (pointId, start, end) {
 
-        if (!start || start === "") {
+        if(!pointId) {
+            throw new Error("Missing point id input for file delete.");
+        }
+
+        if (!start) {
             throw new Error("Missing start date input for file delete.");
         }
 
-        if (!end || end === "") {
+        if (!end) {
             throw new Error("Missing end date input for file delete.");
         }
 
