@@ -1420,7 +1420,8 @@ class WideSkyClient {
             throw new Error("Missing end date input for file delete.");
         }
 
-        if (["last", "first", "today", "yesterday"].includes(start)) {
+        if (["last", "first", "today", "yesterday"].includes(start) || 
+            ["last", "first", "today", "yesterday"].includes(end)) {
             throw new Error("File delete does not support " +
                 "input that is not in date format (YYYY-MM-DD).");
         }
