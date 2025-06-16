@@ -404,7 +404,6 @@ class WideSkyClient {
                 res = await this.axios.put(uri, body, config);
                 break;
             case 'DELETE':
-                config.data = body;
                 res = await this.axios.delete(uri, config);
                 break;
             default:
@@ -1376,6 +1375,77 @@ class WideSkyClient {
             {
                 headers: {
                     'content-type': 'multipart/form-data'
+                }
+            }
+        );
+    }
+
+    /**
+     * Delete a set of files given a point id and time range.
+     * Returning an object keyed by the requested point id, 
+     * where the value is an array of objects containing the file uuid and time.
+     * 
+     * Return example:
+     * [
+     *       {
+     *           "pointId": 'ff681fb8-cc87-4982-9139-1faafa173dcd',
+     *           "removed": [
+     *               {
+     *                   "time": '2034-02-12T08:00:00.000Z',
+     *                   "fileId": '347a4d75-3a5e-4cd3-8925-e0a3d2521f8c'
+     *               }
+     *           ]
+     *       }
+     *   ]
+     * 
+     * @param   {string} pointId   The point id of the point a file is attached to. 
+     *                             The point must be `kind=File`
+     * @param   {Date} start  Starting ISO8601 timestamp to delete files from.
+     * @param   {Date} end    Ending ISO8601 timestamp to delete files from.
+     *
+     * @returns {Promise<Array<{pointId: string, removed: Array<{time: string, fileId: string}>}>>}
+     * 
+     */
+    fileDelete (pointId, start, end) {
+
+        if(!pointId) {
+            throw new Error("Missing point id input for file delete.");
+        }
+
+        if (!start) {
+            throw new Error("Missing start date input for file delete.");
+        }
+
+        if (!end) {
+            throw new Error("Missing end date input for file delete.");
+        }
+
+        if (["last", "first", "today", "yesterday"].includes(start) || 
+            ["last", "first", "today", "yesterday"].includes(end)) {
+            throw new Error("File delete does not support " +
+                "input that is not in date format (YYYY-MM-DD).");
+        }
+
+        const mStart = moment(start);
+        const mEnd = moment(end);
+
+        if (mStart.isValid() !== true) {
+            throw new Error('Start date ' + start + ' is not a valid date.');
+        }
+
+        if (mEnd.isValid() !== true) {
+            throw new Error('End date ' + end + ' is not a valid date.');
+        }
+
+        return this.submitRequest(
+            'DELETE',
+            '/api/file/storage',
+            {},
+            {
+                params: {
+                    id: pointId,
+                    start: mStart.utc().format(MOMENT_FORMAT_MS_PRECISION),
+                    end: mEnd.utc().format(MOMENT_FORMAT_MS_PRECISION),
                 }
             }
         );

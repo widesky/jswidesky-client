@@ -3,6 +3,11 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+- [CORE-4878](https://widesky.atlassian.net/browse/CORE-4878): Added the fileDelete function 
+  to handle file [DELETE] requests. This function accepts pointId, a start date in ISO8601 format and
+  end date in ISO8601 format, and sends a [DELETE] request to the api/file/storage endpoint.
+- [CORE-5160](https://widesky.atlassian.net/browse/CORE-5160): Updated wsRawSubmit DELETE method
+  to accept only the config.
 
 ## [3.2.1] - 2025-06-02
 
