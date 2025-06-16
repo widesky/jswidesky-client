@@ -1398,10 +1398,10 @@ class WideSkyClient {
      *       }
      *   ]
      * 
-     * @param   pointId       (string)    The point id of the point a file is attached to. 
-     *                                    The point must be `kind=File`
-     * @param   start          (date)      Starting ISO8601 timestamp to delete files from.
-     * @param   end            (date)      Ending ISO8601 timestamp to delete files from.
+     * @param   {string} pointId   The point id of the point a file is attached to. 
+     *                             The point must be `kind=File`
+     * @param   {Date} start  Starting ISO8601 timestamp to delete files from.
+     * @param   {Date} end    Ending ISO8601 timestamp to delete files from.
      *
      * @returns {Promise<Array<{pointId: string, removed: Array<{time: string, fileId: string}>}>>}
      * 
