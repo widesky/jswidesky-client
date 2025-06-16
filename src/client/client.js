@@ -1381,15 +1381,11 @@ class WideSkyClient {
     }
 
     /**
-     * Request a DELETE endpoint to /api/file/storage to delete the file.
-     * This API will return an object keyed by the requested point id,
-     * where the value is an array of removed file uuid.
+     * Delete a set of files given a point id and time range.
+     * Returning an object keyed by the requested point id, 
+     * where the value is an array of objects containing the file uuid and time.
      * 
-     * @param   pointId       (string)    The file point identifier, one with kind=File
-     * @param   start          (date)      Starting ISO8601 timestamp of the retrieve.
-     * @param   end            (date)      Ending ISO8601 timestamp of the retrieve.
-     *
-     * @returns Promise that resolves to the following format.
+     * Return example:
      * [
      *       {
      *           "pointId": 'ff681fb8-cc87-4982-9139-1faafa173dcd',
@@ -1401,16 +1397,28 @@ class WideSkyClient {
      *           ]
      *       }
      *   ]
+     * 
+     * @param   pointId       (string)    The point id of the point a file is attached to. 
+     *                                    The point must be `kind=File`
+     * @param   start          (date)      Starting ISO8601 timestamp to delete files from.
+     * @param   end            (date)      Ending ISO8601 timestamp to delete files from.
+     *
+     * @returns {Promise<Array<{pointId: string, removed: Array<{time: string, fileId: string}>}>>}
+     * 
      */
     fileDelete (pointId, start, end) {
+
+        if (!start || start === "") {
+            throw new Error("Missing start date input for file delete.");
+        }
+
+        if (!end || end === "") {
+            throw new Error("Missing end date input for file delete.");
+        }
 
         if (["last", "first", "today", "yesterday"].includes(start)) {
             throw new Error("File delete does not support " +
                 "input that is not in date format (YYYY-MM-DD).");
-        }
-
-        if (end === "") {
-            throw new Error("Missing end date input for file delete.");
         }
 
         const mStart = moment(start);

@@ -4,8 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 - [CORE-4878](https://widesky.atlassian.net/browse/CORE-4878): Added the fileDelete function 
-  to handle [DELETE] requests. This function accepts a map with point IDs as keys and 
-  lists of timestamps as values, and sends a [DELETE] request to the api/file/storage endpoint.
+  to handle file [DELETE] requests. This function accepts pointId, start date which is in ISO8601 format and
+  end date which is in ISO8601 format, and sends a [DELETE] request to the api/file/storage endpoint.
 - [CORE-5160](https://widesky.atlassian.net/browse/CORE-5160): Updated wsRawSubmit DELETE method
   to accept only the config.
 
@@ -102,7 +102,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Client configuration validation from
   asynchronous to synchronous.
-
 
 ## [3.1.3] - 2025-04-09
 
