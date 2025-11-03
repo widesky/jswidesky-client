@@ -31,26 +31,25 @@ class RequestError extends Error {
      *                                  a new Error instance.
      */
     static make(reqError, logger) {
-        if (lodash.has(reqError, "response.data")) {
-            const { data } = reqError.response;
-            if (lodash.has(data, "meta.dis")) {
-                return new HaystackError(data.meta.dis.substring(2), reqError);
+        if (!lodash.has(reqError, "response.data")) {
+            return reqError;
+        }
+        
+        const { data } = reqError.response;
+        if (lodash.has(data, "meta.dis")) {
+            return new HaystackError(data.meta.dis.substring(2), reqError);
+        }
+        else if (data.errors !== undefined && Array.isArray(data.errors) && data.errors.length > 0) {
+            let errMsg = "More than 1 GraphQLError encountered";
+            if (data.errors.length === 1) {
+                errMsg = data.errors[0].message;
             }
-            else if (data.errors !== undefined && Array.isArray(data.errors) && data.errors.length > 0) {
-                let errMsg = "More than 1 GraphQLError encountered";
-                if (data.errors.length === 1) {
-                    errMsg = data.errors[0].message;
-                }
 
-                logger.debug("Raw GraphQL error response: %j", data);
-                return new GraphQLError(errMsg.replace(/\n/g, ""), reqError);
-            }
-            else {
-                // Neither a valid Haystack of GraphQL error
-                return reqError;
-            }
+            logger.debug("Raw GraphQL error response: %j", data);
+            return new GraphQLError(errMsg.replace(/\n/g, ""), reqError);
         }
         else {
+            // Neither a valid Haystack of GraphQL error
             return reqError;
         }
     }
