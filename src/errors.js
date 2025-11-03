@@ -36,7 +36,10 @@ class RequestError extends Error {
         }
         
         const { data } = reqError.response;
-        if (lodash.has(data, "meta.dis")) {
+        if (data == undefined || data === null) {
+            return reqError;
+        }
+        else if (lodash.has(data, "meta.dis")) {
             return new HaystackError(data.meta.dis.substring(2), reqError);
         }
         else if (data.errors !== undefined && Array.isArray(data.errors) && data.errors.length > 0) {
