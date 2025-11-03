@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### FIXED
+- [CORE-6773](https://widesky.atlassian.net/browse/CORE-6773): Fixed a bug where axios errors
+  without `response.data` properties would cause the error parsing to fail and return an internal
+  error. Now returns underlying axios error.   
+
+### ADDED
 - [CORE-4878](https://widesky.atlassian.net/browse/CORE-4878): Added the fileDelete function 
   to handle file [DELETE] requests. This function accepts pointId, a start date in ISO8601 format and
   end date in ISO8601 format, and sends a [DELETE] request to the api/file/storage endpoint.
