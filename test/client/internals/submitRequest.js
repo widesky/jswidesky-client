@@ -634,6 +634,27 @@ describe('client', () => {
                     );
                 }
             });
+
+            it("should throw underlying issue if response.data is undefined and is an axios " +
+                "error", async () => {
+                let err;
+                ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                    err = new Error("Pretend Axios Error");
+                    err.isAxiosError = true;
+                    err.response = {
+                        data: undefined
+                    };
+                    throw err;
+                });
+
+                try {
+                    await ws.submitRequest("GET", "URI", null, null);
+                    throw new Error("Did not work");
+                } catch (error) {
+                    expect(error).to.be.instanceof(Error);
+                    expect(error.message).to.equal("Pretend Axios Error");
+                }
+            });
         });
     });
 });
