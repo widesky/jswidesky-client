@@ -31,17 +31,23 @@ class RequestError extends Error {
      *                                  a new Error instance.
      */
     static make(reqError, logger) {
+        // Returning early: HTTP error received but response has no data.
+        // Cannot determine if it's a HaystackError or GraphQLError, so return the original error.
         if (!lodash.has(reqError, "response.data")) {
             return reqError;
         }
         
+        // Returning early because data is undefined or null.
+        // Cannot determine error type (GraphQLError or HaystackError).
         const { data } = reqError.response;
         if (data == undefined || data === null) {
             return reqError;
         }
+        // If response contains a Haystack error signature, construct a HaystackError.
         else if (lodash.has(data, "meta.dis")) {
             return new HaystackError(data.meta.dis.substring(2), reqError);
         }
+        // If response contains GraphQL-style errors, construct a GraphQLError.
         else if (data.errors !== undefined && Array.isArray(data.errors) && data.errors.length > 0) {
             let errMsg = "More than 1 GraphQLError encountered";
             if (data.errors.length === 1) {
@@ -52,7 +58,7 @@ class RequestError extends Error {
             return new GraphQLError(errMsg.replace(/\n/g, ""), reqError);
         }
         else {
-            // Neither a valid Haystack of GraphQL error
+            // Returning early because can't determine error type (not Haystack or GraphQL).
             return reqError;
         }
     }
