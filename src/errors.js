@@ -43,12 +43,14 @@ class RequestError extends Error {
         if (data == undefined || data === null) {
             return reqError;
         }
+
         // If response contains a Haystack error signature, construct a HaystackError.
-        else if (lodash.has(data, "meta.dis")) {
+        if (lodash.has(data, "meta.dis")) {
             return new HaystackError(data.meta.dis.substring(2), reqError);
         }
+
         // If response contains GraphQL-style errors, construct a GraphQLError.
-        else if (data.errors !== undefined && Array.isArray(data.errors) && data.errors.length > 0) {
+        if (data.errors !== undefined && Array.isArray(data.errors) && data.errors.length > 0) {
             let errMsg = "More than 1 GraphQLError encountered";
             if (data.errors.length === 1) {
                 errMsg = data.errors[0].message;
@@ -57,10 +59,9 @@ class RequestError extends Error {
             logger.debug("Raw GraphQL error response: %j", data);
             return new GraphQLError(errMsg.replace(/\n/g, ""), reqError);
         }
-        else {
-            // Returning early because can't determine error type (not Haystack or GraphQL).
-            return reqError;
-        }
+
+        // Cannot determine error type (not Haystack or GraphQL).
+        return reqError;
     }
 }
 
