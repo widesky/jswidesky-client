@@ -15,6 +15,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - [CORE-5160](https://widesky.atlassian.net/browse/CORE-5160): Updated wsRawSubmit DELETE method
   to accept only the config.
 
+### ADDED
+- [CORE-6791](https://widesky.atlassian.net/browse/CORE-6791): Added optional `metadata` support to
+  the `query` method, allowing callers to include object or JSON-stringified key/value pairs which
+  are now appended to the outgoing GraphQL request body.
+
 ## [3.2.1] - 2025-06-02
 
 ### FIXED
