@@ -772,7 +772,7 @@ class WideSkyClient {
      */
     query(graphql, metadata) {
         graphql = replace.outerBraces(graphql);
-        let body = { 'query': graphql }
+        let body = {};
 
         try {
             const metadataParsed = parseMetadata(metadata);
@@ -783,6 +783,9 @@ class WideSkyClient {
             // Log and allow the original query to pass through
             this.logger.warn('Metadata failed to parse:', err);
         }
+
+        // Insert `query` after metadata
+        body.query = graphql;
 
         return this.submitRequest(
             'POST',
