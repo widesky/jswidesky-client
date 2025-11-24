@@ -5,6 +5,17 @@
  */
 'use strict';
 
+/**
+ * @typedef QueryMetaData
+ * @property {string | undefined} engineName
+ * @property {string | undefined} edgeVersion
+ * @property {string | undefined} edgeManagerVersion
+ * @property {string | undefined} hostName
+ * @property {string | undefined} serverName
+ * @property {string | undefined} serverVersion
+ * @property {string | undefined} nodeId
+ */
+
 const data = require('./../data');
 const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
@@ -755,6 +766,8 @@ class WideSkyClient {
      * graph query.
      *
      * @param   graphql The graph query
+     * @param   {QueryMetaData | string} [metadata] - Optional metadata to be appended to the
+     * outbound query. This can be an object or a JSON-stringified object.
      * @returns Promise that resolves to the graphql response.
      */
     query(graphql, metadata) {
