@@ -13,6 +13,7 @@ const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
+const { parseMetadata } = require("./../utils/metadata");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const {GraphQLError} = require("../errors");
@@ -756,10 +757,19 @@ class WideSkyClient {
      * @param   graphql The graph query
      * @returns Promise that resolves to the graphql response.
      */
-    query(graphql) {
+    query(graphql, metadata) {
         graphql = replace.outerBraces(graphql);
-
         let body = { 'query': graphql }
+
+        try {
+            const metadataParsed = parseMetadata(metadata);
+            if (metadata !== undefined) {
+                body.metadata = metadataParsed;
+            }
+        } catch (err) {
+            // Log and allow the original query to pass through
+            this.logger.warn('Metadata failed to parse:', err);
+        }
 
         return this.submitRequest(
             'POST',
