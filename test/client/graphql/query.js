@@ -64,5 +64,121 @@ describe('client', () => {
                 }
             );
         });
+
+        describe('metadata', () => {
+            it('should handle stringified metadata', async () => {
+                const metadata = JSON.stringify({
+                    testOne: 'simple string',
+                    testTwo: { innerObject: 'inner string' },
+                    testThree: ['value1', 'value2'],
+                });
+                await ws.query('graphql query here', metadata);
+
+                expect(ws._wsRawSubmit.callCount).to.equal(2);
+                verifyRequestCall(
+                    ws._wsRawSubmit.secondCall.args,
+                    'POST',
+                    '/graphql',
+                    {
+                        query: '{ graphql query here }',
+                        metadata: {
+                            testOne: 'simple string',
+                            testThree: ['value1', 'value2'],
+                            testTwo: {
+                                innerObject: 'inner string',
+                            },
+                        },
+                    },
+                    {
+                        headers: {
+                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                            Accept: 'application/json',
+                        },
+                        decompress: true,
+                    }
+                );
+            });
+
+            it('should handle object metadata', async () => {
+                const metadata = {
+                    testOne: 'simple string',
+                    testTwo: { innerObject: 'inner string' },
+                    testThree: ['value1', 'value2'],
+                };
+                await ws.query('graphql query here', metadata);
+
+                expect(ws._wsRawSubmit.callCount).to.equal(2);
+                verifyRequestCall(
+                    ws._wsRawSubmit.secondCall.args,
+                    'POST',
+                    '/graphql',
+                    {
+                        query: '{ graphql query here }',
+                        metadata: {
+                            testOne: 'simple string',
+                            testThree: ['value1', 'value2'],
+                            testTwo: {
+                                innerObject: 'inner string',
+                            },
+                        },
+                    },
+                    {
+                        headers: {
+                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                            Accept: 'application/json',
+                        },
+                        decompress: true,
+                    }
+                );
+            });
+
+            describe('malformed', () => {
+                async function expectMalformed(metadata, logged = true) {
+                    await ws.query('graphql query here', metadata);
+
+                    if (logged) {
+                        expect(log.warn.callCount).to.equal(1);
+                        expect(log.warn.firstCall.args[0]).to.equal('Metadata failed to parse:');
+                    }
+                    expect(ws._wsRawSubmit.callCount).to.equal(2);
+
+                    verifyRequestCall(
+                        ws._wsRawSubmit.secondCall.args,
+                        'POST',
+                        '/graphql',
+                        {
+                            query: '{ graphql query here }',
+                        },
+                        {
+                            headers: {
+                                Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                                Accept: 'application/json',
+                            },
+                            decompress: true,
+                        }
+                    );
+                }
+
+                it('should reject number', async () => {
+                    await expectMalformed(200);
+                });
+
+                it('should reject boolean', async () => {
+                    await expectMalformed(true);
+                });
+
+                it('should reject string', async () => {
+                    await expectMalformed('{ badJSONObject: { ');
+                });
+
+                it('should reject null', async () => {
+                    await expectMalformed(null);
+                });
+
+                it('should reject undefined', async () => {
+                    await expectMalformed(undefined, false);
+                });
+            });
+        });
     });
 });
