@@ -772,7 +772,7 @@ class WideSkyClient {
      */
     query(graphql, metadata) {
         graphql = replace.outerBraces(graphql);
-        let body = {};
+        const body = {};
 
         try {
             const metadataParsed = parseMetadata(metadata);
