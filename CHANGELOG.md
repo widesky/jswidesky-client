@@ -3,19 +3,20 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [3.3.0] - 2026-02-19
+
 ### FIXED
 - [CORE-6773](https://widesky.atlassian.net/browse/CORE-6773): Fixed a bug where axios errors
   without `response.data` properties would cause the error parsing to fail and return an internal
-  error. Now returns underlying axios error.   
+  error. Now returns underlying axios error.
 
 ### ADDED
-- [CORE-4878](https://widesky.atlassian.net/browse/CORE-4878): Added the fileDelete function 
+- [CORE-4878](https://widesky.atlassian.net/browse/CORE-4878): Added the fileDelete function
   to handle file [DELETE] requests. This function accepts pointId, a start date in ISO8601 format and
   end date in ISO8601 format, and sends a [DELETE] request to the api/file/storage endpoint.
 - [CORE-5160](https://widesky.atlassian.net/browse/CORE-5160): Updated wsRawSubmit DELETE method
   to accept only the config.
-
-### ADDED
 - [CORE-6791](https://widesky.atlassian.net/browse/CORE-6791): Added optional `metadata` support to
   the `query` method, allowing callers to include object or JSON-stringified key/value pairs which
   are now appended to the outgoing GraphQL request body.
@@ -350,7 +351,8 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.2.1
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.3.0
+[3.3.0]: https://github.com/widesky/jswidesky-client/compare/3.3.0...3.2.1
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
 [1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
