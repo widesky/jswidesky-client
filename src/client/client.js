@@ -5,6 +5,17 @@
  */
 'use strict';
 
+/**
+ * @typedef QueryMetaData
+ * @property {string | undefined} engineName
+ * @property {string | undefined} edgeVersion
+ * @property {string | undefined} edgeManagerVersion
+ * @property {string | undefined} hostName
+ * @property {string | undefined} serverName
+ * @property {string | undefined} serverVersion
+ * @property {string | undefined} nodeId
+ */
+
 const data = require('./../data');
 const replace = require('./../graphql/replace');
 const moment = require('moment-timezone');
@@ -13,6 +24,7 @@ const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
+const { parseMetadata } = require("./../utils/metadata");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const {GraphQLError} = require("../errors");
@@ -404,7 +416,6 @@ class WideSkyClient {
                 res = await this.axios.put(uri, body, config);
                 break;
             case 'DELETE':
-                config.data = body;
                 res = await this.axios.delete(uri, config);
                 break;
             default:
@@ -755,12 +766,26 @@ class WideSkyClient {
      * graph query.
      *
      * @param   graphql The graph query
+     * @param   {QueryMetaData | string} [metadata] - Optional metadata to be appended to the
+     * outbound query. This can be an object or a JSON-stringified object.
      * @returns Promise that resolves to the graphql response.
      */
-    query(graphql) {
+    query(graphql, metadata) {
         graphql = replace.outerBraces(graphql);
+        const body = {};
 
-        let body = { 'query': graphql }
+        try {
+            const metadataParsed = parseMetadata(metadata);
+            if (metadata !== undefined) {
+                body.metadata = metadataParsed;
+            }
+        } catch (err) {
+            // Log and allow the original query to pass through
+            this.logger.warn('Metadata failed to parse:', err);
+        }
+
+        // Insert `query` after metadata
+        body.query = graphql;
 
         return this.submitRequest(
             'POST',
@@ -1376,6 +1401,77 @@ class WideSkyClient {
             {
                 headers: {
                     'content-type': 'multipart/form-data'
+                }
+            }
+        );
+    }
+
+    /**
+     * Delete a set of files given a point id and time range.
+     * Returning an object keyed by the requested point id, 
+     * where the value is an array of objects containing the file uuid and time.
+     * 
+     * Return example:
+     * [
+     *       {
+     *           "pointId": 'ff681fb8-cc87-4982-9139-1faafa173dcd',
+     *           "removed": [
+     *               {
+     *                   "time": '2034-02-12T08:00:00.000Z',
+     *                   "fileId": '347a4d75-3a5e-4cd3-8925-e0a3d2521f8c'
+     *               }
+     *           ]
+     *       }
+     *   ]
+     * 
+     * @param   {string} pointId   The point id of the point a file is attached to. 
+     *                             The point must be `kind=File`
+     * @param   {Date} start  Starting ISO8601 timestamp to delete files from.
+     * @param   {Date} end    Ending ISO8601 timestamp to delete files from.
+     *
+     * @returns {Promise<Array<{pointId: string, removed: Array<{time: string, fileId: string}>}>>}
+     * 
+     */
+    fileDelete (pointId, start, end) {
+
+        if(!pointId) {
+            throw new Error("Missing point id input for file delete.");
+        }
+
+        if (!start) {
+            throw new Error("Missing start date input for file delete.");
+        }
+
+        if (!end) {
+            throw new Error("Missing end date input for file delete.");
+        }
+
+        if (["last", "first", "today", "yesterday"].includes(start) || 
+            ["last", "first", "today", "yesterday"].includes(end)) {
+            throw new Error("File delete does not support " +
+                "input that is not in date format (YYYY-MM-DD).");
+        }
+
+        const mStart = moment(start);
+        const mEnd = moment(end);
+
+        if (mStart.isValid() !== true) {
+            throw new Error('Start date ' + start + ' is not a valid date.');
+        }
+
+        if (mEnd.isValid() !== true) {
+            throw new Error('End date ' + end + ' is not a valid date.');
+        }
+
+        return this.submitRequest(
+            'DELETE',
+            '/api/file/storage',
+            {},
+            {
+                params: {
+                    id: pointId,
+                    start: mStart.utc().format(MOMENT_FORMAT_MS_PRECISION),
+                    end: mEnd.utc().format(MOMENT_FORMAT_MS_PRECISION),
                 }
             }
         );
