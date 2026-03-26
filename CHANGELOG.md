@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### FIXED
+- [CORE-8121](https://widesky.atlassian.net/browse/CORE-8121): Added request timeout to
+  `_wsRawSubmit` when HTTP/2 is enabled. Prevents requests from hanging indefinitely when the
+  server accepts TLS but never sends the HTTP/2 SETTINGS frame. Configurable via
+  `options.http2.requestTimeout` (default 60 seconds).
+
 ## [3.3.0] - 2026-02-19
 
 ### FIXED

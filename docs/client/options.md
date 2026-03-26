@@ -62,7 +62,8 @@ options to configure HTTP request behavior.
 ### Path `http2`
 The Object defined in `http2` is expected to have the following structure:
 
-| Path from `http2` | Description                                                                                                        |  Type   | Default |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------ | :-----: | :-----: |
-| `enabled`         | Enables `http2` as a transport protocol. The server must support HTTP/2; otherwise, it will fall back to HTTP/1.1. | Boolean | `false` |
+| Path from `http2`  | Description                                                                                                                                                                                                                                          |  Type   | Default |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-----: | :-----: |
+| `enabled`          | Enables `http2` as a transport protocol. The server must support HTTP/2; otherwise, it will fall back to HTTP/1.1.                                                                                                                                   | Boolean | `false` |
+| `requestTimeout`   | Maximum time in milliseconds to wait for an HTTP/2 request to complete. Guards against unexpected hangs during connection establishment or unresponsive servers. Set to `0` to disable. Only applies when `enabled` is `true`. | Number  | `60000` |
 

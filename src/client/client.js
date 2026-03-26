@@ -302,12 +302,18 @@ class WideSkyClient {
             defaultAxiosOptions.httpsAgent = new https.Agent(agentOptions);
 
             if (this.options.http2?.enabled) {
-                const http2Agent = new http2.Agent(agentOptions)
+                this._http2Agent = new http2.Agent(agentOptions);
                 defaultAxiosOptions.adapter = createHTTP2Adapter({
-                    agent: http2Agent,
+                    agent: this._http2Agent,
                 });
             }
         }
+
+        // HTTP/2 request timeout (guards against session establishment hangs).
+        // Default 60s. Set to 0 to disable.
+        const DEFAULT_HTTP2_REQUEST_TIMEOUT_MS = 60000;
+        this._requestTimeoutMs = this.options.http2?.requestTimeout
+            ?? DEFAULT_HTTP2_REQUEST_TIMEOUT_MS;
 
         // Merge user-provided axios options last to allow override
         const axiosOptions = {
@@ -401,25 +407,44 @@ class WideSkyClient {
             this.logger.trace(config, 'Raw request');
         }
 
+        const axiosCall = () => {
+            switch (method.toUpperCase()) {
+                case 'GET':    return this.axios.get(uri, config);
+                case 'POST':   return this.axios.post(uri, body, config);
+                case 'PATCH':  return this.axios.patch(uri, body, config);
+                case 'PUT':    return this.axios.put(uri, body, config);
+                case 'DELETE': return this.axios.delete(uri, config);
+                default:       throw new Error(`Not configured for method ${method}.`);
+            }
+        };
+
         let res;
-        switch (method.toUpperCase()) {
-            case 'GET':
-                res = await this.axios.get(uri, config);
-                break;
-            case 'POST':
-                res = await this.axios.post(uri, body, config);
-                break;
-            case 'PATCH':
-                res = await this.axios.patch(uri, body, config);
-                break;
-            case 'PUT':
-                res = await this.axios.put(uri, body, config);
-                break;
-            case 'DELETE':
-                res = await this.axios.delete(uri, config);
-                break;
-            default:
-                throw new Error(`Not configured for method ${method}.`);
+
+        if (this._requestTimeoutMs > 0 && this.options.http2?.enabled) {
+            // Guard against HTTP/2 session establishment hangs.
+            // When the server accepts TLS and negotiates h2 via ALPN but never
+            // sends the HTTP/2 SETTINGS frame, http2-wrapper's Agent waits
+            // forever. This Promise.race ensures we fail with a clear error
+            // instead of hanging indefinitely.
+            let timeoutId;
+            const timeoutPromise = new Promise((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    reject(new Error(
+                        `Request to ${uriPath} timed out after`
+                        + ` ${this._requestTimeoutMs}ms (HTTP/2 mode)`
+                    ));
+                }, this._requestTimeoutMs);
+            });
+
+            try {
+                res = await Promise.race([axiosCall(), timeoutPromise]);
+            }
+            finally {
+                clearTimeout(timeoutId);
+            }
+        }
+        else {
+            res = await axiosCall();
         }
 
         return res.data;
