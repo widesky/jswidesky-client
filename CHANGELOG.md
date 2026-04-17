@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-04-17
+
 ### FIXED
 - [CORE-8121](https://widesky.atlassian.net/browse/CORE-8121): Added request timeout to
   `_wsRawSubmit` when HTTP/2 is enabled. Prevents requests from hanging indefinitely when the
@@ -357,7 +359,8 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.3.0
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.3.1
+[3.3.1]: https://github.com/widesky/jswidesky-client/compare/3.3.1...3.3.0
 [3.3.0]: https://github.com/widesky/jswidesky-client/compare/3.3.0...3.2.1
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
 [1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
