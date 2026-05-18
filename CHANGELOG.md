@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### ADDED
+- [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): Added `impersonateAsEmail(email)`
+  method on `WideSkyClient`, and accepted an email value for the `client.impersonateAs`
+  option (resolved lazily on the first request).
+
 ## [3.3.1] - 2026-04-17
 
 ### FIXED

@@ -15,6 +15,7 @@
     - [WideSkyClient.entityCount(filter)](#wideskycliententitycountfilter)
     - [WideSkyClient.findAsId(filter, limit)](#wideskyclientfindasidfilter-limit)
     - [WideSkyClient.impersonateAs(userId)](#wideskyclientimpersonateasuserid)
+    - [WideSkyClient.impersonateAsEmail(email)](#wideskyclientimpersonateasemailemail)
     - [WideSkyClient.submitRequest(method, uri, body, config)](#wideskyclientsubmitrequestmethod-uri-body-config)
     - [WideSkyClient.setAcceptGzip(acceptGzip)](#wideskyclientsetacceptgzipacceptgzip)
 - [Haystack Functions](#haystack-functions)
@@ -229,6 +230,23 @@ Date inputs for this function is the standard ISO8601 dates. For example:
 | `userId` | The UUID of the User entity to be impersonated. | String |
 
 **Returns:** None
+
+### WideSkyClient.impersonateAsEmail(email)
+**Description:** Resolve a WideSky user by account email and impersonate as that user
+for subsequent requests. Performs a Haystack `find` for the matching `account` entity
+and reads its `userRef` tag to obtain the user UUID, then delegates to
+`impersonateAs`.  
+**Parameters:**
+
+| Param   | Description                                                  |  Type  |
+|---------|--------------------------------------------------------------|:------:|
+| `email` | Email of the account whose user entity should be impersonated. | String |
+
+**Returns:** `Promise<String>` — the resolved user UUID now being impersonated.
+
+**Throws:**
+- `Error('No account found for email <email>')` when the lookup returns no rows.
+- `Error('Account for <email> has no userRef tag')` when the matched account entity has no `userRef` tag.
 
 ### WideSkyClient.submitRequest(method, uri, body, config)
 **Description:** Submit a request manually to the WideSky server.  

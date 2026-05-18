@@ -30,6 +30,7 @@ const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const {GraphQLError} = require("../errors");
 const bunyan = require("bunyan");
 const bFormat = require("bunyan-format");
+const HaystackTools = require('../utils/haystack');
 
 // Check for the runtime
 let runtimeEnv;
@@ -147,6 +148,7 @@ class WideSkyClient {
      */
     _acceptGzipEncoding
     _impersonate        // The user id which the original user is impersonating as.
+    _impersonatePendingEmail        // Email queued for lazy impersonation resolution.
 
     /**
      * Constructor for WideSky Client
@@ -191,6 +193,7 @@ class WideSkyClient {
         this.options = options;
         this.clientOptions = null;
         this._impersonate = null;
+        this._impersonatePendingEmail = null;
         this._acceptGzipEncoding  = true;
 
         this.initAccessToken();
@@ -334,7 +337,12 @@ class WideSkyClient {
         this.setAcceptGzip(this.clientOptions.acceptGzip);
 
         if (this.clientOptions.impersonateAs !== null) {
-            this.impersonateAs(this.clientOptions.impersonateAs);
+            const value = this.clientOptions.impersonateAs;
+            if (value.includes('@')) {
+                this._impersonatePendingEmail = value;
+            } else {
+                this.impersonateAs(value);
+            }
         }
 
         if (this.isProgressEnabled) {
@@ -360,12 +368,47 @@ class WideSkyClient {
         this._impersonate = userId;
     };
 
+    /**
+     * Resolve a WideSky user by account email and impersonate as that user
+     * for all subsequent requests. Authentication uses the client's
+     * configured credentials; the lookup itself runs as that authenticated
+     * user (without impersonation). After it resolves, impersonation applies
+     * to every subsequent request.
+     *
+     * @param email Email of the account whose user entity should be impersonated.
+     * @returns {Promise<string>} The resolved user UUID now being impersonated.
+     * @throws If no account matches the email, or the matched account entity
+     *         has no `userRef` tag.
+     */
+    async impersonateAsEmail(email) {
+        const escaped = email.replaceAll('"', '\\"');
+        const rows = await this.v2.find(
+            `account and email=="${escaped}"`,
+            1
+        );
+
+        if (rows.length === 0) {
+            throw new Error(`No account found for email ${email}`);
+        }
+
+        if (typeof rows[0].userRef !== 'string') {
+            throw new Error(
+                `Account for ${email} has no userRef tag`
+            );
+        }
+
+        const userId = HaystackTools.getId(rows[0], 'userRef');
+        this.impersonateAs(userId);
+        return userId;
+    };
+
     isImpersonating() {
         return this._impersonate !== null;
     };
 
     unsetImpersonate() {
         this._impersonate = null;
+        this._impersonatePendingEmail = null;
     };
 
     setAcceptGzip(acceptGzip) {
@@ -457,6 +500,19 @@ class WideSkyClient {
      */
     async _attachReqConfig(config) {
         const token = await this.getToken();
+
+        if (this._impersonatePendingEmail && !this._impersonate) {
+            const pending = this._impersonatePendingEmail;
+            this._impersonatePendingEmail = null;
+            try {
+                await this.impersonateAsEmail(pending);
+            } catch (err) {
+                // Restore so a subsequent request can retry. Cleared before the await
+                // remains load-bearing for re-entry safety during the lookup itself.
+                this._impersonatePendingEmail = pending;
+                throw err;
+            }
+        }
 
         config = Object.assign({}, config);       // make a copy
         if (config.headers === undefined) {
