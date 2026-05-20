@@ -7,7 +7,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): Added `impersonateAsEmail(email)`
   method on `WideSkyClient`, and accepted an email value for the `client.impersonateAs`
-  option (resolved lazily on the first request).
+  option (resolved lazily on the first request). Impersonation state changes
+  (set, email-to-userId resolution, clear) are now logged at `info` level. `impersonateAs(null)` now also clears any pending email-based impersonation (equivalent to `unsetImpersonate()`).
 
 ## [3.3.1] - 2026-04-17
 

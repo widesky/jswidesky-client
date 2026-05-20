@@ -75,6 +75,24 @@ describe('client', () => {
             expect(ws.isImpersonating()).to.equal(false);
         });
 
+        it('logs the email-to-userId resolution at info level', async () => {
+            sinon.stub(ws.v2, 'find').resolves([
+                { userRef: 'r:abc-123 Some Dis' }
+            ]);
+
+            await ws.impersonateAsEmail('alice@example.com');
+
+            expect(log.info.calledWith(
+                'Resolved impersonation email %s to user ID %s',
+                'alice@example.com',
+                'abc-123'
+            )).to.equal(true);
+            expect(log.info.calledWith(
+                'Now impersonating as user ID %s',
+                'abc-123'
+            )).to.equal(true);
+        });
+
         it('escapes double quotes in the email filter', async () => {
             sinon.stub(ws.v2, 'find').resolves([
                 { userRef: 'r:abc-123' }
@@ -259,6 +277,41 @@ describe('client', () => {
 
             await ws.submitRequest('GET', '/api/about');
 
+            expect(findSpy.called).to.equal(false);
+            const aboutCall = ws._wsRawSubmit.getCalls().find(
+                (c) => c.args[1] === '/api/about'
+            );
+            expect(aboutCall.args[3].headers).to.not.have.property('X-IMPERSONATE');
+        });
+
+        it('impersonateAs(null) clears active impersonation and pending email', async () => {
+            ws = new (require('../../../src/client/client'))(
+                stubs.WS_URI,
+                stubs.WS_USER,
+                stubs.WS_PASSWORD,
+                stubs.WS_CLIENT_ID,
+                stubs.WS_CLIENT_SECRET,
+                log,
+                undefined,
+                { client: { impersonateAs: 'lazy@example.com' } }
+            );
+            await ws.initClientOptions();
+            stubHttp(ws);
+            const findSpy = sinon.spy(ws.v2, 'find');
+
+            expect(ws._impersonatePendingEmail).to.equal('lazy@example.com');
+
+            ws.impersonateAs('explicit-uuid');
+            expect(ws.isImpersonating()).to.equal(true);
+            expect(ws._impersonate).to.equal('explicit-uuid');
+
+            ws.impersonateAs(null);
+
+            expect(ws.isImpersonating()).to.equal(false);
+            expect(ws._impersonate).to.equal(null);
+            expect(ws._impersonatePendingEmail).to.equal(null);
+
+            await ws.submitRequest('GET', '/api/about');
             expect(findSpy.called).to.equal(false);
             const aboutCall = ws._wsRawSubmit.getCalls().find(
                 (c) => c.args[1] === '/api/about'

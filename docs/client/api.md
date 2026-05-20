@@ -222,12 +222,16 @@ Date inputs for this function is the standard ISO8601 dates. For example:
 **Returns:** `Promise<Array<String>>` - Array of Ids of the entities found.
 
 ### WideSkyClient.impersonateAs(userId)
-**Description:** Impersonate as a WideSky user when performing requests.  
+**Description:** Impersonate as a WideSky user when performing requests, or
+clear any existing impersonation. Pass `null` as `userId` to clear both an
+active impersonation and any pending email-based impersonation queued via the
+`client.impersonateAs` option — equivalent to calling
+[`unsetImpersonate()`](#wideskyclientunsetimpersonate).  
 **Parameters:**
 
-| Param    | Description                                     |  Type  |
-|----------|-------------------------------------------------|:------:|
-| `userId` | The UUID of the User entity to be impersonated. | String |
+| Param    | Description                                                                                                                  |     Type      |
+|----------|------------------------------------------------------------------------------------------------------------------------------|:-------------:|
+| `userId` | The UUID of the User entity to be impersonated, or `null` to clear any active or pending impersonation.                       | String / null |
 
 **Returns:** None
 

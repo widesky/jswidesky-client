@@ -59,7 +59,7 @@ if (runtimeEnv == 'node') {
     // node process
     axios = require('axios');
     fs = require('fs');
-    
+
     http = require('http');
     https = require('https');
     http2 = require('http2-wrapper');
@@ -290,7 +290,7 @@ class WideSkyClient {
             baseURL,
         };
 
-        // In the browser, low-level HTTP options like 'keepAlive' cannot be configured 
+        // In the browser, low-level HTTP options like 'keepAlive' cannot be configured
         // manually, as the browser handles connection reuse internally. Axios options such as
         // 'httpAgent' or 'httpsAgent' are ignored in this environment. Connection behavior is
         // controlled by the browser's own HTTP stack.
@@ -364,8 +364,21 @@ class WideSkyClient {
         return this.getToken();
     };
 
+    /**
+     * Impersonate as a WideSky user when performing requests, or clear any
+     * existing impersonation.
+     *
+     * @param userId The UUID of the User entity to be impersonated. Pass
+     *               `null` to clear any active or pending impersonation
+     *               (equivalent to calling `unsetImpersonate()`).
+     */
     impersonateAs(userId) {
+        if (userId === null) {
+            this.unsetImpersonate();
+            return;
+        }
         this._impersonate = userId;
+        this.logger.info("Now impersonating as user ID %s", userId);
     };
 
     /**
@@ -398,6 +411,11 @@ class WideSkyClient {
         }
 
         const userId = HaystackTools.getId(rows[0], 'userRef');
+        this.logger.info(
+            "Resolved impersonation email %s to user ID %s",
+            email,
+            userId
+        );
         this.impersonateAs(userId);
         return userId;
     };
@@ -407,6 +425,9 @@ class WideSkyClient {
     };
 
     unsetImpersonate() {
+        if (this._impersonate !== null || this._impersonatePendingEmail !== null) {
+            this.logger.info("Cleared impersonation state");
+        }
         this._impersonate = null;
         this._impersonatePendingEmail = null;
     };
@@ -1489,9 +1510,9 @@ class WideSkyClient {
 
     /**
      * Delete a set of files given a point id and time range.
-     * Returning an object keyed by the requested point id, 
+     * Returning an object keyed by the requested point id,
      * where the value is an array of objects containing the file uuid and time.
-     * 
+     *
      * Return example:
      * [
      *       {
@@ -1504,14 +1525,14 @@ class WideSkyClient {
      *           ]
      *       }
      *   ]
-     * 
-     * @param   {string} pointId   The point id of the point a file is attached to. 
+     *
+     * @param   {string} pointId   The point id of the point a file is attached to.
      *                             The point must be `kind=File`
      * @param   {Date} start  Starting ISO8601 timestamp to delete files from.
      * @param   {Date} end    Ending ISO8601 timestamp to delete files from.
      *
      * @returns {Promise<Array<{pointId: string, removed: Array<{time: string, fileId: string}>}>>}
-     * 
+     *
      */
     fileDelete (pointId, start, end) {
 
@@ -1527,7 +1548,7 @@ class WideSkyClient {
             throw new Error("Missing end date input for file delete.");
         }
 
-        if (["last", "first", "today", "yesterday"].includes(start) || 
+        if (["last", "first", "today", "yesterday"].includes(start) ||
             ["last", "first", "today", "yesterday"].includes(end)) {
             throw new Error("File delete does not support " +
                 "input that is not in date format (YYYY-MM-DD).");
