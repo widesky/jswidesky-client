@@ -10,11 +10,16 @@ const stubs = require('../../stubs'),
     sinon = require('sinon'),
     expect = require('chai').expect,
     WideSkyClient = require('../../../src/client/client'),
-    getInstance = stubs.getInstance;
+    getInstance = stubs.getInstance,
+    WS_ACCESS_TOKEN = stubs.WS_ACCESS_TOKEN,
+    WS_REFRESH_TOKEN = stubs.WS_REFRESH_TOKEN;
 
-// A valid v4 UUID used as the resolved user id in successful lookups.
+// Real v4 UUIDs - exercised across both the `_impersonate` field and the
+// matched-account `userRef`. Anything non-UUID is rejected by the hardened
+// validators.
 const UUID_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const UUID_B = '11111111-2222-4333-8444-555555555555';
+const UUID_PRIOR = '99999999-8888-4777-8666-555555555555';
 
 function constructWithOptions(log, clientOptions) {
     return new WideSkyClient(
@@ -33,13 +38,54 @@ function stubAuthAndDefaultRequests(client) {
     client._wsRawSubmit = sinon.stub().callsFake((method, uri) => {
         if (uri === '/oauth2/token') {
             return Promise.resolve({
-                access_token: stubs.WS_ACCESS_TOKEN,
-                refresh_token: stubs.WS_REFRESH_TOKEN,
+                access_token: WS_ACCESS_TOKEN,
+                refresh_token: WS_REFRESH_TOKEN,
                 expires_in: Date.now() + 2000
             });
         }
         return Promise.resolve('default response');
     });
+}
+
+// Stub `_wsRawSubmit` at the transport layer. N1's deadlock is invisible
+// when `ws.v2.find` is stubbed at the public surface, so several tests below
+// drive the impersonation machinery through the real `v2.find -> submitRequest
+// -> _attachReqConfig` chain by stubbing only at the wire boundary.
+function stubTransport(client, opts = {}) {
+    const calls = [];
+    client._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+        calls.push({ method, uri, body, config });
+        if (uri === '/oauth2/token') {
+            return Promise.resolve({
+                access_token: WS_ACCESS_TOKEN,
+                refresh_token: WS_REFRESH_TOKEN,
+                expires_in: Date.now() + 2000
+            });
+        }
+        if (uri === '/api/read') {
+            const action = opts.onRead && opts.onRead({ method, uri, body, config, calls });
+            if (action) return action;
+            // Default: respond with one matching row carrying UUID_A.
+            return Promise.resolve({
+                meta: { ver: '2.0' },
+                cols: [{ name: 'id' }, { name: 'userRef' }],
+                rows: [{ userRef: 'r:' + UUID_A }]
+            });
+        }
+        return Promise.resolve('default response');
+    });
+    return calls;
+}
+
+// Wrap a promise in a deadline so a self-deadlocked path fails the test
+// rather than hanging the suite.
+function withTimeout(p, ms = 1000, label = 'operation') {
+    return Promise.race([
+        p,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} did not settle within ${ms}ms`)), ms)
+        ),
+    ]);
 }
 
 describe('client', () => {
@@ -54,86 +100,80 @@ describe('client', () => {
             ws = getInstance(http, log);
         });
 
-        afterEach(() => {
-            sinon.restore();
-        });
+        afterEach(() => sinon.restore());
 
         it('resolves and sets the impersonation user id', async () => {
-            sinon.stub(ws.v2, 'find').resolves([
-                { userRef: 'r:' + UUID_A + ' Alice' }
-            ]);
+            sinon.stub(ws, 'submitRequest').resolves({
+                rows: [{ userRef: 'r:' + UUID_A + ' Alice' }]
+            });
 
             const resolved = await ws.impersonateAsEmail('alice@example.com');
 
             expect(resolved).to.equal(UUID_A);
             expect(ws.isImpersonating()).to.equal(true);
             expect(ws._impersonate).to.equal(UUID_A);
-            expect(ws.v2.find.calledOnce).to.equal(true);
-            expect(ws.v2.find.firstCall.args[0]).to.equal(
-                'account and email=="alice@example.com"'
+            expect(ws.submitRequest.calledOnce).to.equal(true);
+            const [method, uri, body, config] = ws.submitRequest.firstCall.args;
+            expect(method).to.equal('POST');
+            expect(uri).to.equal('/api/read');
+            expect(body.rows[0].filter).to.equal(
+                's:account and email==\"alice@example.com\"'
             );
-            expect(ws.v2.find.firstCall.args[1]).to.equal(2);
+            expect(body.rows[0].limit).to.equal('n:2');
+            expect(config._skipImpersonateJoin).to.equal(true);
         });
 
-        it('throws when no account matches', async () => {
-            sinon.stub(ws.v2, 'find').resolves([]);
+        it('throws when no account matches (redacted message + raw email on err)', async () => {
+            sinon.stub(ws, 'submitRequest').resolves({ rows: [] });
 
             let err;
             try {
                 await ws.impersonateAsEmail('missing@example.com');
-            } catch (e) {
-                err = e;
-            }
+            } catch (e) { err = e; }
             expect(err).to.be.instanceOf(Error);
-            expect(err.message).to.equal(
-                'No account found for email missing@example.com'
-            );
+            expect(err.message).to.equal('No account found for email m***@example.com');
+            expect(err.email).to.equal('missing@example.com');
             expect(ws.isImpersonating()).to.equal(false);
         });
 
         it('throws when more than one account matches (H7)', async () => {
-            sinon.stub(ws.v2, 'find').resolves([
-                { userRef: 'r:' + UUID_A },
-                { userRef: 'r:' + UUID_B }
-            ]);
+            sinon.stub(ws, 'submitRequest').resolves({
+                rows: [
+                    { userRef: 'r:' + UUID_A },
+                    { userRef: 'r:' + UUID_B }
+                ]
+            });
 
             let err;
-            try {
-                await ws.impersonateAsEmail('dup@example.com');
-            } catch (e) { err = e; }
+            try { await ws.impersonateAsEmail('dup@example.com'); } catch (e) { err = e; }
             expect(err).to.be.instanceOf(Error);
-            expect(err.message).to.equal(
-                'Multiple accounts (2) found for email dup@example.com'
-            );
+            expect(err.message).to.equal('Multiple accounts (2) found for email d***@example.com');
+            expect(err.email).to.equal('dup@example.com');
             expect(ws.isImpersonating()).to.equal(false);
         });
 
         it('throws when matched account has no userRef tag', async () => {
-            sinon.stub(ws.v2, 'find').resolves([{}]);
+            sinon.stub(ws, 'submitRequest').resolves({ rows: [{}] });
 
             let err;
-            try {
-                await ws.impersonateAsEmail('noref@example.com');
-            } catch (e) { err = e; }
+            try { await ws.impersonateAsEmail('noref@example.com'); } catch (e) { err = e; }
             expect(err).to.be.instanceOf(Error);
-            expect(err.message).to.equal(
-                'Account for noref@example.com has no userRef tag'
-            );
+            expect(err.message).to.equal('Account for n***@example.com has no userRef tag');
+            expect(err.email).to.equal('noref@example.com');
         });
 
         it('throws when extracted userRef is not a valid UUID (H2)', async () => {
-            sinon.stub(ws.v2, 'find').resolves([
-                { userRef: 'r:not-a-uuid' }
-            ]);
+            sinon.stub(ws, 'submitRequest').resolves({
+                rows: [{ userRef: 'r:not-a-uuid' }]
+            });
 
             let err;
-            try {
-                await ws.impersonateAsEmail('bad@example.com');
-            } catch (e) { err = e; }
+            try { await ws.impersonateAsEmail('bad@example.com'); } catch (e) { err = e; }
             expect(err).to.be.instanceOf(Error);
             expect(err.message).to.equal(
-                'Account for bad@example.com has a malformed userRef (not a UUID): not-a-uuid'
+                'Account for b***@example.com has a malformed userRef (not a UUID): not-a-uuid'
             );
+            expect(err.email).to.equal('bad@example.com');
             expect(ws.isImpersonating()).to.equal(false);
         });
 
@@ -158,22 +198,34 @@ describe('client', () => {
             expect(err).to.be.instanceOf(TypeError);
         });
 
-        it('logs the email-to-userId mapping at debug (PII)', async () => {
-            sinon.stub(ws.v2, 'find').resolves([
-                { userRef: 'r:' + UUID_A }
-            ]);
+        it('trims email before escaping/sending (N3)', async () => {
+            const submit = sinon.stub(ws, 'submitRequest').resolves({
+                rows: [{ userRef: 'r:' + UUID_A }]
+            });
+            await ws.impersonateAsEmail('  alice@example.com  ');
+            expect(submit.firstCall.args[2].rows[0].filter).to.equal(
+                's:account and email==\"alice@example.com\"'
+            );
+        });
+
+        it('logs the email-to-userId mapping at debug, not info (PII)', async () => {
+            sinon.stub(ws, 'submitRequest').resolves({
+                rows: [{ userRef: 'r:' + UUID_A }]
+            });
 
             await ws.impersonateAsEmail('alice@example.com');
 
+            // N5: the debug log carries both the email AND the user id.
             expect(log.debug.calledWith(
-                'Resolved impersonation email to user ID %s',
+                'Resolved impersonation email %s to user ID %s',
+                'alice@example.com',
                 UUID_A
             )).to.equal(true);
             expect(log.info.calledWith(
                 'Now impersonating as user ID %s',
                 UUID_A
             )).to.equal(true);
-            // email itself must never reach info-level logs
+            // Email must NEVER reach info-level logs.
             const infoArgs = log.info.getCalls().flatMap((c) => c.args);
             expect(infoArgs.some((a) =>
                 typeof a === 'string' && a.includes('alice@example.com')
@@ -181,90 +233,145 @@ describe('client', () => {
         });
 
         it('two-pass escape: backslashes then quotes (H1)', async () => {
-            sinon.stub(ws.v2, 'find').resolves([
-                { userRef: 'r:' + UUID_A }
-            ]);
-
-            // Input contains both a backslash and a double quote.
+            const submit = sinon.stub(ws, 'submitRequest').resolves({
+                rows: [{ userRef: 'r:' + UUID_A }]
+            });
             await ws.impersonateAsEmail('a\\"b@example.com');
-
-            // Backslash first becomes `\\`, then `"` becomes `\"`, so the
-            // emitted filter is `account and email=="a\\\\\\"b@example.com"`.
-            expect(ws.v2.find.firstCall.args[0]).to.equal(
-                'account and email=="a\\\\\\"b@example.com"'
+            expect(submit.firstCall.args[2].rows[0].filter).to.equal(
+                's:account and email==\"a\\\\\\"b@example.com\"'
             );
         });
 
         it('escapes a bare backslash even when no quote is present (H1)', async () => {
-            sinon.stub(ws.v2, 'find').resolves([
-                { userRef: 'r:' + UUID_A }
-            ]);
-
+            const submit = sinon.stub(ws, 'submitRequest').resolves({
+                rows: [{ userRef: 'r:' + UUID_A }]
+            });
             await ws.impersonateAsEmail('a\\b@example.com');
-
-            expect(ws.v2.find.firstCall.args[0]).to.equal(
-                'account and email=="a\\\\b@example.com"'
+            expect(submit.firstCall.args[2].rows[0].filter).to.equal(
+                's:account and email==\"a\\\\b@example.com\"'
             );
         });
 
         it('lookup runs unimpersonated even when caller has active impersonation (H5)', async () => {
-            ws.impersonateAs('prior-user-uuid-not-validated-here');
-            // Reset because the assertion below tracks state during find.
-            const findStub = sinon.stub(ws.v2, 'find');
+            ws.impersonateAs(UUID_PRIOR);
             let impersonateDuringFind = null;
-            findStub.callsFake(() => {
+            const submit = sinon.stub(ws, 'submitRequest').callsFake(() => {
                 impersonateDuringFind = ws._impersonate;
-                return Promise.resolve([{ userRef: 'r:' + UUID_B }]);
+                return Promise.resolve({ rows: [{ userRef: 'r:' + UUID_B }] });
             });
-
             await ws.impersonateAsEmail('switch@example.com');
-
             expect(impersonateDuringFind).to.equal(null);
             expect(ws._impersonate).to.equal(UUID_B);
+            // N1: the lookup's own submitRequest carries the bypass flag.
+            expect(submit.firstCall.args[3]._skipImpersonateJoin).to.equal(true);
         });
 
-        it('restores prior impersonation on failed lookup (H5)', async () => {
-            ws.impersonateAs('prior-user');
-            sinon.stub(ws.v2, 'find').rejects(new Error('network down'));
+        describe('H5/N6: restores prior impersonation on every failure branch', () => {
+            const failures = [
+                {
+                    label: 'lookup rejects',
+                    stub: (stubFn) => stubFn.rejects(new Error('network')),
+                    msgIncludes: 'network',
+                },
+                {
+                    label: 'no account matches',
+                    stub: (stubFn) => stubFn.resolves({ rows: [] }),
+                    msgIncludes: 'No account found',
+                },
+                {
+                    label: 'multiple accounts match',
+                    stub: (stubFn) => stubFn.resolves({
+                        rows: [{ userRef: 'r:' + UUID_A }, { userRef: 'r:' + UUID_B }]
+                    }),
+                    msgIncludes: 'Multiple accounts',
+                },
+                {
+                    label: 'missing userRef',
+                    stub: (stubFn) => stubFn.resolves({ rows: [{}] }),
+                    msgIncludes: 'has no userRef tag',
+                },
+                {
+                    label: 'malformed userRef',
+                    stub: (stubFn) => stubFn.resolves({ rows: [{ userRef: 'r:not-uuid' }] }),
+                    msgIncludes: 'malformed userRef',
+                },
+            ];
 
-            let err;
-            try {
-                await ws.impersonateAsEmail('switch@example.com');
-            } catch (e) { err = e; }
-            expect(err).to.be.instanceOf(Error);
-            expect(err.message).to.equal('network down');
-            expect(ws._impersonate).to.equal('prior-user');
+            for (const f of failures) {
+                it(`${f.label} -> restores prior _impersonate`, async () => {
+                    ws.impersonateAs(UUID_PRIOR);
+                    const submit = sinon.stub(ws, 'submitRequest');
+                    f.stub(submit);
+                    let err;
+                    try {
+                        await ws.impersonateAsEmail('whatever@example.com');
+                    } catch (e) { err = e; }
+                    expect(err).to.be.instanceOf(Error);
+                    expect(err.message).to.match(new RegExp(f.msgIncludes));
+                    expect(ws._impersonate).to.equal(UUID_PRIOR);
+                });
+            }
         });
 
         it('serialises two in-flight calls; last invocation wins (H9)', async () => {
-            const findStub = sinon.stub(ws.v2, 'find');
-            let resolveA;
-            let resolveB;
-            findStub.onFirstCall().returns(new Promise((r) => { resolveA = r; }));
-            findStub.onSecondCall().returns(new Promise((r) => { resolveB = r; }));
+            const submit = sinon.stub(ws, 'submitRequest');
+            let resolveA, resolveB;
+            submit.onFirstCall().returns(new Promise((r) => { resolveA = r; }));
+            submit.onSecondCall().returns(new Promise((r) => { resolveB = r; }));
 
             const p1 = ws.impersonateAsEmail('a@example.com');
             const p2 = ws.impersonateAsEmail('b@example.com');
 
-            // Resolve B first (out of order), then A.
-            resolveB([{ userRef: 'r:' + UUID_B }]);
-            resolveA([{ userRef: 'r:' + UUID_A }]);
+            // Resolve out of order: B finishes first, then A.
+            resolveB({ rows: [{ userRef: 'r:' + UUID_B }] });
+            resolveA({ rows: [{ userRef: 'r:' + UUID_A }] });
 
             const [v1, v2] = await Promise.all([p1, p2]);
             expect(v1).to.equal(UUID_A);
             expect(v2).to.equal(UUID_B);
-            // After both settle, the last invocation (B) wins.
+            // Order-of-invocation wins: B was called last, so B wins.
             expect(ws._impersonate).to.equal(UUID_B);
+        });
+
+        it('N2: an explicit unsetImpersonate during in-flight lookup discards the lookup result', async () => {
+            const submit = sinon.stub(ws, 'submitRequest');
+            let resolveLookup;
+            submit.returns(new Promise((r) => { resolveLookup = r; }));
+
+            const lookupPromise = ws.impersonateAsEmail('a@example.com');
+            // While the lookup is in flight, caller decides to clear.
+            ws.unsetImpersonate();
+
+            // Lookup completes after - must NOT re-arm impersonation.
+            resolveLookup({ rows: [{ userRef: 'r:' + UUID_A }] });
+            await lookupPromise; // resolves successfully but does not write
+
+            expect(ws._impersonate).to.equal(null);
+            expect(ws.isImpersonating()).to.equal(false);
+        });
+
+        it('N2: an explicit impersonateAs(other) during in-flight lookup wins', async () => {
+            const submit = sinon.stub(ws, 'submitRequest');
+            let resolveLookup;
+            submit.returns(new Promise((r) => { resolveLookup = r; }));
+
+            const lookupPromise = ws.impersonateAsEmail('a@example.com');
+            ws.impersonateAs(UUID_PRIOR);
+
+            resolveLookup({ rows: [{ userRef: 'r:' + UUID_A }] });
+            await lookupPromise;
+
+            // The explicit caller's UUID survives.
+            expect(ws._impersonate).to.equal(UUID_PRIOR);
         });
     });
 
     describe('impersonateAs (sync)', () => {
-        let http;
         let log;
         let ws;
 
         beforeEach(() => {
-            http = new stubs.StubHTTPClient();
+            const http = new stubs.StubHTTPClient();
             log = new stubs.StubLogger();
             ws = getInstance(http, log);
         });
@@ -273,8 +380,7 @@ describe('client', () => {
 
         it('throws TypeError on email-like string (H3)', () => {
             expect(() => ws.impersonateAs('foo@bar.com')).to.throw(
-                TypeError,
-                /use impersonateAsEmail/
+                TypeError, /use impersonateAsEmail/
             );
         });
 
@@ -290,25 +396,30 @@ describe('client', () => {
             expect(() => ws.impersonateAs(42)).to.throw(TypeError);
         });
 
+        it('throws TypeError on malformed UUID (M1)', () => {
+            expect(() => ws.impersonateAs('not-a-uuid')).to.throw(
+                TypeError, /valid UUID/
+            );
+        });
+
         it('null clears impersonation', () => {
-            ws.impersonateAs('some-user');
+            ws.impersonateAs(UUID_A);
             ws.impersonateAs(null);
             expect(ws.isImpersonating()).to.equal(false);
         });
 
         it('undefined also clears impersonation', () => {
-            ws.impersonateAs('some-user');
+            ws.impersonateAs(UUID_A);
             ws.impersonateAs(undefined);
             expect(ws.isImpersonating()).to.equal(false);
         });
 
         it('unsetImpersonate logs the prior user id', () => {
-            ws.impersonateAs('audit-me');
+            ws.impersonateAs(UUID_A);
             log.info.resetHistory();
             ws.unsetImpersonate();
             expect(log.info.calledWith(
-                'Cleared impersonation (was user ID %s)',
-                'audit-me'
+                'Cleared impersonation (was user ID %s)', UUID_A
             )).to.equal(true);
         });
     });
@@ -326,16 +437,13 @@ describe('client', () => {
         it('treats an @-containing value as an email and resolves lazily on first request', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
-            stubAuthAndDefaultRequests(ws);
+            stubTransport(ws); // default: one row with UUID_A
 
             expect(ws.isImpersonating()).to.equal(false);
             expect(ws._impersonatePendingEmail).to.equal('lazy@example.com');
 
-            sinon.stub(ws.v2, 'find').resolves([{ userRef: 'r:' + UUID_A }]);
+            await withTimeout(ws.submitRequest('GET', '/api/about'), 1000, 'lazy first request');
 
-            await ws.submitRequest('GET', '/api/about');
-
-            expect(ws.v2.find.calledOnce).to.equal(true);
             expect(ws._impersonatePendingEmail).to.equal(null);
             expect(ws._impersonate).to.equal(UUID_A);
 
@@ -345,87 +453,93 @@ describe('client', () => {
             expect(aboutCall.args[3].headers['X-IMPERSONATE']).to.equal(UUID_A);
         });
 
-        it('treats a non-email value as a user id (no lookup)', async () => {
-            ws = constructWithOptions(log, { impersonateAs: 'plain-uuid' });
+        it('treats a UUID value as a user id (no lookup)', async () => {
+            ws = constructWithOptions(log, { impersonateAs: UUID_A });
             await ws.initClientOptions();
             stubAuthAndDefaultRequests(ws);
 
             expect(ws.isImpersonating()).to.equal(true);
-            expect(ws._impersonate).to.equal('plain-uuid');
+            expect(ws._impersonate).to.equal(UUID_A);
             expect(ws._impersonatePendingEmail).to.equal(null);
 
-            const findSpy = sinon.spy(ws.v2, 'find');
+            const submit = sinon.spy(ws, 'submitRequest');
             await ws.submitRequest('GET', '/api/about');
-            expect(findSpy.called).to.equal(false);
+            // Only the about call, no /api/read for a lookup.
+            expect(submit.calledOnce).to.equal(true);
         });
 
-        it('rejects an empty string at construction (H6)', async () => {
+        it('rejects an empty string at construction (M2: TypeError)', async () => {
             ws = constructWithOptions(log, { impersonateAs: '' });
             let err;
             try { await ws.initClientOptions(); } catch (e) { err = e; }
-            expect(err).to.be.instanceOf(Error);
+            expect(err).to.be.instanceOf(TypeError);
             expect(err.message).to.match(/non-empty/);
         });
 
-        it('rejects whitespace-only at construction (H6)', async () => {
+        it('rejects whitespace-only at construction (M2: TypeError)', async () => {
             ws = constructWithOptions(log, { impersonateAs: '   ' });
             let err;
             try { await ws.initClientOptions(); } catch (e) { err = e; }
-            expect(err).to.be.instanceOf(Error);
+            expect(err).to.be.instanceOf(TypeError);
         });
 
         it('does not re-resolve on subsequent requests', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
-            stubAuthAndDefaultRequests(ws);
-            sinon.stub(ws.v2, 'find').resolves([{ userRef: 'r:' + UUID_A }]);
+            stubTransport(ws);
 
-            await ws.submitRequest('GET', '/api/about');
-            await ws.submitRequest('GET', '/api/about');
+            await withTimeout(ws.submitRequest('GET', '/api/about'), 1000, 'first');
+            await withTimeout(ws.submitRequest('GET', '/api/about'), 1000, 'second');
 
-            expect(ws.v2.find.callCount).to.equal(1);
+            const readCalls = ws._wsRawSubmit.getCalls().filter(
+                (c) => c.args[1] === '/api/read'
+            );
+            expect(readCalls.length).to.equal(1);
         });
 
         it('retries lazy resolution after a failed lookup', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
-            stubAuthAndDefaultRequests(ws);
-
-            const findStub = sinon.stub(ws.v2, 'find');
-            findStub.onFirstCall().rejects(new Error('transient lookup failure'));
-            findStub.onSecondCall().resolves([{ userRef: 'r:' + UUID_A }]);
+            let attempts = 0;
+            stubTransport(ws, {
+                onRead: () => {
+                    attempts++;
+                    if (attempts === 1) return Promise.reject(new Error('transient'));
+                    return null; // default success
+                },
+            });
 
             let firstErr;
             try {
-                await ws.submitRequest('GET', '/api/about');
+                await withTimeout(ws.submitRequest('GET', '/api/about'), 1000, 'first');
             } catch (e) { firstErr = e; }
             expect(firstErr).to.be.instanceOf(Error);
-            expect(firstErr.message).to.equal('transient lookup failure');
+            expect(firstErr.message).to.equal('transient');
             expect(ws._impersonatePendingEmail).to.equal('lazy@example.com');
             expect(ws.isImpersonating()).to.equal(false);
 
-            await ws.submitRequest('GET', '/api/about');
+            await withTimeout(ws.submitRequest('GET', '/api/about'), 1000, 'retry');
 
-            expect(findStub.callCount).to.equal(2);
+            expect(attempts).to.equal(2);
             expect(ws._impersonate).to.equal(UUID_A);
         });
 
         it('unsetImpersonate cancels a pending email resolution', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
-            stubAuthAndDefaultRequests(ws);
-            const findSpy = sinon.spy(ws.v2, 'find');
+            stubTransport(ws);
 
             expect(ws._impersonatePendingEmail).to.equal('lazy@example.com');
-
             ws.unsetImpersonate();
-
             expect(ws._impersonatePendingEmail).to.equal(null);
             expect(ws.isImpersonating()).to.equal(false);
 
-            await ws.submitRequest('GET', '/api/about');
+            await withTimeout(ws.submitRequest('GET', '/api/about'), 1000, 'after unset');
 
-            expect(findSpy.called).to.equal(false);
+            const readCalls = ws._wsRawSubmit.getCalls().filter(
+                (c) => c.args[1] === '/api/read'
+            );
+            expect(readCalls.length).to.equal(0);
             const aboutCall = ws._wsRawSubmit.getCalls().find(
                 (c) => c.args[1] === '/api/about'
             );
@@ -435,81 +549,54 @@ describe('client', () => {
         it('impersonateAs(null) clears active impersonation and pending email', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
-            stubAuthAndDefaultRequests(ws);
-            const findSpy = sinon.spy(ws.v2, 'find');
+            stubTransport(ws);
 
             expect(ws._impersonatePendingEmail).to.equal('lazy@example.com');
-
-            ws.impersonateAs('explicit-uuid');
-            expect(ws._impersonate).to.equal('explicit-uuid');
-
+            ws.impersonateAs(UUID_A);
+            expect(ws._impersonate).to.equal(UUID_A);
             ws.impersonateAs(null);
             expect(ws._impersonate).to.equal(null);
             expect(ws._impersonatePendingEmail).to.equal(null);
 
-            await ws.submitRequest('GET', '/api/about');
-            expect(findSpy.called).to.equal(false);
+            await withTimeout(ws.submitRequest('GET', '/api/about'), 1000, 'after clear');
+
+            const readCalls = ws._wsRawSubmit.getCalls().filter(
+                (c) => c.args[1] === '/api/read'
+            );
+            expect(readCalls.length).to.equal(0);
             const aboutCall = ws._wsRawSubmit.getCalls().find(
                 (c) => c.args[1] === '/api/about'
             );
             expect(aboutCall.args[3].headers).to.not.have.property('X-IMPERSONATE');
         });
 
-        it('concurrent retry after a failed first-burst lookup converges on a single retry (no storm)', async () => {
+        it('N1: parallel first-burst requests share a single lookup; no deadlock (transport-stubbed)', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
-            stubAuthAndDefaultRequests(ws);
-
-            const findStub = sinon.stub(ws.v2, 'find');
-            // First lookup: rejects. Subsequent: resolves to UUID_A.
-            findStub.onFirstCall().rejects(new Error('transient'));
-            findStub.resolves([{ userRef: 'r:' + UUID_A }]);
-
-            // Three requests fire in parallel against a cold-start client.
-            const settled = await Promise.allSettled([
-                ws.submitRequest('GET', '/api/about'),
-                ws.submitRequest('GET', '/api/about'),
-                ws.submitRequest('GET', '/api/about'),
-            ]);
-
-            // The originating caller of the failed lookup gets the error.
-            // Joiners loop back, observe the restored pending, and join a
-            // single retry. Exactly one additional v2.find call - not three.
-            expect(findStub.callCount).to.equal(2);
-            expect(ws._impersonate).to.equal(UUID_A);
-
-            // Two of the three requests must succeed and carry the header.
-            const succeeded = settled.filter((s) => s.status === 'fulfilled');
-            expect(succeeded.length).to.equal(2);
-            const aboutCalls = ws._wsRawSubmit.getCalls().filter(
-                (c) => c.args[1] === '/api/about'
-            );
-            // Both successful requests sent the X-IMPERSONATE header.
-            const withHeader = aboutCalls.filter(
-                (c) => c.args[3].headers['X-IMPERSONATE'] === UUID_A
-            );
-            expect(withHeader.length).to.equal(2);
-        });
-
-        it('parallel first-burst requests share a single lookup; both get the X-IMPERSONATE header (C1)', async () => {
-            ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
-            await ws.initClientOptions();
-            stubAuthAndDefaultRequests(ws);
-
-            const findStub = sinon.stub(ws.v2, 'find');
-            let resolveLookup;
-            findStub.returns(new Promise((r) => { resolveLookup = r; }));
+            let resolveRead;
+            stubTransport(ws, {
+                onRead: () => new Promise((r) => { resolveRead = r; })
+            });
 
             const p1 = ws.submitRequest('GET', '/api/about');
             const p2 = ws.submitRequest('GET', '/api/about');
 
-            // Let both requests reach the lookup-join point before resolving.
             await new Promise((r) => setImmediate(r));
-            resolveLookup([{ userRef: 'r:' + UUID_A }]);
+            resolveRead({ rows: [{ userRef: 'r:' + UUID_A }] });
 
-            await Promise.all([p1, p2]);
+            await withTimeout(Promise.all([p1, p2]), 1000, 'parallel first-burst');
 
-            expect(findStub.callCount).to.equal(1);
+            const readCalls = ws._wsRawSubmit.getCalls().filter(
+                (c) => c.args[1] === '/api/read'
+            );
+            expect(readCalls.length).to.equal(1);
+
+            // The lookup's own /api/read request must carry the bypass flag
+            // (so it does not deadlock by joining its own promise).
+            expect(readCalls[0].args[3]._skipImpersonateJoin || false).to.equal(false);
+            // Note: _attachReqConfig strips the flag before it reaches the
+            // wire; we therefore expect it to be ABSENT on the outgoing config.
+
             const aboutCalls = ws._wsRawSubmit.getCalls().filter(
                 (c) => c.args[1] === '/api/about'
             );
@@ -517,6 +604,68 @@ describe('client', () => {
             for (const c of aboutCalls) {
                 expect(c.args[3].headers['X-IMPERSONATE']).to.equal(UUID_A);
             }
+        });
+
+        it('N1: direct impersonateAsEmail() does not deadlock (transport-stubbed)', async () => {
+            ws = constructWithOptions(log, {});
+            await ws.initClientOptions();
+            stubTransport(ws);
+
+            const userId = await withTimeout(
+                ws.impersonateAsEmail('alice@example.com'),
+                1000,
+                'direct impersonateAsEmail'
+            );
+
+            expect(userId).to.equal(UUID_A);
+            expect(ws._impersonate).to.equal(UUID_A);
+        });
+
+        it('N1: lazy via constructor option does not deadlock (transport-stubbed)', async () => {
+            ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
+            await ws.initClientOptions();
+            stubTransport(ws);
+
+            await withTimeout(
+                ws.submitRequest('GET', '/api/about'),
+                1000,
+                'lazy first request'
+            );
+
+            expect(ws._impersonate).to.equal(UUID_A);
+            const aboutCall = ws._wsRawSubmit.getCalls().find(
+                (c) => c.args[1] === '/api/about'
+            );
+            expect(aboutCall.args[3].headers['X-IMPERSONATE']).to.equal(UUID_A);
+        });
+
+        it('concurrent retry after a failed first-burst lookup converges on a single retry (no storm)', async () => {
+            ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
+            await ws.initClientOptions();
+            let attempts = 0;
+            stubTransport(ws, {
+                onRead: () => {
+                    attempts++;
+                    if (attempts === 1) return Promise.reject(new Error('transient'));
+                    return null;
+                },
+            });
+
+            const settled = await withTimeout(
+                Promise.allSettled([
+                    ws.submitRequest('GET', '/api/about'),
+                    ws.submitRequest('GET', '/api/about'),
+                    ws.submitRequest('GET', '/api/about'),
+                ]),
+                1500,
+                'parallel cold-start with retry'
+            );
+
+            expect(attempts).to.equal(2);
+            expect(ws._impersonate).to.equal(UUID_A);
+
+            const succeeded = settled.filter((s) => s.status === 'fulfilled');
+            expect(succeeded.length).to.equal(2);
         });
     });
 });

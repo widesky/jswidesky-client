@@ -33,6 +33,31 @@ const bFormat = require("bunyan-format");
 const HaystackTools = require('../utils/haystack');
 const { validate: uuidValidate } = require('uuid');
 
+/**
+ * Redact the local-part of an email for use in error messages / logs.
+ * Keeps the domain (useful for diagnosis) and the first character of the
+ * local-part. Falls back to a placeholder if the input is not parseable as
+ * a typical "local@domain" string.
+ */
+function redactEmail(email) {
+    if (typeof email !== 'string') return '<email>';
+    const at = email.indexOf('@');
+    if (at <= 0) return '<email>';
+    return `${email[0]}***${email.slice(at)}`;
+}
+
+/**
+ * Construct an Error for an email-lookup failure. Attaches the raw email as
+ * `err.email` so callers that need to log the full value can opt-in, while
+ * `err.message` carries only the redacted form (so generic `logger.error(err)`
+ * patterns do not exfiltrate PII).
+ */
+function makeEmailLookupError(message, email) {
+    const err = new Error(message);
+    err.email = email;
+    return err;
+}
+
 // Check for the runtime
 let runtimeEnv;
 if (typeof (process) !== 'undefined' && process.versions) {
@@ -151,6 +176,7 @@ class WideSkyClient {
     _impersonate        // The user id which the original user is impersonating as.
     _impersonatePendingEmail        // Email queued for lazy impersonation resolution.
     _impersonateLookup              // Single-flight Promise for an in-flight email lookup, or null.
+    _impersonateGen                 // Monotonic counter bumped on every impersonation-state mutation (N2).
 
     /**
      * Constructor for WideSky Client
@@ -197,6 +223,7 @@ class WideSkyClient {
         this._impersonate = null;
         this._impersonatePendingEmail = null;
         this._impersonateLookup = null;
+        this._impersonateGen = 0;
         this._acceptGzipEncoding  = true;
 
         this.initAccessToken();
@@ -342,7 +369,7 @@ class WideSkyClient {
         if (this.clientOptions.impersonateAs !== null) {
             const value = this.clientOptions.impersonateAs;
             if (typeof value !== 'string' || value.trim() === '') {
-                throw new Error(
+                throw new TypeError(
                     'options.client.impersonateAs must be a non-empty UUID or email string, or null'
                 );
             }
@@ -405,7 +432,13 @@ class WideSkyClient {
                 'for email-based impersonation'
             );
         }
+        if (!uuidValidate(userId)) {
+            throw new TypeError(
+                `impersonateAs requires a valid UUID; got ${userId}`
+            );
+        }
         this._impersonate = userId;
+        this._impersonateGen++;
         this.logger.info("Now impersonating as user ID %s", userId);
     };
 
@@ -438,7 +471,16 @@ class WideSkyClient {
                 'impersonateAsEmail requires a non-empty email string'
             );
         }
+        // N3: normalise here too - the perform-lookup helper trims again, but
+        // doing it at the entry point makes the value consistent in any logs
+        // / error paths added later.
+        email = email.trim();
 
+        // M4: prior capture is correct only because the assignment
+        // `this._impersonateLookup = run` below runs synchronously with no
+        // intervening await. Do not insert an await between prior, the IIFE,
+        // and the assignment - a peer could otherwise install its own lookup
+        // in the gap and we would lose the serialisation order.
         const prior = this._impersonateLookup;
         const run = (async () => {
             // Serialise: wait for any in-flight lookup to settle so that the
@@ -465,7 +507,10 @@ class WideSkyClient {
      * nulls it for the duration of the lookup, restores on failure).
      */
     async _performImpersonateEmailLookup(email) {
-        // Two-pass escape: backslashes first, then double quotes.
+        // N3: trim AFTER guard so the validated string is also the one we send.
+        email = email.trim();
+
+        // H1: two-pass escape - backslashes first, then double quotes.
         const escaped = email
             .replaceAll('\\', '\\\\')
             .replaceAll('"', '\\"');
@@ -473,51 +518,102 @@ class WideSkyClient {
         const filter = `account and email=="${escaped}"`;
 
         // H5: the lookup must run as the configured (authenticated) user, not
-        // under any active impersonation. Snapshot, clear, restore on throw.
+        // under any active impersonation. Snapshot, clear, restore on failure.
         const savedImpersonate = this._impersonate;
         this._impersonate = null;
 
-        let rows;
+        // N2: snapshot the impersonation generation. If the caller mutates
+        // impersonation state synchronously while the lookup is in flight
+        // (e.g. calls `unsetImpersonate()` or `impersonateAs('other')`), the
+        // generation moves and our completion no longer represents the
+        // caller's intent - we abandon our write rather than clobbering.
+        const myGen = ++this._impersonateGen;
+
+        let response;
         try {
-            // limit: 2 so we can detect (and reject) duplicate matches.
-            rows = await this.v2.find(filter, 2);
+            // N1: call submitRequest directly (skipping v2.find) AND mark the
+            // request with `_skipImpersonateJoin: true` so the recursive
+            // `_attachReqConfig` invocation does NOT await `_impersonateLookup`
+            // (which IS the very promise we are running inside, hence the
+            // self-deadlock the previous design suffered from).
+            response = await this.submitRequest(
+                'POST',
+                '/api/read',
+                {
+                    meta: { ver: '2.0' },
+                    cols: [{ name: 'filter' }, { name: 'limit' }],
+                    rows: [
+                        {
+                            filter: `s:${filter}`,
+                            // limit: 2 so we can detect (and reject) duplicate matches.
+                            limit: 'n:2'
+                        }
+                    ]
+                },
+                { _skipImpersonateJoin: true }
+            );
         } catch (err) {
-            this._impersonate = savedImpersonate;
+            // Restore prior impersonation ONLY if no caller intervened.
+            if (this._impersonateGen === myGen) {
+                this._impersonate = savedImpersonate;
+            }
             throw err;
         }
 
+        const rows = (response && response.rows) || [];
+
         try {
             if (rows.length === 0) {
-                throw new Error(`No account found for email ${email}`);
+                throw makeEmailLookupError(
+                    `No account found for email ${redactEmail(email)}`,
+                    email
+                );
             }
             if (rows.length > 1) {
-                throw new Error(
-                    `Multiple accounts (${rows.length}) found for email ${email}`
+                throw makeEmailLookupError(
+                    `Multiple accounts (${rows.length}) found for email ${redactEmail(email)}`,
+                    email
                 );
             }
             if (typeof rows[0].userRef !== 'string') {
-                throw new Error(`Account for ${email} has no userRef tag`);
+                throw makeEmailLookupError(
+                    `Account for ${redactEmail(email)} has no userRef tag`,
+                    email
+                );
             }
             const userId = HaystackTools.getId(rows[0], 'userRef');
             if (!uuidValidate(userId)) {
-                throw new Error(
-                    `Account for ${email} has a malformed userRef (not a UUID): ${userId}`
+                throw makeEmailLookupError(
+                    `Account for ${redactEmail(email)} has a malformed userRef ` +
+                    `(not a UUID): ${userId}`,
+                    email
                 );
             }
 
-            // PII guard: log the email -> id mapping at debug; user id alone
-            // is logged at info via impersonateAs.
+            // N5: PII-bearing format - email + user id at debug only.
             this.logger.debug(
-                "Resolved impersonation email to user ID %s",
+                "Resolved impersonation email %s to user ID %s",
+                email,
                 userId
             );
-            // No need to restore _impersonate here - impersonateAs will overwrite
-            // it. We only restore in the catch path (failure should leave caller
-            // state unchanged).
-            this.impersonateAs(userId);
+
+            // N2: only install if no caller intervened. If they did (e.g.
+            // explicit impersonateAs('other-uuid') or unsetImpersonate()),
+            // honour their write and discard ours.
+            if (this._impersonateGen === myGen) {
+                this.impersonateAs(userId);
+            } else {
+                this.logger.debug(
+                    "Impersonation generation advanced during email lookup; " +
+                    "discarding resolved user ID %s",
+                    userId
+                );
+            }
             return userId;
         } catch (err) {
-            this._impersonate = savedImpersonate;
+            if (this._impersonateGen === myGen) {
+                this._impersonate = savedImpersonate;
+            }
             throw err;
         }
     };
@@ -537,6 +633,7 @@ class WideSkyClient {
         }
         this._impersonate = null;
         this._impersonatePendingEmail = null;
+        this._impersonateGen++;
     };
 
     setAcceptGzip(acceptGzip) {
@@ -629,6 +726,16 @@ class WideSkyClient {
     async _attachReqConfig(config) {
         const token = await this.getToken();
 
+        // N1: lookup-internal requests carry this flag so the recursive
+        // call below doesn't deadlock by awaiting the very _impersonateLookup
+        // promise they are running inside. Strip the flag here so it does
+        // not leak into axios config / outgoing headers.
+        let skipImpersonateJoin = false;
+        if (config && config._skipImpersonateJoin) {
+            skipImpersonateJoin = true;
+            delete config._skipImpersonateJoin;
+        }
+
         // C1/H9: single-flight join with a re-check loop, so concurrent
         // first-burst requests converge on one lookup and one retry on
         // failure, never N retries from N peers.
@@ -644,7 +751,7 @@ class WideSkyClient {
         // un-impersonated request. Leaving pending set means peers correctly
         // observe "no lookup, but still pending" and join the retry that the
         // first surviving peer launches. Pending is cleared only on success.
-        while (true) {
+        if (!skipImpersonateJoin) while (true) {
             if (this._impersonateLookup) {
                 try {
                     await this._impersonateLookup;

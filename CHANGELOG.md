@@ -18,7 +18,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   and empty/non-string values with a `TypeError`, accepts `null` or `undefined` to
   clear (equivalent to `unsetImpersonate()`), and validates `options.client.impersonateAs`
   at construction. Impersonation state changes are logged at `info`; the email-to-user-id
-  mapping is logged only at `debug` (PII).
+  mapping is logged only at `debug` (PII). Error messages from the email lookup carry a
+  redacted email (e.g. `a***@example.com`) in `err.message`, with the raw email on
+  `err.email` for callers that need it. Synchronous `impersonateAs(userId)` now rejects
+  malformed UUIDs with `TypeError`. The lookup itself goes through `submitRequest` with
+  a `_skipImpersonateJoin` flag so the recursive call to `_attachReqConfig` cannot
+  deadlock on the in-flight `_impersonateLookup` promise. An internal `_impersonateGen`
+  counter ensures synchronous caller mutations (`unsetImpersonate()`, `impersonateAs('other')`)
+  during an in-flight lookup are not silently overwritten when the lookup completes.
 
 ## [3.3.1] - 2026-04-17
 
