@@ -511,9 +511,9 @@ class WideSkyClient {
                 "Resolved impersonation email to user ID %s",
                 userId
             );
-            // Restore prior state so impersonateAs sees no active impersonation
-            // when it logs the transition. It overwrites _impersonate anyway.
-            this._impersonate = savedImpersonate;
+            // No need to restore _impersonate here - impersonateAs will overwrite
+            // it. We only restore in the catch path (failure should leave caller
+            // state unchanged).
             this.impersonateAs(userId);
             return userId;
         } catch (err) {
@@ -629,24 +629,49 @@ class WideSkyClient {
     async _attachReqConfig(config) {
         const token = await this.getToken();
 
-        // C1/H9: join any in-flight lookup so concurrent requests don't bypass
-        // impersonation (the field is cleared synchronously before the lookup
-        // await, so a naive re-entry would attach no header).
-        if (this._impersonateLookup) {
-            try { await this._impersonateLookup; } catch (_) { /* error propagates via the originating call */ }
-        }
+        // C1/H9: single-flight join with a re-check loop, so concurrent
+        // first-burst requests converge on one lookup and one retry on
+        // failure, never N retries from N peers.
+        //
+        // The first request to find a pending email here launches
+        // impersonateAsEmail (which synchronously installs _impersonateLookup);
+        // every later request sees that promise and awaits it instead of
+        // starting a parallel lookup. We deliberately do NOT clear
+        // _impersonatePendingEmail before the lookup: on failure, peers that
+        // unblock between impersonateAsEmail's finally (which clears
+        // _impersonateLookup) and the originator's catch would otherwise see
+        // null pending AND null _impersonate, and fall through to send an
+        // un-impersonated request. Leaving pending set means peers correctly
+        // observe "no lookup, but still pending" and join the retry that the
+        // first surviving peer launches. Pending is cleared only on success.
+        while (true) {
+            if (this._impersonateLookup) {
+                try {
+                    await this._impersonateLookup;
+                } catch (_) { /* originator surfaces the error; we just re-check state */ }
+                continue;
+            }
 
-        if (this._impersonatePendingEmail && !this._impersonate) {
+            if (!this._impersonatePendingEmail || this._impersonate) {
+                break;
+            }
+
             const pending = this._impersonatePendingEmail;
-            this._impersonatePendingEmail = null;
             try {
                 await this.impersonateAsEmail(pending);
+                // Success: _impersonate now set by impersonateAs(userId).
+                // Forget the pending email so future unsetImpersonate /
+                // impersonateAs(null) calls don't re-arm it.
+                this._impersonatePendingEmail = null;
             } catch (err) {
-                // Restore so a subsequent request can retry. Cleared before the await
-                // remains load-bearing for re-entry safety during the lookup itself.
-                this._impersonatePendingEmail = pending;
+                // Pending remains set - peers waiting on _impersonateLookup
+                // will re-enter the while loop, see pending still truthy,
+                // and the first peer to win the loop iteration will retry.
+                // Subsequent peers in that iteration will join the retry via
+                // the in-flight _impersonateLookup check above.
                 throw err;
             }
+            break;
         }
 
         config = Object.assign({}, config);       // make a copy

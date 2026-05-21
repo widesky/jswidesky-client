@@ -455,6 +455,42 @@ describe('client', () => {
             expect(aboutCall.args[3].headers).to.not.have.property('X-IMPERSONATE');
         });
 
+        it('concurrent retry after a failed first-burst lookup converges on a single retry (no storm)', async () => {
+            ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
+            await ws.initClientOptions();
+            stubAuthAndDefaultRequests(ws);
+
+            const findStub = sinon.stub(ws.v2, 'find');
+            // First lookup: rejects. Subsequent: resolves to UUID_A.
+            findStub.onFirstCall().rejects(new Error('transient'));
+            findStub.resolves([{ userRef: 'r:' + UUID_A }]);
+
+            // Three requests fire in parallel against a cold-start client.
+            const settled = await Promise.allSettled([
+                ws.submitRequest('GET', '/api/about'),
+                ws.submitRequest('GET', '/api/about'),
+                ws.submitRequest('GET', '/api/about'),
+            ]);
+
+            // The originating caller of the failed lookup gets the error.
+            // Joiners loop back, observe the restored pending, and join a
+            // single retry. Exactly one additional v2.find call - not three.
+            expect(findStub.callCount).to.equal(2);
+            expect(ws._impersonate).to.equal(UUID_A);
+
+            // Two of the three requests must succeed and carry the header.
+            const succeeded = settled.filter((s) => s.status === 'fulfilled');
+            expect(succeeded.length).to.equal(2);
+            const aboutCalls = ws._wsRawSubmit.getCalls().filter(
+                (c) => c.args[1] === '/api/about'
+            );
+            // Both successful requests sent the X-IMPERSONATE header.
+            const withHeader = aboutCalls.filter(
+                (c) => c.args[3].headers['X-IMPERSONATE'] === UUID_A
+            );
+            expect(withHeader.length).to.equal(2);
+        });
+
         it('parallel first-burst requests share a single lookup; both get the X-IMPERSONATE header (C1)', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
