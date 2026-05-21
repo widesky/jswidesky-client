@@ -31,6 +31,7 @@ const {GraphQLError} = require("../errors");
 const bunyan = require("bunyan");
 const bFormat = require("bunyan-format");
 const HaystackTools = require('../utils/haystack');
+const { validate: uuidValidate } = require('uuid');
 
 // Check for the runtime
 let runtimeEnv;
@@ -149,6 +150,7 @@ class WideSkyClient {
     _acceptGzipEncoding
     _impersonate        // The user id which the original user is impersonating as.
     _impersonatePendingEmail        // Email queued for lazy impersonation resolution.
+    _impersonateLookup              // Single-flight Promise for an in-flight email lookup, or null.
 
     /**
      * Constructor for WideSky Client
@@ -194,6 +196,7 @@ class WideSkyClient {
         this.clientOptions = null;
         this._impersonate = null;
         this._impersonatePendingEmail = null;
+        this._impersonateLookup = null;
         this._acceptGzipEncoding  = true;
 
         this.initAccessToken();
@@ -338,6 +341,11 @@ class WideSkyClient {
 
         if (this.clientOptions.impersonateAs !== null) {
             const value = this.clientOptions.impersonateAs;
+            if (typeof value !== 'string' || value.trim() === '') {
+                throw new Error(
+                    'options.client.impersonateAs must be a non-empty UUID or email string, or null'
+                );
+            }
             if (value.includes('@')) {
                 this._impersonatePendingEmail = value;
             } else {
@@ -368,14 +376,34 @@ class WideSkyClient {
      * Impersonate as a WideSky user when performing requests, or clear any
      * existing impersonation.
      *
-     * @param userId The UUID of the User entity to be impersonated. Pass
-     *               `null` to clear any active or pending impersonation
-     *               (equivalent to calling `unsetImpersonate()`).
+     * Pass `null` (or `undefined`) to clear any active impersonation AND any
+     * pending email-based impersonation queued via the `client.impersonateAs`
+     * option (equivalent to calling `unsetImpersonate()`).
+     *
+     * To impersonate via email, use {@link WideSkyClient#impersonateAsEmail}
+     * instead - passing an email string here throws.
+     *
+     * @param userId The UUID of the User entity to be impersonated, or
+     *               `null` / `undefined` to clear impersonation.
+     * @throws {TypeError} if `userId` is an empty string, a non-string value,
+     *                     or contains `@` (use `impersonateAsEmail` for emails).
      */
     impersonateAs(userId) {
-        if (userId === null) {
+        if (userId == null) {
             this.unsetImpersonate();
             return;
+        }
+        if (typeof userId !== 'string' || userId.trim() === '') {
+            throw new TypeError(
+                'impersonateAs requires a non-empty user UUID string, ' +
+                'or null/undefined to clear impersonation'
+            );
+        }
+        if (userId.includes('@')) {
+            throw new TypeError(
+                'impersonateAs requires a user UUID; use impersonateAsEmail() ' +
+                'for email-based impersonation'
+            );
         }
         this._impersonate = userId;
         this.logger.info("Now impersonating as user ID %s", userId);
@@ -385,39 +413,113 @@ class WideSkyClient {
      * Resolve a WideSky user by account email and impersonate as that user
      * for all subsequent requests. Authentication uses the client's
      * configured credentials; the lookup itself runs as that authenticated
-     * user (without impersonation). After it resolves, impersonation applies
-     * to every subsequent request.
+     * user (without impersonation), regardless of any active impersonation
+     * already set when this method is called. After it resolves, impersonation
+     * applies to every subsequent request.
+     *
+     * Concurrent calls (whether from parallel lazy resolutions or from explicit
+     * back-to-back invocations) are serialised through a single in-flight
+     * promise, so order of resolution matches order of invocation and no
+     * request is ever sent without the resolved `X-IMPERSONATE` header.
      *
      * @param email Email of the account whose user entity should be impersonated.
      * @returns {Promise<string>} The resolved user UUID now being impersonated.
-     * @throws If no account matches the email, or the matched account entity
-     *         has no `userRef` tag.
+     * @throws {TypeError} if `email` is not a non-empty string.
+     * @throws {Error} if no account matches the email, more than one account
+     *                 matches, the matched account has no `userRef` tag, or the
+     *                 extracted user id is not a valid UUID.
+     * @throws Any error raised by the underlying `v2.find` lookup
+     *         (network failure, authentication error, Haystack parse error,
+     *         etc.).
      */
     async impersonateAsEmail(email) {
-        const escaped = email.replaceAll('"', '\\"');
-        const rows = await this.v2.find(
-            `account and email=="${escaped}"`,
-            1
-        );
-
-        if (rows.length === 0) {
-            throw new Error(`No account found for email ${email}`);
-        }
-
-        if (typeof rows[0].userRef !== 'string') {
-            throw new Error(
-                `Account for ${email} has no userRef tag`
+        if (typeof email !== 'string' || email.trim() === '') {
+            throw new TypeError(
+                'impersonateAsEmail requires a non-empty email string'
             );
         }
 
-        const userId = HaystackTools.getId(rows[0], 'userRef');
-        this.logger.info(
-            "Resolved impersonation email %s to user ID %s",
-            email,
-            userId
-        );
-        this.impersonateAs(userId);
-        return userId;
+        const prior = this._impersonateLookup;
+        const run = (async () => {
+            // Serialise: wait for any in-flight lookup to settle so that the
+            // last caller's value wins (mirrors getToken's wait-queue semantics).
+            if (prior) {
+                try { await prior; } catch (_) { /* swallow - we run regardless */ }
+            }
+            return this._performImpersonateEmailLookup(email);
+        })();
+        this._impersonateLookup = run;
+        try {
+            return await run;
+        } finally {
+            if (this._impersonateLookup === run) {
+                this._impersonateLookup = null;
+            }
+        }
+    };
+
+    /**
+     * @private
+     * Internal: perform the actual Haystack lookup for an email and install
+     * impersonation. Always runs unimpersonated (snapshots `_impersonate`,
+     * nulls it for the duration of the lookup, restores on failure).
+     */
+    async _performImpersonateEmailLookup(email) {
+        // Two-pass escape: backslashes first, then double quotes.
+        const escaped = email
+            .replaceAll('\\', '\\\\')
+            .replaceAll('"', '\\"');
+
+        const filter = `account and email=="${escaped}"`;
+
+        // H5: the lookup must run as the configured (authenticated) user, not
+        // under any active impersonation. Snapshot, clear, restore on throw.
+        const savedImpersonate = this._impersonate;
+        this._impersonate = null;
+
+        let rows;
+        try {
+            // limit: 2 so we can detect (and reject) duplicate matches.
+            rows = await this.v2.find(filter, 2);
+        } catch (err) {
+            this._impersonate = savedImpersonate;
+            throw err;
+        }
+
+        try {
+            if (rows.length === 0) {
+                throw new Error(`No account found for email ${email}`);
+            }
+            if (rows.length > 1) {
+                throw new Error(
+                    `Multiple accounts (${rows.length}) found for email ${email}`
+                );
+            }
+            if (typeof rows[0].userRef !== 'string') {
+                throw new Error(`Account for ${email} has no userRef tag`);
+            }
+            const userId = HaystackTools.getId(rows[0], 'userRef');
+            if (!uuidValidate(userId)) {
+                throw new Error(
+                    `Account for ${email} has a malformed userRef (not a UUID): ${userId}`
+                );
+            }
+
+            // PII guard: log the email -> id mapping at debug; user id alone
+            // is logged at info via impersonateAs.
+            this.logger.debug(
+                "Resolved impersonation email to user ID %s",
+                userId
+            );
+            // Restore prior state so impersonateAs sees no active impersonation
+            // when it logs the transition. It overwrites _impersonate anyway.
+            this._impersonate = savedImpersonate;
+            this.impersonateAs(userId);
+            return userId;
+        } catch (err) {
+            this._impersonate = savedImpersonate;
+            throw err;
+        }
     };
 
     isImpersonating() {
@@ -425,8 +527,13 @@ class WideSkyClient {
     };
 
     unsetImpersonate() {
-        if (this._impersonate !== null || this._impersonatePendingEmail !== null) {
-            this.logger.info("Cleared impersonation state");
+        if (this._impersonate !== null) {
+            this.logger.info(
+                "Cleared impersonation (was user ID %s)",
+                this._impersonate
+            );
+        } else if (this._impersonatePendingEmail !== null) {
+            this.logger.info("Cleared pending email-based impersonation");
         }
         this._impersonate = null;
         this._impersonatePendingEmail = null;
@@ -521,6 +628,13 @@ class WideSkyClient {
      */
     async _attachReqConfig(config) {
         const token = await this.getToken();
+
+        // C1/H9: join any in-flight lookup so concurrent requests don't bypass
+        // impersonation (the field is cleared synchronously before the lookup
+        // await, so a naive re-entry would attach no header).
+        if (this._impersonateLookup) {
+            try { await this._impersonateLookup; } catch (_) { /* error propagates via the originating call */ }
+        }
 
         if (this._impersonatePendingEmail && !this._impersonate) {
             const pending = this._impersonatePendingEmail;

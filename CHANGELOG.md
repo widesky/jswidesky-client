@@ -7,8 +7,18 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### ADDED
 - [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): Added `impersonateAsEmail(email)`
   method on `WideSkyClient`, and accepted an email value for the `client.impersonateAs`
-  option (resolved lazily on the first request). Impersonation state changes
-  (set, email-to-userId resolution, clear) are now logged at `info` level. `impersonateAs(null)` now also clears any pending email-based impersonation (equivalent to `unsetImpersonate()`).
+  option (resolved lazily on the first authenticated request). The email lookup uses
+  `limit: 2` and rejects duplicate matches, malformed `userRef` values (non-UUID),
+  and empty/whitespace inputs. The lookup always runs unimpersonated even when an
+  earlier impersonation is already in effect. Filter interpolation now two-pass-escapes
+  backslashes then double quotes. Concurrent calls (parallel lazy resolutions and
+  explicit back-to-back invocations) are serialised through a single in-flight promise
+  so order of resolution matches order of invocation and no request is ever sent without
+  the resolved `X-IMPERSONATE` header. `impersonateAs(userId)` now rejects email-like
+  and empty/non-string values with a `TypeError`, accepts `null` or `undefined` to
+  clear (equivalent to `unsetImpersonate()`), and validates `options.client.impersonateAs`
+  at construction. Impersonation state changes are logged at `info`; the email-to-user-id
+  mapping is logged only at `debug` (PII).
 
 ## [3.3.1] - 2026-04-17
 
