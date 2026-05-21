@@ -241,7 +241,7 @@ header.
 |----------|---------------------------------------------------------------------------------------------------------|:------------------:|
 | `userId` | The UUID of the User entity to be impersonated, or `null` / `undefined` to clear any impersonation.     | String / null      |
 
-**Throws:** `TypeError` if `userId` is an empty string, a non-string value, or contains `@`.
+**Throws:** `TypeError` if `userId` is an empty string, a non-string value, contains `@`, or is not a valid UUID (per RFC 4122 / `uuid.validate`). The same validation is applied to `options.client.impersonateAs` when an `@`-free string is passed in (which is otherwise treated as a literal user UUID).
 
 **Returns:** None
 
@@ -271,13 +271,21 @@ at `info`. Treat the email as PII when configuring log aggregation.
 
 **Returns:** `Promise<String>` — the resolved user UUID now being impersonated.
 
+Error messages from this method carry a **redacted** form of the email
+(e.g. `a***@example.com`) in `err.message` so that generic
+`logger.error(err)` / `JSON.stringify(err)` / `util.inspect(err)` patterns do
+NOT exfiltrate the local-part as PII. The raw email is attached on
+`err.email` as a **non-enumerable** property — callers that need the full
+value can access it deliberately (`err.email`), while default serialisers
+skip it.
+
 **Throws:**
 - `TypeError` when `email` is not a non-empty string.
-- `Error('No account found for email <email>')` when the lookup returns no rows.
-- `Error('Multiple accounts (<n>) found for email <email>')` when more than one account matches (the find is issued with `limit: 2` specifically to detect this).
-- `Error('Account for <email> has no userRef tag')` when the matched account entity has no `userRef` tag.
-- `Error('Account for <email> has a malformed userRef (not a UUID): <value>')` when the extracted user id is not a valid UUID.
-- Any error raised by the underlying `v2.find` call (network failure, authentication error, Haystack parse error, etc.).
+- `Error('No account found for email <redacted>')` when the lookup returns no rows.
+- `Error('Multiple accounts (<n>) found for email <redacted>')` when more than one account matches (the find is issued with `limit: 2` specifically to detect this).
+- `Error('Account for <redacted> has no userRef tag')` when the matched account entity has no `userRef` tag.
+- `Error('Account for <redacted> has a malformed userRef (not a UUID): <value>')` when the extracted user id is not a valid UUID.
+- Any error raised by the underlying `submitRequest` call (network failure, authentication error, Haystack parse error, axios 4xx/5xx, etc.).
 
 ### WideSkyClient.unsetImpersonate()
 **Description:** Clear any active impersonation and any pending email-based

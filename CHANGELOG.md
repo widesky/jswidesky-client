@@ -4,6 +4,16 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking
+- [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): `WideSkyClient#impersonateAs(userId)`
+  and `options.client.impersonateAs` now require a valid RFC 4122 UUID for non-email
+  values. Empty strings, non-strings, email-like strings, and free-form names that
+  previously passed through to the `X-IMPERSONATE` header now throw `TypeError`. The
+  email-acceptance path (any string containing `@` in `options.client.impersonateAs`,
+  and `impersonateAsEmail(email)` at runtime) is unchanged. Existing callers passing a
+  legacy free-form name will need to migrate to a real user UUID or to the new
+  `impersonateAsEmail(email)` method.
+
 ### ADDED
 - [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): Added `impersonateAsEmail(email)`
   method on `WideSkyClient`, and accepted an email value for the `client.impersonateAs`

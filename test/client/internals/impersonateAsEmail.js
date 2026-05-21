@@ -14,6 +14,12 @@ const stubs = require('../../stubs'),
     WS_ACCESS_TOKEN = stubs.WS_ACCESS_TOKEN,
     WS_REFRESH_TOKEN = stubs.WS_REFRESH_TOKEN;
 
+// Test-only access to the module-private Symbol used by the lookup helper
+// to bypass the _impersonateLookup join in _attachReqConfig. Exposed via
+// the test-hook static on WideSkyClient (see `_skipImpersonateJoinSymbol`
+// at the bottom of client.js).
+const SKIP_IMPERSONATE_JOIN = WideSkyClient._skipImpersonateJoinSymbol;
+
 // Real v4 UUIDs - exercised across both the `_impersonate` field and the
 // matched-account `userRef`. Anything non-UUID is rejected by the hardened
 // validators.
@@ -120,7 +126,7 @@ describe('client', () => {
                 's:account and email==\"alice@example.com\"'
             );
             expect(body.rows[0].limit).to.equal('n:2');
-            expect(config._skipImpersonateJoin).to.equal(true);
+            expect(config[SKIP_IMPERSONATE_JOIN]).to.equal(true);
         });
 
         it('throws when no account matches (redacted message + raw email on err)', async () => {
@@ -263,7 +269,7 @@ describe('client', () => {
             expect(impersonateDuringFind).to.equal(null);
             expect(ws._impersonate).to.equal(UUID_B);
             // N1: the lookup's own submitRequest carries the bypass flag.
-            expect(submit.firstCall.args[3]._skipImpersonateJoin).to.equal(true);
+            expect(submit.firstCall.args[3][SKIP_IMPERSONATE_JOIN]).to.equal(true);
         });
 
         describe('H5/N6: restores prior impersonation on every failure branch', () => {
@@ -313,7 +319,53 @@ describe('client', () => {
             }
         });
 
-        it('serialises two in-flight calls; last invocation wins (H9)', async () => {
+        it('N14: failure-path gen guard - external mutation during failed lookup wins', async () => {
+            const submit = sinon.stub(ws, 'submitRequest');
+            let rejectLookup;
+            submit.returns(new Promise((_, rj) => { rejectLookup = rj; }));
+
+            // Pre-set prior impersonation, snapshot generation through the
+            // lookup's entry path.
+            ws.impersonateAs(UUID_PRIOR);
+
+            // Launch a lookup that will reject (we control timing).
+            const lookupPromise = ws.impersonateAsEmail('switch@example.com');
+
+            // Synchronously between the lookup's snapshot and its failure,
+            // the caller picks a different identity. The failure path's
+            // restore-on-throw must NOT clobber this with UUID_PRIOR -
+            // the generation has moved.
+            ws.impersonateAs(UUID_A);
+            expect(ws._impersonate).to.equal(UUID_A);
+
+            // Now the lookup fails.
+            rejectLookup(new Error('network'));
+            let err;
+            try { await lookupPromise; } catch (e) { err = e; }
+            expect(err).to.be.instanceOf(Error);
+            expect(err.message).to.equal('network');
+
+            // The caller's explicit choice wins; restore-on-throw was suppressed.
+            expect(ws._impersonate).to.equal(UUID_A);
+        });
+
+        it('N12: err.email is NON-ENUMERABLE so logger serialisation does not leak PII', async () => {
+            sinon.stub(ws, 'submitRequest').resolves({ rows: [] });
+            let err;
+            try {
+                await ws.impersonateAsEmail('alice@example.com');
+            } catch (e) { err = e; }
+            expect(err).to.be.instanceOf(Error);
+            // The redacted message must be visible.
+            expect(err.message).to.equal('No account found for email a***@example.com');
+            // The raw email must be accessible to deliberate callers.
+            expect(err.email).to.equal('alice@example.com');
+            // BUT must NOT appear in JSON.stringify(err) or util.inspect(err).
+            expect(JSON.stringify(err)).to.not.include('alice@example.com');
+            expect(require('util').inspect(err)).to.not.include('alice@example.com');
+        });
+
+                it('serialises two in-flight calls; last invocation wins (H9)', async () => {
             const submit = sinon.stub(ws, 'submitRequest');
             let resolveA, resolveB;
             submit.onFirstCall().returns(new Promise((r) => { resolveA = r; }));
@@ -570,7 +622,49 @@ describe('client', () => {
             expect(aboutCall.args[3].headers).to.not.have.property('X-IMPERSONATE');
         });
 
-        it('N1: parallel first-burst requests share a single lookup; no deadlock (transport-stubbed)', async () => {
+        it('N17: 401 on the lookup\'s /api/read does not self-deadlock; retry succeeds', async () => {
+            ws = constructWithOptions(log, {});
+            await ws.initClientOptions();
+
+            let readAttempts = 0;
+            const tokenCalls = [];
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                if (uri === '/oauth2/token') {
+                    tokenCalls.push(config);
+                    return Promise.resolve({
+                        access_token: WS_ACCESS_TOKEN,
+                        refresh_token: WS_REFRESH_TOKEN,
+                        expires_in: Date.now() + 2000
+                    });
+                }
+                if (uri === '/api/read') {
+                    readAttempts++;
+                    if (readAttempts === 1) {
+                        // Mimic axios 401 shape: isAxiosError + response.status.
+                        const err = new Error('Request failed with status code 401');
+                        err.isAxiosError = true;
+                        err.response = { status: 401, data: {} };
+                        return Promise.reject(err);
+                    }
+                    return Promise.resolve({
+                        rows: [{ userRef: 'r:' + UUID_A }]
+                    });
+                }
+                return Promise.resolve('default response');
+            });
+
+            const userId = await withTimeout(
+                ws.impersonateAsEmail('user@example.com'),
+                1000,
+                '401-on-lookup retry'
+            );
+
+            expect(userId).to.equal(UUID_A);
+            expect(readAttempts).to.equal(2);
+            expect(ws._impersonate).to.equal(UUID_A);
+        });
+
+                it('N1: parallel first-burst requests share a single lookup; no deadlock (transport-stubbed)', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
             let resolveRead;
@@ -593,7 +687,10 @@ describe('client', () => {
 
             // The lookup's own /api/read request must carry the bypass flag
             // (so it does not deadlock by joining its own promise).
-            expect(readCalls[0].args[3]._skipImpersonateJoin || false).to.equal(false);
+            // N13: no plain string key leaks into the outgoing config.
+            expect('_skipImpersonateJoin' in readCalls[0].args[3]).to.equal(false);
+            // N10: the Symbol IS propagated so the 401 retry path can detect it.
+            expect(readCalls[0].args[3][SKIP_IMPERSONATE_JOIN]).to.equal(true);
             // Note: _attachReqConfig strips the flag before it reaches the
             // wire; we therefore expect it to be ABSENT on the outgoing config.
 

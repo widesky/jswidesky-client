@@ -48,15 +48,32 @@ function redactEmail(email) {
 
 /**
  * Construct an Error for an email-lookup failure. Attaches the raw email as
- * `err.email` so callers that need to log the full value can opt-in, while
- * `err.message` carries only the redacted form (so generic `logger.error(err)`
- * patterns do not exfiltrate PII).
+ * a NON-ENUMERABLE `err.email` so callers that need to log the full value
+ * can opt-in (e.g. `err.email`), while `err.message` carries only the
+ * redacted form. Non-enumerable means standard `JSON.stringify(err)` and
+ * `util.inspect(err)` (which most logger backends pipe errors through) do
+ * NOT exfiltrate the raw email. N12.
  */
 function makeEmailLookupError(message, email) {
     const err = new Error(message);
-    err.email = email;
+    Object.defineProperty(err, 'email', {
+        value: email,
+        enumerable: false,
+        writable: false,
+        configurable: false,
+    });
     return err;
 }
+
+/**
+ * Module-private Symbol used by `_performImpersonateEmailLookup` to ask
+ * `_attachReqConfig` to skip the `_impersonateLookup` join when the lookup
+ * issues its own `/api/read` request. Hidden behind a Symbol (rather than a
+ * plain string key) so external callers cannot pass `_skipImpersonateJoin:
+ * true` through a normal `submitRequest` config and silently bypass
+ * impersonation. N13.
+ */
+const SKIP_IMPERSONATE_JOIN = Symbol('skipImpersonateJoin');
 
 // Check for the runtime
 let runtimeEnv;
@@ -374,7 +391,7 @@ class WideSkyClient {
                 );
             }
             if (value.includes('@')) {
-                this._impersonatePendingEmail = value;
+                this._impersonatePendingEmail = value.trim();
             } else {
                 this.impersonateAs(value);
             }
@@ -460,10 +477,12 @@ class WideSkyClient {
      * @throws {TypeError} if `email` is not a non-empty string.
      * @throws {Error} if no account matches the email, more than one account
      *                 matches, the matched account has no `userRef` tag, or the
-     *                 extracted user id is not a valid UUID.
-     * @throws Any error raised by the underlying `v2.find` lookup
+     *                 extracted user id is not a valid UUID. The error's
+     *                 `message` carries a redacted email; the raw value is on
+     *                 a non-enumerable `err.email`.
+     * @throws Any error raised by the underlying `submitRequest` call
      *         (network failure, authentication error, Haystack parse error,
-     *         etc.).
+     *         axios 4xx/5xx, etc.).
      */
     async impersonateAsEmail(email) {
         if (typeof email !== 'string' || email.trim() === '') {
@@ -550,7 +569,7 @@ class WideSkyClient {
                         }
                     ]
                 },
-                { _skipImpersonateJoin: true }
+                { [SKIP_IMPERSONATE_JOIN]: true }
             );
         } catch (err) {
             // Restore prior impersonation ONLY if no caller intervened.
@@ -726,15 +745,17 @@ class WideSkyClient {
     async _attachReqConfig(config) {
         const token = await this.getToken();
 
-        // N1: lookup-internal requests carry this flag so the recursive
-        // call below doesn't deadlock by awaiting the very _impersonateLookup
-        // promise they are running inside. Strip the flag here so it does
-        // not leak into axios config / outgoing headers.
-        let skipImpersonateJoin = false;
-        if (config && config._skipImpersonateJoin) {
-            skipImpersonateJoin = true;
-            delete config._skipImpersonateJoin;
-        }
+        // N1 / N10 / N13: lookup-internal requests carry SKIP_IMPERSONATE_JOIN
+        // as a Symbol-keyed flag so:
+        //   - the recursive call below doesn't deadlock by awaiting the very
+        //     _impersonateLookup promise it is running inside (N1),
+        //   - the flag survives the 401-retry path (N10), where the 401 handler
+        //     re-invokes _attachReqConfig with the SAME config object,
+        //   - external callers cannot bypass impersonation by setting a plain
+        //     string key in their own config (N13).
+        //
+        // Read by Symbol; propagate by Symbol; never mutate the input object.
+        const skipImpersonateJoin = !!(config && config[SKIP_IMPERSONATE_JOIN]);
 
         // C1/H9: single-flight join with a re-check loop, so concurrent
         // first-burst requests converge on one lookup and one retry on
@@ -763,6 +784,11 @@ class WideSkyClient {
                 break;
             }
 
+            // No-yield invariant: the read of _impersonatePendingEmail above,
+            // the assignment to `pending` below, and the synchronous portion
+            // of `impersonateAsEmail` (up to its `_impersonateLookup = run`
+            // assignment) MUST run without an intervening await. Otherwise a
+            // peer could win the race for the launch and we would double-launch.
             const pending = this._impersonatePendingEmail;
             try {
                 await this.impersonateAsEmail(pending);
@@ -795,6 +821,15 @@ class WideSkyClient {
 
         if (this.isImpersonating()) {
             config.headers['X-IMPERSONATE'] = this._impersonate;
+        }
+
+        // N10: re-stamp the skip-join Symbol on the cloned config so the
+        // 401-retry path (which feeds this config back into _attachReqConfig
+        // inside the SAME submitRequest call) still bypasses the join. Axios
+        // ignores unknown top-level keys, so leaving the Symbol on the
+        // outgoing config has no wire effect.
+        if (skipImpersonateJoin) {
+            config[SKIP_IMPERSONATE_JOIN] = true;
         }
 
         return config;
@@ -2197,6 +2232,10 @@ class WideSkyClient {
 
 // attach for testing
 WideSkyClient.initLogger = initLogger;
+// Test-only re-export of the impersonation-join bypass Symbol (N13). The
+// Symbol itself is module-private; tests need it to assert it propagates
+// through the request config.
+WideSkyClient._skipImpersonateJoinSymbol = SKIP_IMPERSONATE_JOIN;
 
 /* Exported symbols */
 module.exports = WideSkyClient;
