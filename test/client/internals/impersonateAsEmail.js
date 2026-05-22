@@ -365,6 +365,46 @@ describe('client', () => {
             expect(require('util').inspect(err)).to.not.include('alice@example.com');
         });
 
+                it('N17 (transport): 401 on the lookup\'s /api/read does not self-deadlock; retry succeeds', async () => {
+            ws = constructWithOptions(log, {});
+            await ws.initClientOptions();
+
+            let readAttempts = 0;
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
+                if (uri === '/oauth2/token') {
+                    return Promise.resolve({
+                        access_token: WS_ACCESS_TOKEN,
+                        refresh_token: WS_REFRESH_TOKEN,
+                        expires_in: Date.now() + 2000
+                    });
+                }
+                if (uri === '/api/read') {
+                    readAttempts++;
+                    if (readAttempts === 1) {
+                        // Mimic axios 401 shape: isAxiosError + response.status.
+                        const err = new Error('Request failed with status code 401');
+                        err.isAxiosError = true;
+                        err.response = { status: 401, data: {} };
+                        return Promise.reject(err);
+                    }
+                    return Promise.resolve({
+                        rows: [{ userRef: 'r:' + UUID_A }]
+                    });
+                }
+                return Promise.resolve('default response');
+            });
+
+            const userId = await withTimeout(
+                ws.impersonateAsEmail('user@example.com'),
+                1000,
+                '401-on-lookup retry'
+            );
+
+            expect(userId).to.equal(UUID_A);
+            expect(readAttempts).to.equal(2);
+            expect(ws._impersonate).to.equal(UUID_A);
+        });
+
                 it('serialises two in-flight calls; last invocation wins (H9)', async () => {
             const submit = sinon.stub(ws, 'submitRequest');
             let resolveA, resolveB;
@@ -622,49 +662,7 @@ describe('client', () => {
             expect(aboutCall.args[3].headers).to.not.have.property('X-IMPERSONATE');
         });
 
-        it('N17: 401 on the lookup\'s /api/read does not self-deadlock; retry succeeds', async () => {
-            ws = constructWithOptions(log, {});
-            await ws.initClientOptions();
-
-            let readAttempts = 0;
-            const tokenCalls = [];
-            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
-                if (uri === '/oauth2/token') {
-                    tokenCalls.push(config);
-                    return Promise.resolve({
-                        access_token: WS_ACCESS_TOKEN,
-                        refresh_token: WS_REFRESH_TOKEN,
-                        expires_in: Date.now() + 2000
-                    });
-                }
-                if (uri === '/api/read') {
-                    readAttempts++;
-                    if (readAttempts === 1) {
-                        // Mimic axios 401 shape: isAxiosError + response.status.
-                        const err = new Error('Request failed with status code 401');
-                        err.isAxiosError = true;
-                        err.response = { status: 401, data: {} };
-                        return Promise.reject(err);
-                    }
-                    return Promise.resolve({
-                        rows: [{ userRef: 'r:' + UUID_A }]
-                    });
-                }
-                return Promise.resolve('default response');
-            });
-
-            const userId = await withTimeout(
-                ws.impersonateAsEmail('user@example.com'),
-                1000,
-                '401-on-lookup retry'
-            );
-
-            expect(userId).to.equal(UUID_A);
-            expect(readAttempts).to.equal(2);
-            expect(ws._impersonate).to.equal(UUID_A);
-        });
-
-                it('N1: parallel first-burst requests share a single lookup; no deadlock (transport-stubbed)', async () => {
+        it('N1: parallel first-burst requests share a single lookup; no deadlock (transport-stubbed)', async () => {
             ws = constructWithOptions(log, { impersonateAs: 'lazy@example.com' });
             await ws.initClientOptions();
             let resolveRead;

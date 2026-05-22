@@ -430,7 +430,8 @@ class WideSkyClient {
      * @param userId The UUID of the User entity to be impersonated, or
      *               `null` / `undefined` to clear impersonation.
      * @throws {TypeError} if `userId` is an empty string, a non-string value,
-     *                     or contains `@` (use `impersonateAsEmail` for emails).
+     *                     contains `@` (use `impersonateAsEmail` for emails),
+     *                     or is not a valid RFC 4122 UUID.
      */
     impersonateAs(userId) {
         if (userId == null) {
@@ -550,11 +551,16 @@ class WideSkyClient {
 
         let response;
         try {
-            // N1: call submitRequest directly (skipping v2.find) AND mark the
-            // request with `_skipImpersonateJoin: true` so the recursive
-            // `_attachReqConfig` invocation does NOT await `_impersonateLookup`
-            // (which IS the very promise we are running inside, hence the
-            // self-deadlock the previous design suffered from).
+            // N1 / N10: call submitRequest directly (skipping v2.find) AND mark
+            // the request with the module-private `SKIP_IMPERSONATE_JOIN`
+            // Symbol so the recursive `_attachReqConfig` invocation does NOT
+            // await `_impersonateLookup` (which IS the very promise we are
+            // running inside, hence the self-deadlock the original design
+            // suffered from). The Symbol survives axios serialisation /
+            // `JSON.stringify` / `util.inspect` because Symbols are skipped
+            // by all three. The 401-retry path also relies on the Symbol
+            // being re-stamped onto the cloned config returned by
+            // `_attachReqConfig`.
             response = await this.submitRequest(
                 'POST',
                 '/api/read',
@@ -2232,9 +2238,18 @@ class WideSkyClient {
 
 // attach for testing
 WideSkyClient.initLogger = initLogger;
-// Test-only re-export of the impersonation-join bypass Symbol (N13). The
-// Symbol itself is module-private; tests need it to assert it propagates
-// through the request config.
+/**
+ * Test-only re-export of the impersonation-join bypass Symbol (N13).
+ *
+ * The Symbol itself is module-private; tests need it to assert that the
+ * lookup helper's bypass flag propagates through the request config.
+ *
+ * **Internal. Do NOT use externally.** Public callers that set this on a
+ * `submitRequest` config will silently bypass the in-flight lookup join
+ * and may issue un-impersonated requests. This static is exposed only so
+ * the unit tests in `test/client/internals/impersonateAsEmail.js` can
+ * round-trip the Symbol without exporting it from the module surface.
+ */
 WideSkyClient._skipImpersonateJoinSymbol = SKIP_IMPERSONATE_JOIN;
 
 /* Exported symbols */

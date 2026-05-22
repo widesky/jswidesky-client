@@ -32,8 +32,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   redacted email (e.g. `a***@example.com`) in `err.message`, with the raw email on
   `err.email` for callers that need it. Synchronous `impersonateAs(userId)` now rejects
   malformed UUIDs with `TypeError`. The lookup itself goes through `submitRequest` with
-  a `_skipImpersonateJoin` flag so the recursive call to `_attachReqConfig` cannot
-  deadlock on the in-flight `_impersonateLookup` promise. An internal `_impersonateGen`
+  an internal Symbol-keyed flag (re-stamped on the cloned config so the 401-retry
+  path inside the same `submitRequest` lifecycle still bypasses the join) so the
+  recursive call to `_attachReqConfig` cannot deadlock on the in-flight
+  `_impersonateLookup` promise. An internal `_impersonateGen`
   counter ensures synchronous caller mutations (`unsetImpersonate()`, `impersonateAs('other')`)
   during an in-flight lookup are not silently overwritten when the lookup completes.
 

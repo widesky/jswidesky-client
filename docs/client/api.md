@@ -271,13 +271,23 @@ at `info`. Treat the email as PII when configuring log aggregation.
 
 **Returns:** `Promise<String>` — the resolved user UUID now being impersonated.
 
-Error messages from this method carry a **redacted** form of the email
+Error messages from **lookup-result** failures (no rows, multiple rows,
+no `userRef`, malformed `userRef`) carry a **redacted** form of the email
 (e.g. `a***@example.com`) in `err.message` so that generic
 `logger.error(err)` / `JSON.stringify(err)` / `util.inspect(err)` patterns do
 NOT exfiltrate the local-part as PII. The raw email is attached on
 `err.email` as a **non-enumerable** property — callers that need the full
 value can access it deliberately (`err.email`), while default serialisers
 skip it.
+
+**Transport** errors (network failure, axios 4xx/5xx, Haystack parse error)
+from the underlying `submitRequest` call are re-thrown **unmodified**.
+Axios errors carry `err.config.data` which embeds the request body, and the
+body contains the Haystack filter literal `account and email=="<email>"`.
+Bunyan's default `stdSerializers.err` extracts only `name`/`message`/`stack`
+and is safe; generic `JSON.stringify(err)` via axios's own `toJSON()` is not.
+Configure your error serialiser accordingly if the lookup endpoint may
+fail transient-ly in environments where the email is treated as PII.
 
 **Throws:**
 - `TypeError` when `email` is not a non-empty string.
