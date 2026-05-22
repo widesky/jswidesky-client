@@ -99,7 +99,9 @@ const getInstance = function(http, log, override={}) {
         override.pass ?? WS_PASSWORD,
         override.clientId ?? WS_CLIENT_ID,
         override.clientSecret ?? WS_CLIENT_SECRET,
-        log
+        log,
+        undefined,
+        override.client !== undefined ? { client: override.client } : {}
     );
     http.stubClient(c);
     return c;

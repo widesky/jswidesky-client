@@ -63,6 +63,7 @@
     "hisWrite": {
       "batchDelay": 0,
       "batchSize": 10000,
+      "batchSizeEntity": 100,
       "parallel": 1,
       "parallelDelay": 0,
       "returnResult": false

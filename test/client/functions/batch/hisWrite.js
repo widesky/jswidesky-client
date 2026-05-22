@@ -114,7 +114,9 @@ describe("client.batch.hisWrite", () => {
         describe("payload smaller than default batch size of 10000", () => {
             it("should send 1 hisWrite request", async () => {
                 const payload = new HisWritePayload(SMALL_DATA_1000);
-                await ws.batch.hisWrite(payload);
+                // Raise the entity cap above the fixture's 834 entities so this
+                // test exercises row-based chunking only.
+                await ws.batch.hisWrite(payload, { batchSizeEntity: 1000 });
                 expect(ws.hisWrite.calledOnce).to.be.true;
                 for (const [key, values] of Object.entries(ws.hisWrite.args[0][0])) {
                     expect(SMALL_DATA_1000[key]).to.not.be.undefined;
@@ -126,7 +128,9 @@ describe("client.batch.hisWrite", () => {
         describe("payload larger than default batch size of 10000", () => {
             it("should send multiple hisWrite requests", async () => {
                 const payload = new HisWritePayload(LARGE_DATA_20000);
-                await ws.batch.hisWrite(payload);
+                // Raise the entity cap above the fixture's 1000 entities so this
+                // test continues to exercise row-based chunking only.
+                await ws.batch.hisWrite(payload, { batchSizeEntity: 1000 });
 
                 expect(ws.hisWrite.callCount).to.equal(3);
                 const expectedBatches = constructPayloadBatches(LARGE_DATA_20000, DEFAULT_BATCH_SIZE);
@@ -145,7 +149,9 @@ describe("client.batch.hisWrite", () => {
             it("should send 1 hisWrite request", async () => {
                 const payload = new HisWritePayload(SMALL_DATA_1000);
                 const batchSize = 20000;
-                await ws.batch.hisWrite(payload, { batchSize });
+                // Raise the entity cap above the fixture's 834 entities so this
+                // test exercises row-based chunking only.
+                await ws.batch.hisWrite(payload, { batchSize, batchSizeEntity: 1000 });
                 expect(ws.hisWrite.calledOnce).to.be.true;
                 for (const [key, values] of Object.entries(ws.hisWrite.args[0][0])) {
                     expect(SMALL_DATA_1000[key]).to.not.be.undefined;
@@ -179,8 +185,11 @@ describe("client.batch.hisWrite", () => {
                 ws.hisWrite = sinon.stub().callsFake(() => {
                     return ["test"]
                 });
+                // Raise the entity cap above the fixture's 834 entities so this
+                // test exercises returnResult behavior only.
                 const result = await ws.batch.hisWrite(payload, {
-                    returnResult: true
+                    returnResult: true,
+                    batchSizeEntity: 1000
                 });
                 expect(result).to.eql({
                     success: [["test"]],
@@ -215,12 +224,129 @@ describe("client.batch.hisWrite", () => {
                 throw new Error("Test error")
             });
 
-
-            const result = await ws.batch.hisWrite(payload);
+            // Raise the entity cap above the fixture's 834 entities so this
+            // test exercises error-handling behavior with a single batch only.
+            const result = await ws.batch.hisWrite(payload, { batchSizeEntity: 1000 });
             expect(result.errors.length).to.be.equal(1);
             const { error, args } = result.errors[0];
             expect(error).to.equal("Test error");
             expect(args).to.eql(["hisWrite", SMALL_DATA_1000]);
+        });
+    });
+
+    describe("option batchSizeEntity", () => {
+        /**
+         * Build a payload of `entityCount` entities, each with `rowsPerEntity` rows.
+         * Timestamps and values are deterministic (entity index + row index) and
+         * unique across entities so the test can assert exact membership.
+         */
+        function buildPayload(entityCount, rowsPerEntity) {
+            const payload = {};
+            for (let e = 0; e < entityCount; e++) {
+                const key = `r:e${e}`;
+                payload[key] = {};
+                for (let r = 0; r < rowsPerEntity; r++) {
+                    payload[key][`t:e${e}r${r}`] = `n:${e * 1000 + r}`;
+                }
+            }
+            return payload;
+        }
+
+        describe("when entity cap is binding (many small entities)", () => {
+            it("should chunk by entity count", async () => {
+                const payload = buildPayload(250, 1);   // 250 entities × 1 row
+                await ws.batch.hisWrite(payload);       // defaults: rows=10000, entities=100
+                expect(ws.hisWrite.callCount).to.equal(3);
+                const sizes = ws.hisWrite.args.map(
+                    (callArgs) => Object.keys(callArgs[0]).length
+                );
+                expect(sizes).to.eql([100, 100, 50]);
+            });
+        });
+
+        describe("when row cap is binding (one fat entity)", () => {
+            it("should split a single fat entity by row count", async () => {
+                const payload = buildPayload(1, 25000); // 1 entity × 25000 rows
+                await ws.batch.hisWrite(payload, {
+                    batchSize: 10000,
+                    batchSizeEntity: 100
+                });
+                expect(ws.hisWrite.callCount).to.equal(3);
+                const rowsPerCall = ws.hisWrite.args.map(
+                    (callArgs) => HisWritePayload.calculateSize(callArgs[0])
+                );
+                expect(rowsPerCall).to.eql([10000, 10000, 5000]);
+                // The single entity key appears in every call.
+                for (const callArgs of ws.hisWrite.args) {
+                    expect(Object.keys(callArgs[0])).to.eql(["r:e0"]);
+                }
+            });
+        });
+
+        describe("when both caps interact", () => {
+            it("should not exceed either cap in any batch", async () => {
+                // 50 entities × 500 rows each = 25000 rows total
+                const payload = buildPayload(50, 500);
+                await ws.batch.hisWrite(payload, {
+                    batchSize: 10000,
+                    batchSizeEntity: 100
+                });
+                for (const callArgs of ws.hisWrite.args) {
+                    const batch = callArgs[0];
+                    expect(Object.keys(batch).length).to.be.at.most(100);
+                    expect(HisWritePayload.calculateSize(batch)).to.be.at.most(10000);
+                }
+                // Sanity: total rows preserved across batches.
+                const totalRows = ws.hisWrite.args.reduce(
+                    (sum, callArgs) => sum + HisWritePayload.calculateSize(callArgs[0]),
+                    0
+                );
+                expect(totalRows).to.equal(25000);
+            });
+        });
+
+        describe("client-level default", () => {
+            it("should honour clientOptions.batch.hisWrite.batchSizeEntity", async () => {
+                ws = getInstance(http, log, {
+                    client: {
+                        batch: {
+                            hisWrite: { batchSizeEntity: 25 }
+                        }
+                    }
+                });
+                ws.hisWrite = sinon.stub();
+                const payload = buildPayload(60, 1); // 60 entities × 1 row
+                await ws.batch.hisWrite(payload);    // no call-site option
+
+                expect(ws.hisWrite.callCount).to.equal(3);
+                const sizes = ws.hisWrite.args.map(
+                    (callArgs) => Object.keys(callArgs[0]).length
+                );
+                expect(sizes).to.eql([25, 25, 10]);
+            });
+        });
+
+        describe("validation", () => {
+            const bads = [
+                { value: 0,        why: "below min" },
+                { value: 1001,     why: "above max" },
+                { value: "100",    why: "not a number (string)" },
+                { value: -1,       why: "negative" }
+            ];
+
+            for (const { value, why } of bads) {
+                it(`should reject batchSizeEntity=${JSON.stringify(value)} (${why})`, async () => {
+                    const payload = buildPayload(5, 1);
+                    let threw = false;
+                    try {
+                        await ws.batch.hisWrite(payload, { batchSizeEntity: value });
+                    } catch (err) {
+                        threw = true;
+                    }
+                    expect(threw, `expected to throw for ${why}`).to.be.true;
+                    expect(ws.hisWrite.called).to.be.false;
+                });
+            }
         });
     });
 });
