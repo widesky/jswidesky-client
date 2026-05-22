@@ -4,6 +4,41 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking
+- [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): `WideSkyClient#impersonateAs(userId)`
+  and `options.client.impersonateAs` now require a valid RFC 4122 UUID for non-email
+  values. Empty strings, non-strings, email-like strings, and free-form names that
+  previously passed through to the `X-IMPERSONATE` header now throw `TypeError`. The
+  email-acceptance path (any string containing `@` in `options.client.impersonateAs`,
+  and `impersonateAsEmail(email)` at runtime) is unchanged. Existing callers passing a
+  legacy free-form name will need to migrate to a real user UUID or to the new
+  `impersonateAsEmail(email)` method.
+
+### ADDED
+- [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): Added `impersonateAsEmail(email)`
+  method on `WideSkyClient`, and accepted an email value for the `client.impersonateAs`
+  option (resolved lazily on the first authenticated request). The email lookup uses
+  `limit: 2` and rejects duplicate matches, malformed `userRef` values (non-UUID),
+  and empty/whitespace inputs. The lookup always runs unimpersonated even when an
+  earlier impersonation is already in effect. Filter interpolation now two-pass-escapes
+  backslashes then double quotes. Concurrent calls (parallel lazy resolutions and
+  explicit back-to-back invocations) are serialised through a single in-flight promise
+  so order of resolution matches order of invocation and no request is ever sent without
+  the resolved `X-IMPERSONATE` header. `impersonateAs(userId)` now rejects email-like
+  and empty/non-string values with a `TypeError`, accepts `null` or `undefined` to
+  clear (equivalent to `unsetImpersonate()`), and validates `options.client.impersonateAs`
+  at construction. Impersonation state changes are logged at `info`; the email-to-user-id
+  mapping is logged only at `debug` (PII). Error messages from the email lookup carry a
+  redacted email (e.g. `a***@example.com`) in `err.message`, with the raw email on
+  `err.email` for callers that need it. Synchronous `impersonateAs(userId)` now rejects
+  malformed UUIDs with `TypeError`. The lookup itself goes through `submitRequest` with
+  an internal Symbol-keyed flag (re-stamped on the cloned config so the 401-retry
+  path inside the same `submitRequest` lifecycle still bypasses the join) so the
+  recursive call to `_attachReqConfig` cannot deadlock on the in-flight
+  `_impersonateLookup` promise. An internal `_impersonateGen`
+  counter ensures synchronous caller mutations (`unsetImpersonate()`, `impersonateAs('other')`)
+  during an in-flight lookup are not silently overwritten when the lookup completes.
+
 ## [3.3.1] - 2026-04-17
 
 ### FIXED

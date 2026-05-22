@@ -48,11 +48,11 @@ describe("client", () => {
             it("should accept string", async () => {
                 ws.options = {
                     client: {
-                        impersonateAs: "abc"
+                        impersonateAs: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
                     }
                 };
                 await ws.initClientOptions();
-                expect(ws.clientOptions.impersonateAs).to.equal("abc");
+                expect(ws.clientOptions.impersonateAs).to.equal("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
                 validateObject(ws.clientOptions, ["impersonateAs"]);
             });
 

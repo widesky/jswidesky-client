@@ -15,6 +15,8 @@
     - [WideSkyClient.entityCount(filter)](#wideskycliententitycountfilter)
     - [WideSkyClient.findAsId(filter, limit)](#wideskyclientfindasidfilter-limit)
     - [WideSkyClient.impersonateAs(userId)](#wideskyclientimpersonateasuserid)
+    - [WideSkyClient.impersonateAsEmail(email)](#wideskyclientimpersonateasemailemail)
+    - [WideSkyClient.unsetImpersonate()](#wideskyclientunsetimpersonate)
     - [WideSkyClient.submitRequest(method, uri, body, config)](#wideskyclientsubmitrequestmethod-uri-body-config)
     - [WideSkyClient.setAcceptGzip(acceptGzip)](#wideskyclientsetacceptgzipacceptgzip)
 - [Haystack Functions](#haystack-functions)
@@ -221,14 +223,89 @@ Date inputs for this function is the standard ISO8601 dates. For example:
 **Returns:** `Promise<Array<String>>` - Array of Ids of the entities found.
 
 ### WideSkyClient.impersonateAs(userId)
-**Description:** Impersonate as a WideSky user when performing requests.  
+**Description:** Impersonate as a WideSky user when performing requests, or
+clear any existing impersonation. Pass `null` (or `undefined`) as `userId` to
+clear both an active impersonation and any pending email-based impersonation
+queued via the `client.impersonateAs` option — equivalent to calling
+[`unsetImpersonate()`](#wideskyclientunsetimpersonate).
+
+To impersonate via an email instead of a UUID, use
+[`impersonateAsEmail()`](#wideskyclientimpersonateasemailemail). Passing an
+email string here throws — emails are not auto-detected on this method to
+avoid an unresolved email being sent to the server in the `X-IMPERSONATE`
+header.
+
 **Parameters:**
 
-| Param    | Description                                     |  Type  |
-|----------|-------------------------------------------------|:------:|
-| `userId` | The UUID of the User entity to be impersonated. | String |
+| Param    | Description                                                                                             |        Type        |
+|----------|---------------------------------------------------------------------------------------------------------|:------------------:|
+| `userId` | The UUID of the User entity to be impersonated, or `null` / `undefined` to clear any impersonation.     | String / null      |
+
+**Throws:** `TypeError` if `userId` is an empty string, a non-string value, contains `@`, or is not a valid UUID (per RFC 4122 / `uuid.validate`). The same validation is applied to `options.client.impersonateAs` when an `@`-free string is passed in (which is otherwise treated as a literal user UUID).
 
 **Returns:** None
+
+### WideSkyClient.impersonateAsEmail(email)
+**Description:** Resolve a WideSky user by account email and impersonate as
+that user for subsequent requests. Performs a Haystack `find` for the matching
+`account` entity (`account and email=="<email>"`), reads its `userRef` tag to
+obtain the user UUID, and then delegates to
+[`impersonateAs`](#wideskyclientimpersonateasuserid).
+
+The lookup itself always runs as the configured (authenticated) user — any
+impersonation already in effect when this method is called is suspended for
+the duration of the find and reinstated only if the lookup fails. Concurrent
+calls (whether from parallel lazy resolutions or explicit back-to-back
+invocations) are serialised through a single in-flight promise, so order of
+resolution matches order of invocation and no request is ever sent without
+the resolved `X-IMPERSONATE` header.
+
+The email is logged at `debug` level only; the resolved user UUID is logged
+at `info`. Treat the email as PII when configuring log aggregation.
+
+**Parameters:**
+
+| Param   | Description                                                    |  Type  |
+|---------|----------------------------------------------------------------|:------:|
+| `email` | Email of the account whose user entity should be impersonated. | String |
+
+**Returns:** `Promise<String>` — the resolved user UUID now being impersonated.
+
+Error messages from **lookup-result** failures (no rows, multiple rows,
+no `userRef`, malformed `userRef`) carry a **redacted** form of the email
+(e.g. `a***@example.com`) in `err.message` so that generic
+`logger.error(err)` / `JSON.stringify(err)` / `util.inspect(err)` patterns do
+NOT exfiltrate the local-part as PII. The raw email is attached on
+`err.email` as a **non-enumerable** property — callers that need the full
+value can access it deliberately (`err.email`), while default serialisers
+skip it.
+
+**Transport** errors (network failure, axios 4xx/5xx, Haystack parse error)
+from the underlying `submitRequest` call are re-thrown **unmodified**.
+Axios errors carry `err.config.data` which embeds the request body, and the
+body contains the Haystack filter literal `account and email=="<email>"`.
+Bunyan's default `stdSerializers.err` extracts only `name`/`message`/`stack`
+and is safe; generic `JSON.stringify(err)` via axios's own `toJSON()` is not.
+Configure your error serialiser accordingly if the lookup endpoint may
+fail transient-ly in environments where the email is treated as PII.
+
+**Throws:**
+- `TypeError` when `email` is not a non-empty string.
+- `Error('No account found for email <redacted>')` when the lookup returns no rows.
+- `Error('Multiple accounts (<n>) found for email <redacted>')` when more than one account matches (the find is issued with `limit: 2` specifically to detect this).
+- `Error('Account for <redacted> has no userRef tag')` when the matched account entity has no `userRef` tag.
+- `Error('Account for <redacted> has a malformed userRef (not a UUID): <value>')` when the extracted user id is not a valid UUID.
+- Any error raised by the underlying `submitRequest` call (network failure, authentication error, Haystack parse error, axios 4xx/5xx, etc.).
+
+### WideSkyClient.unsetImpersonate()
+**Description:** Clear any active impersonation and any pending email-based
+impersonation queued via the `client.impersonateAs` option. Equivalent to
+calling `impersonateAs(null)`. The prior user UUID (if any) is logged at
+`info` level for audit purposes.
+
+**Parameters:** None.
+
+**Returns:** None.
 
 ### WideSkyClient.submitRequest(method, uri, body, config)
 **Description:** Submit a request manually to the WideSky server.  
