@@ -13,7 +13,7 @@ const find = require('./src/graphql/find');
 const HaystackTools = require('./src/utils/haystack');
 const HisWritePayload = require('./src/utils/hisWritePayload');
 const EntityCriteria = require("./src/utils/EntityCriteria");
-const {RequestError, HaystackError, GraphQLError} = require("./src/errors");
+const {RequestError, HaystackError, GraphQLError, QueueFullError} = require("./src/errors");
 
 /* Exported symbols */
 const jsWideSky = {
@@ -23,6 +23,7 @@ const jsWideSky = {
         RequestError,
         HaystackError,
         GraphQLError,
+        QueueFullError,
     },
     /* Constants */
     VER_2: data.VER_2,

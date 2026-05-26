@@ -24,6 +24,7 @@ const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
+const { RequestQueue, makeLoginKey, getRequestQueueForLogin } = require('./queue');
 const { parseMetadata } = require("./../utils/metadata");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
@@ -194,6 +195,7 @@ class WideSkyClient {
     _impersonatePendingEmail        // Email queued for lazy impersonation resolution.
     _impersonateLookup              // Single-flight Promise for an in-flight email lookup, or null.
     _impersonateGen                 // Monotonic counter bumped on every impersonation-state mutation (N2).
+    _requestQueue                   // RequestQueue for outbound HTTP pacing, or null when opt-out.
 
     /**
      * Constructor for WideSky Client
@@ -242,6 +244,7 @@ class WideSkyClient {
         this._impersonateLookup = null;
         this._impersonateGen = 0;
         this._acceptGzipEncoding  = true;
+        this._requestQueue = null;
 
         this.initAccessToken();
         this.initAxios();
@@ -381,6 +384,30 @@ class WideSkyClient {
     async initClientOptions() {
         CLIENT_SCHEMA.validateSync(this.options.client);
         this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
+
+        // The queue setup below MUST stay synchronous. The constructor at
+        // line 251 calls initClientOptions() without await and relies on
+        // _requestQueue being populated before any subsequent method call.
+        // Do NOT insert an `await` anywhere above this block, or early
+        // requests will see _requestQueue === null with no test failure
+        // surfacing it (existing tests do `await ws.initClientOptions()` and
+        // would still pass).
+        const qOpts = this.clientOptions.queue;
+        if (qOpts !== undefined) {
+            if (qOpts.perToken) {
+                const loginKey = makeLoginKey({
+                    baseUri: this.baseUri,
+                    username: this.#username,
+                    clientId: this.#clientId,
+                });
+                this._requestQueue = getRequestQueueForLogin(loginKey, qOpts, this.logger);
+            } else {
+                this._requestQueue = new RequestQueue(qOpts, this.logger);
+            }
+        } else {
+            this._requestQueue = null;
+        }
+
         this.setAcceptGzip(this.clientOptions.acceptGzip);
 
         if (this.clientOptions.impersonateAs !== null) {
@@ -711,36 +738,42 @@ class WideSkyClient {
             }
         };
 
-        let res;
-
-        if (this._requestTimeoutMs > 0 && this.options.http2?.enabled) {
-            // Guard against HTTP/2 session establishment hangs.
-            // When the server accepts TLS and negotiates h2 via ALPN but never
-            // sends the HTTP/2 SETTINGS frame, http2-wrapper's Agent waits
-            // forever. This Promise.race ensures we fail with a clear error
-            // instead of hanging indefinitely.
-            let timeoutId;
-            const timeoutPromise = new Promise((_, reject) => {
-                timeoutId = setTimeout(() => {
-                    reject(new Error(
-                        `Request to ${uriPath} timed out after`
-                        + ` ${this._requestTimeoutMs}ms (HTTP/2 mode)`
-                    ));
-                }, this._requestTimeoutMs);
-            });
-
-            try {
-                res = await Promise.race([axiosCall(), timeoutPromise]);
+        // Timeout must start when the request actually dispatches, not while
+        // it waits in the queue, so the entire axios call lives inside doRequest.
+        const doRequest = async () => {
+            let res;
+            if (this._requestTimeoutMs > 0 && this.options.http2?.enabled) {
+                let timeoutId;
+                const timeoutPromise = new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => {
+                        reject(new Error(
+                            `Request to ${uriPath} timed out after`
+                            + ` ${this._requestTimeoutMs}ms (HTTP/2 mode)`
+                        ));
+                    }, this._requestTimeoutMs);
+                });
+                try {
+                    res = await Promise.race([axiosCall(), timeoutPromise]);
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            } else {
+                res = await axiosCall();
             }
-            finally {
-                clearTimeout(timeoutId);
-            }
-        }
-        else {
-            res = await axiosCall();
-        }
+            return res.data;
+        };
 
-        return res.data;
+        // Auth endpoint is a control-plane concern: a tight maxQueueDepth must
+        // not be able to reject a token refresh with QueueFullError, since
+        // callers don't expect auth failures from a data-plane backpressure
+        // signal. /oauth2/token is rare, single-flight via _ws_token_wait,
+        // and not in the ticket's enumerated method list.
+        const isAuthEndpoint = uriPath === '/oauth2/token';
+
+        if (this._requestQueue && !isAuthEndpoint) {
+            return this._requestQueue.add(doRequest);
+        }
+        return doRequest();
     };
 
     /**
