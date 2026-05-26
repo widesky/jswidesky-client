@@ -92,6 +92,79 @@ let myClient = new WideSkyClient(
                         server.secret);
 ```
 
+### Outbound request pacing (opt-in)
+
+By default, `jswidesky-client` dispatches HTTP requests to the apiserver as
+fast as callers issue them. For high-throughput deployments — or
+multi-tenant flows where the apiserver must be protected from bursty
+clients — you can enable a per-client queue:
+
+```javascript
+const { WideSkyClient } = require('@widesky/jswidesky-client');
+
+let myClient = new WideSkyClient(
+    server.url,
+    server.username,
+    server.password,
+    server.clientId,
+    server.secret,
+    null,    // logger
+    null,    // accessToken
+    {
+        client: {
+            queue: {
+                maxConcurrent: 5,    // ≤5 in-flight requests at once
+                minDelayMs:    50,   // ≥50ms between dispatches
+                maxQueueDepth: 1000, // refuse-fast above this backlog
+                perToken:      true, // share bucket across SDK instances
+            },
+        },
+    }
+);
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `maxConcurrent` | 5 | Maximum number of in-flight HTTP requests at any moment |
+| `minDelayMs` | 0 | Minimum gap between successive dispatches. Enforced via `setTimeout` — effective gap may be slightly larger under load due to Node timer drift. Not suitable as a hard rate budget. |
+| `maxQueueDepth` | 1000 | Hard cap on queued (not-yet-in-flight) requests; over this, `add()` rejects with `QueueFullError` |
+| `perToken` | false | If true, share the queue across all `WideSkyClient` instances with the same `(serverURL, username, clientId)` login identity within the same Node.js process |
+| `highWaterPct` | 0.8 | Fraction of `maxQueueDepth` at which a bunyan warn-log fires |
+| `highWaterLogEveryN` | 50 | Throttle: log at most once per N enqueues past the high-water mark |
+
+**Default off.** Omit the `queue` block (or pass `queue: undefined`) and the
+SDK behaves identically to previous versions — no allocation, no overhead.
+
+**Composes with batching.** `client.batch.create`, `client.batch.update`,
+and friends chunk the payload first; the queue then paces the chunked
+requests. The two layers are orthogonal and run together when both are
+configured.
+
+**Client lifecycle assumption.** This SDK is designed for the **long-lived
+client** pattern — construct one `WideSkyClient` per login at process start
+and reuse it for every operation. With `perToken: true`, the shared queue
+for each `(serverURL, username, clientId)` triple is retained in a
+process-wide registry for the **lifetime of the process**. If your
+application creates short-lived `WideSkyClient` instances (e.g. a new
+instance per HTTP request in a multi-tenant server), do **not** enable
+`perToken: true` — the registry has no eviction and will retain one
+`RequestQueue` per unique login indefinitely. A `dispose()` lifecycle for
+ephemeral-client usage is not in scope for the current implementation.
+
+**`QueueFullError`** is exported alongside the other client errors:
+
+```javascript
+const { clientErrors: { QueueFullError } } = require('@widesky/jswidesky-client');
+
+try {
+    await client.create(entity);
+} catch (err) {
+    if (err instanceof QueueFullError) {
+        // back off, retry later, or surface to the caller
+    }
+}
+```
+
 ## Performing an operation
 Once an instance of the `WideskyClient` has been instantiated.
 The client will automatically perform authentication and maintain the WideSky access token for you.
