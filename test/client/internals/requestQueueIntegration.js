@@ -258,11 +258,11 @@ describe('client', () => {
             inFlightP; q1; q2;
         });
 
-        it('401 retry bypasses the queue so a token-expiry retry cannot hit QueueFullError', async () => {
-            // A request whose token expired while it was waiting in the queue
-            // gets a 401 on dispatch. The SDK retries with a fresh token —
-            // and that retry must NOT re-enter the queue at the back, because
-            // a saturated queue would then reject the retry with
+        it('401 retry runs within the same queue slot (one queue.add, no QueueFullError risk)', async () => {
+            // A request whose token expired while waiting in the queue gets a
+            // 401 on dispatch. The SDK retries with a fresh token — and that
+            // retry must run within the SAME queue slot, not re-enter the
+            // queue. A saturated queue would otherwise reject the retry with
             // QueueFullError (a backpressure failure for a request that just
             // needed a refresh — surprising and incorrect).
             const ws = makeClient({ maxConcurrent: 1, maxQueueDepth: 5 });
@@ -274,9 +274,6 @@ describe('client', () => {
                 expires_in: 3600,
                 token_type: 'Bearer',
             };
-            // getToken is already stubbed by makeClient — the retry's
-            // _attachReqConfig call will receive { access_token: 'tok' } from
-            // the stub, avoiding a real _doRefresh round-trip.
 
             const err401 = new Error('Unauthorized');
             err401.isAxiosError = true;
@@ -291,12 +288,88 @@ describe('client', () => {
             const result = await ws.submitRequest('GET', '/api/test');
             expect(result).to.deep.equal({ ok: true });
 
-            // queue.add was called exactly ONCE (for the original request).
-            // The retry went through _executeRequest directly — bypassing
-            // the queue — so add() was NOT called a second time.
+            // queue.add was called exactly ONCE — the dispatch + retry both
+            // happen inside the function passed to that single add() call.
             expect(addSpy.callCount).to.equal(1);
             // axios.get was called twice: original (401'd) + retry (200).
             expect(ws.axios.get.callCount).to.equal(2);
+        });
+
+        it('maxConcurrent is honoured even when an in-flight request is mid-401-retry', async () => {
+            // With maxConcurrent: 1, when request A 401s and retries, the
+            // queued request B must NOT dispatch alongside A's retry. The
+            // slot stays held until A's retry settles; only then does B run.
+            const ws = makeClient({ maxConcurrent: 1, maxQueueDepth: 5 });
+            ws._ws_token = {
+                access_token: 'expired-tok',
+                refresh_token: 'ref',
+                expires_in: 3600,
+                token_type: 'Bearer',
+            };
+
+            const err401 = new Error('Unauthorized');
+            err401.isAxiosError = true;
+            err401.response = { status: 401, data: {} };
+
+            let inFlight = 0;
+            let observedMax = 0;
+            let aRetryReleased;
+            const aRetryHold = new Promise((resolve) => { aRetryReleased = resolve; });
+            const eventOrder = [];
+
+            ws.axios.get = sinon.stub().callsFake(async (uri) => {
+                inFlight++;
+                if (inFlight > observedMax) observedMax = inFlight;
+                eventOrder.push(`start:${uri}`);
+                try {
+                    if (uri.endsWith('/api/A')) {
+                        // First call: 401 (triggers retry).
+                        if (ws.axios.get.callCount === 1) {
+                            throw err401;
+                        }
+                        // Retry: held open by aRetryHold so we can observe
+                        // whether B dispatches alongside it.
+                        await aRetryHold;
+                        return { data: { which: 'A-retry' } };
+                    }
+                    if (uri.endsWith('/api/B')) {
+                        return { data: { which: 'B' } };
+                    }
+                } finally {
+                    inFlight--;
+                    eventOrder.push(`end:${uri}`);
+                }
+            });
+
+            // Fire A first, then B. With maxConcurrent: 1, A gets the slot
+            // and B waits. A's first axios.get rejects with 401 — the slot
+            // should STAY held while A retries.
+            const pA = ws.submitRequest('GET', '/api/A');
+            const pB = ws.submitRequest('GET', '/api/B');
+
+            // Let A enter in-flight, 401, and start its retry (which holds).
+            await new Promise((r) => setImmediate(r));
+            await new Promise((r) => setImmediate(r));
+            await new Promise((r) => setImmediate(r));
+
+            // At this point: A's retry is in-flight (held open). B must NOT
+            // have dispatched yet — the queue slot is still A's.
+            expect(observedMax).to.equal(1);
+
+            // Release A's retry. Now B can dispatch.
+            aRetryReleased();
+            const [rA, rB] = await Promise.all([pA, pB]);
+
+            expect(rA).to.deep.equal({ which: 'A-retry' });
+            expect(rB).to.deep.equal({ which: 'B' });
+            // Across the whole run, in-flight never exceeded 1.
+            expect(observedMax).to.equal(1);
+            // B's dispatch ended strictly after A's retry finished.
+            expect(eventOrder).to.include('end:http://localhost:3000/api/A');
+            expect(eventOrder).to.include('start:http://localhost:3000/api/B');
+            const aEnd = eventOrder.indexOf('end:http://localhost:3000/api/A');
+            const bStart = eventOrder.indexOf('start:http://localhost:3000/api/B');
+            expect(aEnd).to.be.below(bStart);
         });
     });
 });

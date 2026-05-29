@@ -370,10 +370,7 @@ describe('client', () => {
             await ws.initClientOptions();
 
             let readAttempts = 0;
-            // The 401 retry path bypasses the queue via _executeRequest, so
-            // both the queue-aware path (_wsRawSubmit) AND the direct path
-            // (_executeRequest) must be stubbed to fully cover original + retry.
-            const stubImpl = (method, uri, body, config) => {
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (uri === '/oauth2/token') {
                     return Promise.resolve({
                         access_token: WS_ACCESS_TOKEN,
@@ -395,9 +392,7 @@ describe('client', () => {
                     });
                 }
                 return Promise.resolve('default response');
-            };
-            ws._wsRawSubmit = sinon.stub().callsFake(stubImpl);
-            ws._executeRequest = sinon.stub().callsFake(stubImpl);
+            });
 
             const userId = await withTimeout(
                 ws.impersonateAsEmail('user@example.com'),

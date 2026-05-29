@@ -501,7 +501,9 @@ describe('client', () => {
             });
             ws._ws_token = "not null";
 
-            // Original call goes through _wsRawSubmit (queue-aware path).
+            // Both the original dispatch AND the 401 retry call
+            // _wsRawSubmit, with the retry running inside the same queue
+            // slot as the original (when a queue is configured).
             ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body, config) => {
                 if (config === WS_ACCESS_TOKEN) {
                     return Promise.reject({
@@ -510,14 +512,7 @@ describe('client', () => {
                             status: 401
                         }
                     });
-                } else {
-                    return Promise.reject({response: {status: "unexpected error"}});
-                }
-            });
-            // 401-retry path bypasses the queue and goes through _executeRequest
-            // directly, so the retry success response must come from there.
-            ws._executeRequest = sinon.stub().callsFake((method, uri, body, config) => {
-                if (config === WS_ACCESS_TOKEN2) {
+                } else if (config === WS_ACCESS_TOKEN2) {
                     return Promise.resolve("success");
                 } else {
                     return Promise.reject({response: {status: "unexpected error"}});
@@ -526,8 +521,7 @@ describe('client', () => {
 
             await ws.submitRequest("GET", "URI", null, null);
 
-            expect(ws._wsRawSubmit.callCount).to.equal(1);     // original
-            expect(ws._executeRequest.callCount).to.equal(1);  // retry (bypasses queue)
+            expect(ws._wsRawSubmit.callCount).to.equal(2);  // original + retry
             expect(ws._attachReqConfig.callCount).to.equal(2);
             expect(ws._ws_token).to.equal(WS_ACCESS_TOKEN2);
         });
