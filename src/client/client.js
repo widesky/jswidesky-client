@@ -701,6 +701,10 @@ class WideSkyClient {
 
     /**
      * Protected method for submitting requests against the API server with Axios.
+     * Low-level axios dispatcher: no queue, no retry. Queue and 401-retry
+     * orchestration lives in submitRequest, which wraps both the original
+     * dispatch and the retry inside a single queue slot.
+     *
      * @param method Request method to be performed. Not case-sensitive.
      * @param uriPath Endpoint to for request to be sent, relative to the base URI given to the client.
      * @param body Body of the request. Ignored if given method is "GET".
@@ -708,15 +712,7 @@ class WideSkyClient {
      * more info.
      * @returns Data from response of request.
      */
-    /**
-     * Execute a single HTTP request against the API server. This is the
-     * low-level axios dispatcher — it performs the actual HTTP call with the
-     * HTTP/2 timeout race, but does NOT consult the queue. Use _wsRawSubmit
-     * for the normal queue-aware path; call _executeRequest directly only
-     * when the queue must be bypassed (e.g. the 401-retry path).
-     * @returns Data from response of request.
-     */
-    async _executeRequest(method, uriPath, body, config) {
+    async _wsRawSubmit(method, uriPath, body, config) {
         const uri = this.baseUri + uriPath;
 
         /* istanbul ignore next */
@@ -755,23 +751,6 @@ class WideSkyClient {
             res = await axiosCall();
         }
         return res.data;
-    }
-
-    async _wsRawSubmit(method, uriPath, body, config) {
-        // Auth endpoint is a control-plane concern: a tight maxQueueDepth must
-        // not be able to reject a token refresh with QueueFullError, since
-        // callers don't expect auth failures from a data-plane backpressure
-        // signal. /oauth2/token is rare, single-flight via _ws_token_wait,
-        // and not in the ticket's enumerated method list.
-        const isAuthEndpoint = uriPath === '/oauth2/token';
-
-        if (this._requestQueue && !isAuthEndpoint) {
-            // Timeout starts inside _executeRequest (not while waiting in the
-            // queue) because _executeRequest only runs once the queue
-            // dispatches it.
-            return this._requestQueue.add(() => this._executeRequest(method, uriPath, body, config));
-        }
-        return this._executeRequest(method, uriPath, body, config);
     };
 
     /**
@@ -875,27 +854,49 @@ class WideSkyClient {
     async submitRequest(method, uri, body={}, config={}) {
         config = await this._attachReqConfig(config);
 
-        try {
+        // The dispatch + 401-retry sequence is wrapped together so a single
+        // queue slot is held across both. If the 401 retry ran OUTSIDE the
+        // slot (e.g. directly after queue.add resolves with a rejection),
+        // the queue's .finally would release the slot and dispatch the next
+        // queued request — which would then race alongside the retry,
+        // briefly exceeding maxConcurrent. By keeping the retry inside the
+        // same async function passed to queue.add, the slot is held until
+        // the retry settles.
+        const dispatchWithRetry = async () => {
             this.logger.info("Submitting request [%s] %s", method.toUpperCase(), uri);
             this.logger.debug("With body %j and config %j", body, config);
-            return await this._wsRawSubmit(method, uri, body, config);
+            try {
+                return await this._wsRawSubmit(method, uri, body, config);
+            }
+            catch (err) {
+                if (isAxiosError(err) && err.response
+                    && err.response.status === 401 && this._ws_token) {
+                    // 401 on dispatch: token expired (likely while waiting
+                    // in the queue). Refresh and retry within this same
+                    // slot — the queue's _inFlight counter stays at 1 for
+                    // this request the whole time.
+                    this._ws_token = null;
+                    config = await this._attachReqConfig(config);
+                    return await this._wsRawSubmit(method, uri, body, config);
+                }
+                throw err;
+            }
+        };
+
+        try {
+            // Auth endpoint bypass: a tight maxQueueDepth must not be able
+            // to reject a token refresh with QueueFullError. /oauth2/token
+            // is never invoked through submitRequest in practice (auth uses
+            // _wsRawSubmit), but the check is kept defensively.
+            if (this._requestQueue && uri !== '/oauth2/token') {
+                return await this._requestQueue.add(dispatchWithRetry);
+            }
+            return await dispatchWithRetry();
         }
         catch (err) {
             let parsedErr = err;
-            if (isAxiosError(err)) {
-                if (err.response) {
-                    // response has been received from API server
-                    if (err.response.status === 401 && this._ws_token) {
-                        // If error is 401, then get new token. The retry
-                        // bypasses the queue.
-                        this._ws_token = null;
-                        config = await this._attachReqConfig(config);
-                        return this._executeRequest(method, uri, body, config);
-                    }
-                    else {
-                        parsedErr = RequestError.make(err, this.logger);
-                    }
-                }
+            if (isAxiosError(err) && err.response) {
+                parsedErr = RequestError.make(err, this.logger);
             }
             this.logger.error(parsedErr);
             if (parsedErr instanceof GraphQLError && parsedErr.errors.length > 1) {
