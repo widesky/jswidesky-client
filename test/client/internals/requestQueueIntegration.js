@@ -9,7 +9,6 @@
 const sinon = require('sinon');
 const { expect } = require('chai');
 const stubs = require('../../stubs');
-const { _resetQueueRegistry } = require('../../../src/client/queue');
 const { QueueFullError } = require('../../../src/errors');
 
 function makeClient(queueCfg, overrides = {}) {
@@ -28,8 +27,6 @@ function makeClient(queueCfg, overrides = {}) {
 
 describe('client', () => {
     describe('queue integration', () => {
-        beforeEach(() => _resetQueueRegistry());
-
         it('is a passthrough (no allocation, simultaneous dispatch) when queue is undefined', async () => {
             const http = new stubs.StubHTTPClient();
             const ws = stubs.getInstance(http);  // no queue config
@@ -148,17 +145,17 @@ describe('client', () => {
             expect(result).to.have.property('errors').that.is.an('array').with.lengthOf(0);
         });
 
-        it('perToken=true with different login identities does not cross-throttle', async () => {
+        it('two separate instances each have their own queue (no cross-instance coordination)', async () => {
+            // One queue per WideSkyClient instance. Two instances are independent
+            // — no shared throttle. Coordination requires reusing one instance.
             const httpA = new stubs.StubHTTPClient();
             const httpB = new stubs.StubHTTPClient();
 
             const wsA = stubs.getInstance(httpA, undefined, {
-                user: 'alice@example.com',
-                clientOptions: { queue: { maxConcurrent: 1, perToken: true } },
+                clientOptions: { queue: { maxConcurrent: 1 } },
             });
             const wsB = stubs.getInstance(httpB, undefined, {
-                user: 'bob@example.com',
-                clientOptions: { queue: { maxConcurrent: 1, perToken: true } },
+                clientOptions: { queue: { maxConcurrent: 1 } },
             });
             delete wsA._wsRawSubmit;
             delete wsB._wsRawSubmit;
@@ -169,9 +166,9 @@ describe('client', () => {
 
             // Hog A's queue with a never-settling request.
             wsA.axios.get = sinon.stub().returns(new Promise(() => {}));
-            wsA.submitRequest('GET', '/api/slow').catch(() => {}); // fire & forget
+            wsA.submitRequest('GET', '/api/slow').catch(() => {});
 
-            // B's interactive request should NOT be blocked by A.
+            // B has its own queue and proceeds independently.
             wsB.axios.get = sinon.stub().resolves({ data: { ok: true } });
 
             const start = Date.now();
@@ -179,62 +176,7 @@ describe('client', () => {
             const elapsed = Date.now() - start;
 
             expect(got).to.deep.equal({ ok: true });
-            expect(elapsed).to.be.below(100);  // not delayed by A's hog
-        });
-
-        it('perToken=true with matching login identities shares a bucket across instances', async () => {
-            // Keying is on the constructor-time login tuple
-            // (baseUri + username + clientId), NOT the OAuth access token.
-            // Passing matching `user:` overrides is what makes these
-            // instances share. The getToken stubs are just to satisfy auth
-            // and are deliberately given *different* token values to make
-            // clear they have no bearing on registry keying.
-            const httpA = new stubs.StubHTTPClient();
-            const httpB = new stubs.StubHTTPClient();
-
-            const wsA = stubs.getInstance(httpA, undefined, {
-                user: 'shared@example.com',
-                clientOptions: { queue: { maxConcurrent: 1, perToken: true } },
-            });
-            const wsB = stubs.getInstance(httpB, undefined, {
-                user: 'shared@example.com',
-                clientOptions: { queue: { maxConcurrent: 1, perToken: true } },
-            });
-            delete wsA._wsRawSubmit;
-            delete wsB._wsRawSubmit;
-            wsA.getToken = sinon.stub().resolves({ access_token: 'tokA' });
-            wsB.getToken = sinon.stub().resolves({ access_token: 'tokB' });
-
-            expect(wsA._requestQueue).to.equal(wsB._requestQueue);
-
-            let inFlight = 0;
-            let observedMax = 0;
-            const release = [];
-            const stub = sinon.stub().callsFake(() => {
-                inFlight++;
-                if (inFlight > observedMax) observedMax = inFlight;
-                return new Promise((resolve) => release.push(() => {
-                    inFlight--;
-                    resolve({ data: {} });
-                }));
-            });
-            wsA.axios.get = stub;
-            wsB.axios.get = stub;
-
-            // Fire 5 from A and 5 from B; combined in-flight must never exceed 1.
-            const pendings = [];
-            for (let i = 0; i < 5; i++) pendings.push(wsA.submitRequest('GET', '/api/a'));
-            for (let i = 0; i < 5; i++) pendings.push(wsB.submitRequest('GET', '/api/b'));
-
-            await new Promise((r) => setImmediate(r));
-            expect(observedMax).to.equal(1);
-
-            while (release.length) {
-                release.shift()();
-                await new Promise((r) => setImmediate(r));
-            }
-            await Promise.all(pendings);
-            expect(observedMax).to.equal(1);
+            expect(elapsed).to.be.below(100);
         });
 
         it('rejects with QueueFullError when maxQueueDepth is exceeded through submitRequest', async () => {
@@ -314,6 +256,47 @@ describe('client', () => {
 
             // Cleanup.
             inFlightP; q1; q2;
+        });
+
+        it('401 retry bypasses the queue so a token-expiry retry cannot hit QueueFullError', async () => {
+            // A request whose token expired while it was waiting in the queue
+            // gets a 401 on dispatch. The SDK retries with a fresh token —
+            // and that retry must NOT re-enter the queue at the back, because
+            // a saturated queue would then reject the retry with
+            // QueueFullError (a backpressure failure for a request that just
+            // needed a refresh — surprising and incorrect).
+            const ws = makeClient({ maxConcurrent: 1, maxQueueDepth: 5 });
+            // Pre-stamp _ws_token so the 401-retry branch (which guards on
+            // `this._ws_token`) actually activates.
+            ws._ws_token = {
+                access_token: 'expired-tok',
+                refresh_token: 'ref',
+                expires_in: 3600,
+                token_type: 'Bearer',
+            };
+            // getToken is already stubbed by makeClient — the retry's
+            // _attachReqConfig call will receive { access_token: 'tok' } from
+            // the stub, avoiding a real _doRefresh round-trip.
+
+            const err401 = new Error('Unauthorized');
+            err401.isAxiosError = true;
+            err401.response = { status: 401, data: {} };
+
+            ws.axios.get = sinon.stub();
+            ws.axios.get.onFirstCall().rejects(err401);
+            ws.axios.get.onSecondCall().resolves({ data: { ok: true } });
+
+            const addSpy = sinon.spy(ws._requestQueue, 'add');
+
+            const result = await ws.submitRequest('GET', '/api/test');
+            expect(result).to.deep.equal({ ok: true });
+
+            // queue.add was called exactly ONCE (for the original request).
+            // The retry went through _executeRequest directly — bypassing
+            // the queue — so add() was NOT called a second time.
+            expect(addSpy.callCount).to.equal(1);
+            // axios.get was called twice: original (401'd) + retry (200).
+            expect(ws.axios.get.callCount).to.equal(2);
         });
     });
 });

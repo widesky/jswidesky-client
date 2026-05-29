@@ -11,14 +11,11 @@ const { RequestQueue } = require('../../../src/client/queue');
 const { QueueFullError } = require('../../../src/errors');
 const stubs = require('../../stubs');
 
-// perToken is handled at the registry layer, not by RequestQueue itself.
-// It's included here so the helper mirrors the public schema shape.
 function makeOpts(overrides = {}) {
     return Object.assign({
         maxConcurrent: 5,
         minDelayMs: 0,
         maxQueueDepth: 1000,
-        perToken: false,
         highWaterPct: 0.8,
         highWaterLogEveryN: 50,
     }, overrides);
@@ -267,7 +264,6 @@ describe('RequestQueue', () => {
                 maxConcurrent: 5,
                 minDelayMs: 0,
                 maxQueueDepth: 1000,
-                perToken: false,
                 highWaterPct: 0.8,
                 highWaterLogEveryN: 50,
             });
@@ -276,94 +272,6 @@ describe('RequestQueue', () => {
         it('rejects maxConcurrent < 1', () => {
             const { QUEUE_SCHEMA } = require('../../../src/client/queue');
             expect(() => QUEUE_SCHEMA.validateSync({ maxConcurrent: 0 })).to.throw();
-        });
-    });
-
-    describe('login key + registry', () => {
-        const {
-            makeLoginKey,
-            getRequestQueueForLogin,
-            _resetQueueRegistry,
-        } = require('../../../src/client/queue');
-
-        beforeEach(() => _resetQueueRegistry());
-
-        it('makeLoginKey concatenates baseUri/username/clientId with NUL', () => {
-            const key = makeLoginKey({
-                baseUri: 'http://a',
-                username: 'u',
-                clientId: 'c',
-            });
-            expect(key).to.equal('http://a\x00u\x00c');
-        });
-
-        it('handles missing username and clientId', () => {
-            const key = makeLoginKey({ baseUri: 'http://a' });
-            expect(key).to.equal('http://a\x00\x00');
-        });
-
-        it('getRequestQueueForLogin returns the same queue for the same key', () => {
-            const opts = makeOpts();
-            const q1 = getRequestQueueForLogin('k1', opts, new stubs.StubLogger());
-            const q2 = getRequestQueueForLogin('k1', opts, new stubs.StubLogger());
-            expect(q1).to.equal(q2);
-        });
-
-        it('getRequestQueueForLogin returns distinct queues for distinct keys', () => {
-            const opts = makeOpts();
-            const q1 = getRequestQueueForLogin('k1', opts, new stubs.StubLogger());
-            const q2 = getRequestQueueForLogin('k2', opts, new stubs.StubLogger());
-            expect(q1).to.not.equal(q2);
-        });
-
-        it('_resetQueueRegistry clears the registry (test helper)', () => {
-            const opts = makeOpts();
-            const q1 = getRequestQueueForLogin('k1', opts, new stubs.StubLogger());
-            _resetQueueRegistry();
-            const q2 = getRequestQueueForLogin('k1', opts, new stubs.StubLogger());
-            expect(q1).to.not.equal(q2);
-        });
-
-        it('warn-logs on config mismatch when a shared queue already exists', () => {
-            const warn1 = sinon.spy();
-            const logger1 = Object.assign(new stubs.StubLogger(), { warn: warn1 });
-            const q1 = getRequestQueueForLogin(
-                'k1',
-                makeOpts({ maxConcurrent: 5, minDelayMs: 0 }),
-                logger1
-            );
-
-            const warn2 = sinon.spy();
-            const logger2 = Object.assign(new stubs.StubLogger(), { warn: warn2 });
-            const q2 = getRequestQueueForLogin(
-                'k1',
-                makeOpts({ maxConcurrent: 50, minDelayMs: 100 }),
-                logger2
-            );
-
-            // Existing queue wins (first-writer).
-            expect(q2).to.equal(q1);
-            // Second caller's logger receives the warning (caller-preferred).
-            expect(warn1.callCount).to.equal(0);
-            expect(warn2.callCount).to.equal(1);
-            const [meta, msg] = warn2.firstCall.args;
-            expect(msg).to.include('queue config mismatch');
-            expect(meta).to.have.property('loginKey', 'k1');
-            expect(meta.mismatched).to.have.property('maxConcurrent')
-                .that.deep.equals({ existing: 5, ignored: 50 });
-            expect(meta.mismatched).to.have.property('minDelayMs')
-                .that.deep.equals({ existing: 0, ignored: 100 });
-        });
-
-        it('does not warn when the second caller passes identical config', () => {
-            const opts = makeOpts({ maxConcurrent: 5 });
-            const warn = sinon.spy();
-            const logger = Object.assign(new stubs.StubLogger(), { warn });
-
-            getRequestQueueForLogin('k1', opts, new stubs.StubLogger());
-            getRequestQueueForLogin('k1', opts, logger);
-
-            expect(warn.callCount).to.equal(0);
         });
     });
 

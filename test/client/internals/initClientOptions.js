@@ -7446,9 +7446,6 @@ describe("client", () => {
         });
 
         describe("queue option", () => {
-            const { _resetQueueRegistry } = require('../../../src/client/queue');
-            beforeEach(() => _resetQueueRegistry());
-
             it("defaults to undefined (queue disabled)", async () => {
                 expect(ws.clientOptions.queue).to.equal(undefined);
             });
@@ -7460,7 +7457,6 @@ describe("client", () => {
                     maxConcurrent: 5,
                     minDelayMs: 0,
                     maxQueueDepth: 1000,
-                    perToken: false,
                     highWaterPct: 0.8,
                     highWaterLogEveryN: 50,
                 });
@@ -7470,7 +7466,7 @@ describe("client", () => {
                 expect(ws._requestQueue).to.equal(null);
             });
 
-            it("allocates a private RequestQueue when queue option is provided and perToken=false", async () => {
+            it("allocates a RequestQueue when queue option is provided", () => {
                 const http1 = new stubs.StubHTTPClient();
                 const http2 = new stubs.StubHTTPClient();
                 const ws1 = stubs.getInstance(http1, undefined, {
@@ -7481,31 +7477,7 @@ describe("client", () => {
                 });
                 expect(ws1._requestQueue).to.not.equal(null);
                 expect(ws2._requestQueue).to.not.equal(null);
-                expect(ws1._requestQueue).to.not.equal(ws2._requestQueue);
-            });
-
-            it("shares a registry-backed RequestQueue across instances when perToken=true and login identity matches", () => {
-                const http1 = new stubs.StubHTTPClient();
-                const http2 = new stubs.StubHTTPClient();
-                const ws1 = stubs.getInstance(http1, undefined, {
-                    clientOptions: { queue: { perToken: true } },
-                });
-                const ws2 = stubs.getInstance(http2, undefined, {
-                    clientOptions: { queue: { perToken: true } },
-                });
-                expect(ws1._requestQueue).to.equal(ws2._requestQueue);
-            });
-
-            it("does NOT share when perToken=true but login identity differs", () => {
-                const http1 = new stubs.StubHTTPClient();
-                const http2 = new stubs.StubHTTPClient();
-                const ws1 = stubs.getInstance(http1, undefined, {
-                    clientOptions: { queue: { perToken: true } },
-                });
-                const ws2 = stubs.getInstance(http2, undefined, {
-                    user: 'someoneelse@example.com',
-                    clientOptions: { queue: { perToken: true } },
-                });
+                // Each instance owns its own queue — no cross-instance sharing.
                 expect(ws1._requestQueue).to.not.equal(ws2._requestQueue);
             });
         });
