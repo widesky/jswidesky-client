@@ -15,6 +15,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `impersonateAsEmail(email)` method.
 
 ### ADDED
+- [CORE-8377](https://widesky.atlassian.net/browse/CORE-8377): Opt-in
+  outbound request queue. Configure via `options.client.queue`
+  (`maxConcurrent`, `minDelayMs`, `maxQueueDepth`, `highWaterPct`,
+  `highWaterLogEveryN`); default off. One queue per `WideSkyClient`
+  instance, composes with `client.batch.*`. Throws `QueueFullError`
+  (exported via `clientErrors`) when `maxQueueDepth` is exceeded.
+  `/oauth2/token` bypasses the queue so auth refreshes aren't subject
+  to data-plane backpressure.
 - [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): Added `impersonateAsEmail(email)`
   method on `WideSkyClient`, and accepted an email value for the `client.impersonateAs`
   option (resolved lazily on the first authenticated request). The email lookup uses

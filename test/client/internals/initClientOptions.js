@@ -7444,5 +7444,42 @@ describe("client", () => {
                 });
             });
         });
+
+        describe("queue option", () => {
+            it("defaults to undefined (queue disabled)", async () => {
+                expect(ws.clientOptions.queue).to.equal(undefined);
+            });
+
+            it("passes through with documented defaults when supplied", async () => {
+                ws.options = { client: { queue: {} } };
+                await ws.initClientOptions();
+                expect(ws.clientOptions.queue).to.deep.equal({
+                    maxConcurrent: 5,
+                    minDelayMs: 0,
+                    maxQueueDepth: 1000,
+                    highWaterPct: 0.8,
+                    highWaterLogEveryN: 50,
+                });
+            });
+
+            it("does not allocate _requestQueue when queue option is absent", () => {
+                expect(ws._requestQueue).to.equal(null);
+            });
+
+            it("allocates a RequestQueue when queue option is provided", () => {
+                const http1 = new stubs.StubHTTPClient();
+                const http2 = new stubs.StubHTTPClient();
+                const ws1 = stubs.getInstance(http1, undefined, {
+                    clientOptions: { queue: { maxConcurrent: 3 } },
+                });
+                const ws2 = stubs.getInstance(http2, undefined, {
+                    clientOptions: { queue: { maxConcurrent: 3 } },
+                });
+                expect(ws1._requestQueue).to.not.equal(null);
+                expect(ws2._requestQueue).to.not.equal(null);
+                // Each instance owns its own queue — no cross-instance sharing.
+                expect(ws1._requestQueue).to.not.equal(ws2._requestQueue);
+            });
+        });
     });
 });
