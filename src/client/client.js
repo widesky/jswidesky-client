@@ -24,7 +24,7 @@ const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
-const { RequestQueue, makeLoginKey, getRequestQueueForLogin } = require('./queue');
+const { RequestQueue } = require('./queue');
 const { parseMetadata } = require("./../utils/metadata");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
@@ -393,20 +393,9 @@ class WideSkyClient {
         // surfacing it (existing tests do `await ws.initClientOptions()` and
         // would still pass).
         const qOpts = this.clientOptions.queue;
-        if (qOpts !== undefined) {
-            if (qOpts.perToken) {
-                const loginKey = makeLoginKey({
-                    baseUri: this.baseUri,
-                    username: this.#username,
-                    clientId: this.#clientId,
-                });
-                this._requestQueue = getRequestQueueForLogin(loginKey, qOpts, this.logger);
-            } else {
-                this._requestQueue = new RequestQueue(qOpts, this.logger);
-            }
-        } else {
-            this._requestQueue = null;
-        }
+        this._requestQueue = qOpts !== undefined
+            ? new RequestQueue(qOpts, this.logger)
+            : null;
 
         this.setAcceptGzip(this.clientOptions.acceptGzip);
 
@@ -719,7 +708,15 @@ class WideSkyClient {
      * more info.
      * @returns Data from response of request.
      */
-    async _wsRawSubmit(method, uriPath, body, config) {
+    /**
+     * Execute a single HTTP request against the API server. This is the
+     * low-level axios dispatcher — it performs the actual HTTP call with the
+     * HTTP/2 timeout race, but does NOT consult the queue. Use _wsRawSubmit
+     * for the normal queue-aware path; call _executeRequest directly only
+     * when the queue must be bypassed (e.g. the 401-retry path).
+     * @returns Data from response of request.
+     */
+    async _executeRequest(method, uriPath, body, config) {
         const uri = this.baseUri + uriPath;
 
         /* istanbul ignore next */
@@ -738,31 +735,29 @@ class WideSkyClient {
             }
         };
 
-        // Timeout must start when the request actually dispatches, not while
-        // it waits in the queue, so the entire axios call lives inside doRequest.
-        const doRequest = async () => {
-            let res;
-            if (this._requestTimeoutMs > 0 && this.options.http2?.enabled) {
-                let timeoutId;
-                const timeoutPromise = new Promise((_, reject) => {
-                    timeoutId = setTimeout(() => {
-                        reject(new Error(
-                            `Request to ${uriPath} timed out after`
-                            + ` ${this._requestTimeoutMs}ms (HTTP/2 mode)`
-                        ));
-                    }, this._requestTimeoutMs);
-                });
-                try {
-                    res = await Promise.race([axiosCall(), timeoutPromise]);
-                } finally {
-                    clearTimeout(timeoutId);
-                }
-            } else {
-                res = await axiosCall();
+        let res;
+        if (this._requestTimeoutMs > 0 && this.options.http2?.enabled) {
+            let timeoutId;
+            const timeoutPromise = new Promise((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    reject(new Error(
+                        `Request to ${uriPath} timed out after`
+                        + ` ${this._requestTimeoutMs}ms (HTTP/2 mode)`
+                    ));
+                }, this._requestTimeoutMs);
+            });
+            try {
+                res = await Promise.race([axiosCall(), timeoutPromise]);
+            } finally {
+                clearTimeout(timeoutId);
             }
-            return res.data;
-        };
+        } else {
+            res = await axiosCall();
+        }
+        return res.data;
+    }
 
+    async _wsRawSubmit(method, uriPath, body, config) {
         // Auth endpoint is a control-plane concern: a tight maxQueueDepth must
         // not be able to reject a token refresh with QueueFullError, since
         // callers don't expect auth failures from a data-plane backpressure
@@ -771,9 +766,12 @@ class WideSkyClient {
         const isAuthEndpoint = uriPath === '/oauth2/token';
 
         if (this._requestQueue && !isAuthEndpoint) {
-            return this._requestQueue.add(doRequest);
+            // Timeout starts inside _executeRequest (not while waiting in the
+            // queue) because _executeRequest only runs once the queue
+            // dispatches it.
+            return this._requestQueue.add(() => this._executeRequest(method, uriPath, body, config));
         }
-        return doRequest();
+        return this._executeRequest(method, uriPath, body, config);
     };
 
     /**
@@ -888,10 +886,11 @@ class WideSkyClient {
                 if (err.response) {
                     // response has been received from API server
                     if (err.response.status === 401 && this._ws_token) {
-                        // If error is 401, then get new token
+                        // If error is 401, then get new token. The retry
+                        // bypasses the queue.
                         this._ws_token = null;
                         config = await this._attachReqConfig(config);
-                        return this._wsRawSubmit(method, uri, body, config);
+                        return this._executeRequest(method, uri, body, config);
                     }
                     else {
                         parsedErr = RequestError.make(err, this.logger);

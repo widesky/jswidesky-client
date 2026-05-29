@@ -3,9 +3,11 @@
  *
  * Outbound request queue for jswidesky-client. Opt-in via
  * options.client.queue. Hand-rolled FIFO with concurrency cap, minimum
- * inter-dispatch delay, hard maxQueueDepth refuse, and a module-level
- * registry keyed by login identity for perToken sharing across
- * WideSkyClient instances.
+ * inter-dispatch delay, and a hard maxQueueDepth refuse.
+ *
+ * One queue per WideSkyClient instance. Coordination across multiple
+ * instances is out of scope: a deployment that wants a shared throttle
+ * should reuse a single client instance.
  */
 'use strict';
 
@@ -14,7 +16,6 @@ const { QueueFullError } = require('../errors');
 
 class RequestQueue {
     constructor(opts, logger) {
-        this._opts               = opts;        // retained for registry config-mismatch comparison
         this._maxConcurrent      = opts.maxConcurrent;
         this._minDelayMs         = opts.minDelayMs;
         this._maxQueueDepth      = opts.maxQueueDepth;
@@ -92,63 +93,11 @@ const QUEUE_SCHEMA = yup.object().shape({
     maxConcurrent:      yup.number().integer().min(1).default(5),
     minDelayMs:         yup.number().integer().min(0).default(0),
     maxQueueDepth:      yup.number().integer().min(1).default(1000),
-    perToken:           yup.boolean().default(false),
     highWaterPct:       yup.number().min(0).max(1).default(0.8),
     highWaterLogEveryN: yup.number().integer().min(1).default(50),
 }).default(undefined);
 
-const _queueRegistry = new Map();
-
-function makeLoginKey({ baseUri, username, clientId } = {}) {
-    return `${baseUri ?? ''}\x00${username ?? ''}\x00${clientId ?? ''}`;
-}
-
-// Fields whose value defines the queue's runtime behavior. perToken is
-// excluded — by the time we're here it's true on both sides by construction.
-const _CONFIG_FIELDS = [
-    'maxConcurrent',
-    'minDelayMs',
-    'maxQueueDepth',
-    'highWaterPct',
-    'highWaterLogEveryN',
-];
-
-function getRequestQueueForLogin(loginKey, options, logger) {
-    let q = _queueRegistry.get(loginKey);
-    if (!q) {
-        q = new RequestQueue(options, logger);
-        _queueRegistry.set(loginKey, q);
-        return q;
-    }
-    // Registry hit: existing queue wins. Warn if the second caller's config
-    // diverges from what's already cached, since silent inheritance is the
-    // exact surprise an opt-in throttle is meant to prevent.
-    const mismatched = _CONFIG_FIELDS.filter(
-        (k) => options[k] !== q._opts[k]
-    );
-    if (mismatched.length > 0) {
-        const diff = mismatched.reduce((acc, k) => {
-            acc[k] = { existing: q._opts[k], ignored: options[k] };
-            return acc;
-        }, {});
-        // Prefer the caller's logger so their bunyan context surfaces, but
-        // fall back to the queue's own logger if none was supplied.
-        (logger || q._logger).warn(
-            { loginKey, mismatched: diff },
-            'jswidesky-client: queue config mismatch on shared bucket; existing queue config wins'
-        );
-    }
-    return q;
-}
-
-function _resetQueueRegistry() {
-    _queueRegistry.clear();
-}
-
 module.exports = {
     RequestQueue,
     QUEUE_SCHEMA,
-    makeLoginKey,
-    getRequestQueueForLogin,
-    _resetQueueRegistry,
 };
