@@ -116,7 +116,6 @@ let myClient = new WideSkyClient(
                 maxConcurrent: 5,    // ≤5 in-flight requests at once
                 minDelayMs:    50,   // ≥50ms between dispatches
                 maxQueueDepth: 1000, // refuse-fast above this backlog
-                perToken:      true, // share bucket across SDK instances
             },
         },
     }
@@ -128,7 +127,6 @@ let myClient = new WideSkyClient(
 | `maxConcurrent` | 5 | Maximum number of in-flight HTTP requests at any moment |
 | `minDelayMs` | 0 | Minimum gap between successive dispatches. Enforced via `setTimeout` — effective gap may be slightly larger under load due to Node timer drift. Not suitable as a hard rate budget. |
 | `maxQueueDepth` | 1000 | Hard cap on queued (not-yet-in-flight) requests; over this, `add()` rejects with `QueueFullError` |
-| `perToken` | false | If true, share the queue across all `WideSkyClient` instances with the same `(serverURL, username, clientId)` login identity within the same Node.js process |
 | `highWaterPct` | 0.8 | Fraction of `maxQueueDepth` at which a bunyan warn-log fires |
 | `highWaterLogEveryN` | 50 | Throttle: log at most once per N enqueues past the high-water mark |
 
@@ -140,16 +138,11 @@ and friends chunk the payload first; the queue then paces the chunked
 requests. The two layers are orthogonal and run together when both are
 configured.
 
-**Client lifecycle assumption.** This SDK is designed for the **long-lived
-client** pattern — construct one `WideSkyClient` per login at process start
-and reuse it for every operation. With `perToken: true`, the shared queue
-for each `(serverURL, username, clientId)` triple is retained in a
-process-wide registry for the **lifetime of the process**. If your
-application creates short-lived `WideSkyClient` instances (e.g. a new
-instance per HTTP request in a multi-tenant server), do **not** enable
-`perToken: true` — the registry has no eviction and will retain one
-`RequestQueue` per unique login indefinitely. A `dispose()` lifecycle for
-ephemeral-client usage is not in scope for the current implementation.
+**One queue per `WideSkyClient` instance.** The queue is scoped to the
+instance that owns it. If you want every caller in your process to share
+a single throttle, reuse a single `WideSkyClient` instance (e.g. via a
+shared factory or singleton). Multiple instances do **not** coordinate —
+each gets its own independent queue.
 
 **`QueueFullError`** is exported alongside the other client errors:
 
