@@ -1711,11 +1711,18 @@ class WideSkyClient {
 
     /**
      * Initiate a watch socket object given a valid watch ID string.
+     *
+     * The access token is resolved via `getToken()`, which may need to perform
+     * a login or refresh and therefore returns a promise; this method awaits it
+     * so the socket is always created with a valid token rather than an
+     * `undefined` Authorization (which would happen if the token had to be
+     * acquired or refreshed at call time).
+     *
      * @param {string} watchId the watch ID string.
-     * @returns a socket.io Socket object.
+     * @returns {Promise<object>} Resolves to a socket.io Socket object.
      */
-    getWatchSocket(watchId) {
-        const tokens = this.getToken();
+    async getWatchSocket(watchId) {
+        const tokens = await this.getToken();
         const accessToken = tokens.access_token;
 
         const parsedUrl = new Url(this.baseUri);

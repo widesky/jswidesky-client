@@ -81,5 +81,28 @@ describe("Realtime", function () {
                 }
             ]);
         });
+
+        it("should await a promise-returning getToken() so the socket gets a resolved token", async function () {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            sinon.stub(socket, "connect").returns("mockSocket");
+
+            // getToken() resolves asynchronously when a login/refresh is needed.
+            // The socket must still be created with the resolved access token,
+            // not `undefined` from a pending promise.
+            sinon
+                .stub(ws, "getToken")
+                .resolves({ access_token: WS_ACCESS_TOKEN });
+
+            await ws.getWatchSocket(TEST_WATCH_ID);
+
+            expect(ws.getToken.callCount).to.equal(1);
+            expect(socket.connect.callCount).to.equal(1);
+            expect(socket.connect.getCall(0).args[1].query).to.eql({
+                Authorization: WS_ACCESS_TOKEN
+            });
+        });
     });
 });

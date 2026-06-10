@@ -4,6 +4,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### FIXED
+- [VM-243](https://widesky.atlassian.net/browse/VM-243): `getWatchSocket()` now awaits
+  `getToken()` before creating the socket. Previously, when an access token had to be acquired
+  or refreshed at call time, `getToken()` returned a promise and the socket was created with an
+  `undefined` Authorization query value. `getWatchSocket()` is now `async` and resolves to the
+  socket. Supports the CoAP gateway's migration from AMQP to WebSocket realtime transport.
+
 ## [3.3.1] - 2026-04-17
 
 ### FIXED
