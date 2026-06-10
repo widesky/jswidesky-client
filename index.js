@@ -13,6 +13,7 @@ const find = require('./src/graphql/find');
 const HaystackTools = require('./src/utils/haystack');
 const HisWritePayload = require('./src/utils/hisWritePayload');
 const EntityCriteria = require("./src/utils/EntityCriteria");
+const {RealtimeControl, WRITE_STATUS} = require("./src/client/realtimeControl");
 const {RequestError, HaystackError, GraphQLError} = require("./src/errors");
 
 /* Exported symbols */
@@ -46,7 +47,10 @@ const jsWideSky = {
     },
     hsTools: HaystackTools,
     HisWritePayload,
-    EntityCriteria
+    EntityCriteria,
+    /* Realtime control */
+    RealtimeControl,
+    WRITE_STATUS
 };
 
 module.exports = jsWideSky;

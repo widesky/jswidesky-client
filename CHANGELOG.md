@@ -4,6 +4,16 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### ADDED
+- [VM-243](https://widesky.atlassian.net/browse/VM-243): `RealtimeControl` helper
+  (`client.watchControl(socket)`, also exported as `RealtimeControl` + `WRITE_STATUS`) wrapping a
+  watch socket with the realtime point-write control protocol. Supports both the edge/gateway
+  responder role (`onPointWrite(handler)` → emits `reportWrite`) and the dashboard requestor role
+  (`pointWrite([{id, value}])`). Enables the CoAP gateway's AMQP→WebSocket migration.
+- [VM-243](https://widesky.atlassian.net/browse/VM-243): `getWatchSocket()` now refreshes the
+  access token on `reconnect_attempt`, so a long-lived watch socket re-presents a valid token on
+  reconnect instead of the (possibly expired) token captured at connect time.
+
 ### FIXED
 - [VM-243](https://widesky.atlassian.net/browse/VM-243): `getWatchSocket()` now awaits
   `getToken()` before creating the socket. Previously, when an access token had to be acquired

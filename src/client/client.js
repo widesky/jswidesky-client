@@ -22,6 +22,7 @@ const moment = require('moment-timezone');
 const Url = require('url-parse');
 const FormData = require('form-data');
 const socket = require('socket.io-client');
+const { RealtimeControl } = require('./realtimeControl');
 const { RequestError } = require("./../errors");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
 const { parseMetadata } = require("./../utils/metadata");
@@ -1738,12 +1739,60 @@ class WideSkyClient {
             `baseUrl: "${baseUrl}", subPath: "${subPath}", nsp: "${watchId}"`
         );
 
-        return socket.connect(url, {
+        const watchSocket = socket.connect(url, {
             query: { Authorization: accessToken },
             'force new connection': true,
             autoConnect: false,
             path: `${subPath}/socket.io`
         });
+
+        // The access token captured above is short-lived, but a watch socket
+        // (e.g. a gateway's) can live far longer. socket.io re-presents the
+        // `query.Authorization` captured at connect time on every reconnect,
+        // so once the token rotates the reconnect handshakes would fail auth.
+        // Refresh the token onto the connection options before each reconnect
+        // attempt so the next handshake carries a valid token.
+        if (watchSocket && typeof watchSocket.on === 'function') {
+            watchSocket.on('reconnect_attempt', async () => {
+                try {
+                    const refreshed = await this.getToken();
+                    if (watchSocket.io && watchSocket.io.opts) {
+                        watchSocket.io.opts.query = Object.assign(
+                            {},
+                            watchSocket.io.opts.query,
+                            { Authorization: refreshed.access_token }
+                        );
+                    }
+                } catch (err) {
+                    /* istanbul ignore next */
+                    if (this.logger) {
+                        this.logger.warn(
+                            err,
+                            'Failed to refresh watch socket token on reconnect'
+                        );
+                    }
+                }
+            });
+        }
+
+        return watchSocket;
+    }
+
+    /**
+     * Wrap a watch socket with the realtime point-write control protocol
+     * (`pointWrite`/`reportWrite`). Use the returned {@link RealtimeControl} to
+     * either respond to inbound point-write requests (edge/gateway role, via
+     * `onPointWrite`) or issue them (dashboard role, via `pointWrite`).
+     *
+     * @param {object} watchSocket A socket from {@link WideSkyClient#getWatchSocket}.
+     * @param {object} [options] Options forwarded to the RealtimeControl.
+     * @returns {RealtimeControl}
+     */
+    watchControl(watchSocket, options = {}) {
+        return new RealtimeControl(watchSocket, Object.assign(
+            { logger: this.logger },
+            options
+        ));
     }
 
     /**

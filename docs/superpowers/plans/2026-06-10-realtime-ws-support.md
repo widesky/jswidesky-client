@@ -16,8 +16,14 @@
 
 ## Status of this plan
 
-- **Task 1 (token correctness)** — IMPLEMENTED in the accompanying PR (`getWatchSocket` now awaits `getToken()`), with a unit test. It is the one change that is fully unit-verifiable and unblocks the gateway from connecting with a valid token.
-- **Tasks 2–4** — specified below; to be implemented and **integration-verified on `widesky-hub-e2e-sim`** alongside the gateway's WS client (`widesky-hub-gw` Plan B), because their value only manifests against a live API server socket.
+- **Task 1 (token correctness)** — DONE. `getWatchSocket` awaits `getToken()`; unit test added.
+- **Task 2 (reconnect token refresh)** — DONE. `getWatchSocket` refreshes the token on
+  `reconnect_attempt`; unit test added.
+- **Task 3 (`RealtimeControl` helper)** — DONE. `src/client/realtimeControl.js` +
+  `client.watchControl(socket)`; responder + requestor roles; exported with `WRITE_STATUS`; 6 unit
+  tests. Integration verification (against a live API server socket) happens with `widesky-hub-gw`
+  Plan B on `widesky-hub-e2e-sim`.
+- **Task 4 (structured `watchSub`)** — TODO (additive `v2` helper).
 - **Task 5 (reading publish)** — BLOCKED on the API-server reading-ingest contract.
 
 ---
