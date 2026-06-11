@@ -5,6 +5,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 ### ADDED
+- [VM-243](https://widesky.atlassian.net/browse/VM-243): `pointWrite(pointId, level, val, who,
+  duration, config)` method — issues a Haystack `pointWrite` op (`POST /api/pointWrite`) to write a
+  value to a writable point's priority array. `val`/`duration` follow the `hisWrite` convention
+  (Haystack-JSON-encoded, or `null` to auto the level).
 - [VM-243](https://widesky.atlassian.net/browse/VM-243): `RealtimeControl` helper
   (`client.watchControl(socket)`, also exported as `RealtimeControl` + `WRITE_STATUS`) wrapping a
   watch socket with the realtime point-write control protocol. Supports both the edge/gateway
@@ -13,6 +17,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - [VM-243](https://widesky.atlassian.net/browse/VM-243): `getWatchSocket()` now refreshes the
   access token on `reconnect_attempt`, so a long-lived watch socket re-presents a valid token on
   reconnect instead of the (possibly expired) token captured at connect time.
+
+### CHANGED
+- [VM-243](https://widesky.atlassian.net/browse/VM-243): Realtime client operations (`watchSub`,
+  `watchExtend`, `watchUnsub`, `getWatchSocket`, `watchControl`, `pointWrite`) moved into
+  `src/client/functions/realtime.js` and attached as direct client methods. File reorganisation
+  only — call sites are unchanged (`client.watchSub(...)`, `client.pointWrite(...)`, etc.).
 
 ### FIXED
 - [VM-243](https://widesky.atlassian.net/browse/VM-243): `getWatchSocket()` now awaits

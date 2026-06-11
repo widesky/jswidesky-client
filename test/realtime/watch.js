@@ -145,4 +145,63 @@ describe("Realtime", function () {
             );
         });
     });
+
+    describe("pointWrite", function () {
+        it("should generate correct request grid for pointWrite call", async function () {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            await ws.pointWrite(TEST_POINTS[0], 17, "n:5", "tester", null, {});
+            expect(ws._wsRawSubmit.callCount).to.equal(2);
+            verifyTokenCall(ws._wsRawSubmit.firstCall.args);
+            verifyRequestCall(
+                ws._wsRawSubmit.secondCall.args,
+                "POST",
+                "/api/pointWrite",
+                {
+                    meta: { ver: "2.0" },
+                    cols: [
+                        { name: "id" },
+                        { name: "level" },
+                        { name: "who" },
+                        { name: "val" },
+                        { name: "duration" },
+                    ],
+                    rows: [
+                        {
+                            id: `r:${TEST_POINTS[0]}`,
+                            level: "n:17",
+                            who: "s:tester",
+                            val: "n:5",
+                            duration: null,
+                        },
+                    ],
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                        Accept: "application/json",
+                    },
+                    decompress: true,
+                }
+            );
+        });
+
+        it("should send null who when omitted", async function () {
+            let http = new stubs.StubHTTPClient(),
+                log = new stubs.StubLogger(),
+                ws = getInstance(http, log);
+
+            await ws.pointWrite(TEST_POINTS[0], 8, null);
+            const grid = ws._wsRawSubmit.secondCall.args[2];
+            expect(grid.rows[0]).to.eql({
+                id: `r:${TEST_POINTS[0]}`,
+                level: "n:8",
+                who: null,
+                val: null,
+                duration: null,
+            });
+        });
+    });
 });
