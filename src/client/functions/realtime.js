@@ -177,8 +177,15 @@ async function getWatchSocket(watchId) {
     // (e.g. a gateway's) can live far longer. socket.io re-presents the
     // `query.Authorization` captured at connect time on every reconnect,
     // so once the token rotates the reconnect handshakes would fail auth.
-    // Refresh the token onto the connection options before each reconnect
-    // attempt so the next handshake carries a valid token.
+    // Refresh the token onto the connection options on reconnect so the next
+    // handshake carries a valid token.
+    //
+    // Known limitation: socket.io-client v2 emits `reconnect_attempt`
+    // synchronously and calls `open()` immediately, before this async refresh
+    // resolves — so the *first* attempt after a token rotation can still use
+    // the stale token. socket.io's backoff retries then carry the refreshed
+    // token (recovery within a few seconds). Fully closing the gap would need a
+    // synchronously-available token (e.g. a pre-fetched/cached one).
     if (watchSocket && typeof watchSocket.on === 'function') {
         watchSocket.on('reconnect_attempt', async () => {
             try {
