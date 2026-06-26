@@ -15,6 +15,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `impersonateAsEmail(email)` method.
 
 ### ADDED
+- [CORE-8891](https://widesky.atlassian.net/browse/CORE-8891): Added a Bitbucket Pipelines CI config (`bitbucket-pipelines.yml`) running the mocha suite + coverage on develop, pull-request, and manual triggers, migrating CI from Bamboo. Node bumped to 20.19.2 (`.nvmrc`).
 - [CORE-8377](https://widesky.atlassian.net/browse/CORE-8377): Opt-in
   outbound request queue. Configure via `options.client.queue`
   (`maxConcurrent`, `minDelayMs`, `maxQueueDepth`, `highWaterPct`,
