@@ -25,6 +25,9 @@ const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
 const { RequestQueue } = require('./queue');
+const PublisherSession = require('./publisher');
+const ControlSession = require('./control');
+const ConsumerWatchRenewer = require('./watchRenew');
 const { parseMetadata } = require("./../utils/metadata");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
@@ -2134,6 +2137,66 @@ class WideSkyClient {
             autoConnect: false,
             path: `${subPath}/socket.io`
         });
+    }
+
+    /**
+     * Create a realtime publisher session for cur-ingress over WebSocket.
+     *
+     * The returned PublisherSession registers a publisher watch over REST
+     * (watchPub), opens a socket.io connection to the watch namespace using the
+     * same token handshake as getWatchSocket, emits pointUpdate frames, and
+     * surfaces pointCadence / pointUpdateError events. See
+     * docs/design/realtime-publisher.md §5, §7.
+     *
+     * @param {Object} [options]  Session options forwarded to PublisherSession,
+     *                            e.g. { autoRecover: false } to opt out of the
+     *                            built-in socket-loss recovery.
+     * @returns {PublisherSession} A new, unregistered publisher session bound to
+     *                             this client.
+     */
+    createPublisher(options) {
+        return new PublisherSession(this, options);
+    }
+
+    /**
+     * Create a realtime control-command listener session.
+     *
+     * The returned ControlSession registers a control listener over REST
+     * (controlSub), connects a socket (or reuses an owning publisher's socket
+     * when the server returns a shared registration), surfaces inbound
+     * pointWrite commands as 'command' events, and settles them with
+     * reportWrite(). It raises no publisher demand and receives no point value
+     * data. See docs/design/realtime-publisher.md.
+     *
+     * @param {Object} [options]  Session options forwarded to ControlSession,
+     *                            e.g. { publisher } to reuse a publisher session's
+     *                            socket for a shared registration, or
+     *                            { autoRecover: false } to opt out of socket-loss
+     *                            recovery.
+     * @returns {ControlSession} A new, unregistered control listener session
+     *                           bound to this client.
+     */
+    createControlListener(options) {
+        return new ControlSession(this, options);
+    }
+
+    /**
+     * Create a lease auto-renewer for a consumer watch.
+     *
+     * /api/watchPoll renews a watch's lease server-side as a side effect of
+     * polling, so a polling consumer never needs explicit renewal. A socket-style
+     * consumer (watchSub + getWatchSocket, no watchPoll) gets no special lease
+     * treatment and its watch expires when the lease lapses even while the socket
+     * stays connected. The returned renewer re-issues watchSub with the watchId
+     * (watchExtend) at half the lease until stopped.
+     *
+     * @param {Object} opts  { watchId, pointIds, lease, leaseMs?, renewFraction?,
+     *                         onError? } — see ConsumerWatchRenewer.
+     * @returns {ConsumerWatchRenewer} A new, unstarted renewer bound to this
+     *                                 client; call start() to begin renewing.
+     */
+    createWatchRenewer(opts) {
+        return new ConsumerWatchRenewer(this, opts);
     }
 
     /**

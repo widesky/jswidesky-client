@@ -6,6 +6,9 @@
 "use strict";
 
 const client = require('./src/client/client');
+const PublisherSession = require('./src/client/publisher');
+const ControlSession = require('./src/client/control');
+const ConsumerWatchRenewer = require('./src/client/watchRenew');
 const data = require('./src/data');
 const replace = require('./src/graphql/replace');
 const exprParser = require('./src/graphql/exprParser');
@@ -19,6 +22,9 @@ const {RequestError, HaystackError, GraphQLError, QueueFullError} = require("./s
 const jsWideSky = {
     /* Client code */
     WideSkyClient: client,
+    PublisherSession,
+    ControlSession,
+    ConsumerWatchRenewer,
     clientErrors: {
         RequestError,
         HaystackError,

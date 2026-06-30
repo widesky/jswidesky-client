@@ -15,6 +15,16 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `impersonateAsEmail(email)` method.
 
 ### ADDED
+- [CORE-8664](https://widesky.atlassian.net/browse/CORE-8664): Realtime
+  publisher API. `createPublisher()` returns a `PublisherSession` that
+  registers a cur-ingress watch (`watchPub`/`watchUnpub`), opens a socket and
+  streams `pointUpdate` frames, surfacing server `pointCadence` hints and typed
+  `pointUpdateError`s; a `pointUpdate` can opt into history persistence with
+  `{ his: true }`. Adds `createControlListener()` (a `ControlSession` that
+  receives `pointWrite` commands and replies `reportWrite`, over its own socket
+  or shared on an owning publisher's) and `createWatchRenewer()` (a consumer
+  watch lease auto-renewer). Sessions self-heal a socket loss by re-registering
+  with a fresh watch.
 - [CORE-8377](https://widesky.atlassian.net/browse/CORE-8377): Opt-in
   outbound request queue. Configure via `options.client.queue`
   (`maxConcurrent`, `minDelayMs`, `maxQueueDepth`, `highWaterPct`,
