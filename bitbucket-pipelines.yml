@@ -1,0 +1,30 @@
+definitions:
+  steps:
+    - step: &test
+        name: Test
+        image: node:20.19.2
+        caches:
+          - node
+        script:
+          - npm install
+          - npm test          # mocha + mocha-jenkins-reporter -> report.xml (JUnit)
+          - npm run coverage  # nyc -> coverage/
+        after-script:
+          # mocha-jenkins-reporter writes report.xml at the repo root; Bitbucket only
+          # scans test-results/ (etc.), so surface it there. Runs even on failure.
+          - mkdir -p test-results && [ -f report.xml ] && cp report.xml test-results/ || true
+        artifacts:
+          - report.xml
+          - coverage/**
+
+pipelines:
+  # Test on develop pushes + PRs; manual otherwise.
+  branches:
+    develop:
+      - step: *test
+  pull-requests:
+    '**':
+      - step: *test
+  custom:
+    manual-run:
+      - step: *test
