@@ -15,7 +15,20 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `impersonateAsEmail(email)` method.
 
 ### ADDED
-- [CORE-8891](https://widesky.atlassian.net/browse/CORE-8891): Added a Bitbucket Pipelines CI config (`bitbucket-pipelines.yml`) running the mocha suite + coverage on develop, pull-request, and manual triggers, migrating CI from Bamboo. Node bumped to 20.19.2 (`.nvmrc`).
+- [CORE-8891](https://widesky.atlassian.net/browse/CORE-8891): Added a
+  Bitbucket Pipelines CI config (`bitbucket-pipelines.yml`) running the mocha
+  suite + coverage on develop, pull-request, and manual triggers, migrating
+  CI from Bamboo. Node bumped to 20.19.2 (`.nvmrc`).
+- [CORE-8664](https://widesky.atlassian.net/browse/CORE-8664): Realtime
+  publisher API. `createPublisher()` returns a `PublisherSession` that
+  registers a cur-ingress watch (`watchPub`/`watchUnpub`), opens a socket and
+  streams `pointUpdate` frames, surfacing server `pointCadence` hints and typed
+  `pointUpdateError`s; a `pointUpdate` can opt into history persistence with
+  `{ his: true }`. Adds `createControlListener()` (a `ControlSession` that
+  receives `pointWrite` commands and replies `reportWrite`, over its own socket
+  or shared on an owning publisher's) and `createWatchRenewer()` (a consumer
+  watch lease auto-renewer). Sessions self-heal a socket loss by re-registering
+  with a fresh watch.
 - [CORE-8377](https://widesky.atlassian.net/browse/CORE-8377): Opt-in
   outbound request queue. Configure via `options.client.queue`
   (`maxConcurrent`, `minDelayMs`, `maxQueueDepth`, `highWaterPct`,
@@ -106,14 +119,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `jsWideSky.min.js` and `jsWideSky.develop.js`.
 
 ### FIXED
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a check for the process 
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a check for the process
   environment so that the client can be used in the browser. `http` and `https` agent options now
   only apply in a Node.js runtime (they will not work outside of it).
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Audited packages and updated to
   remove potential vulnerabilities.
 
 ### ADDED
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a new 
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a new
   [option](./docs/client/options.md) group `http2` to allow enabling of http2 as a transport method.
   Can be enabled by setting `http2.enabled` to `true`.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Support for typing in the published
@@ -141,21 +154,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `docs/`
   - `CHANGELOG.md`
   - `package.json`
-  
+
   The resulting package size is `243.1 kB`, down from `2.6 MB`.
 
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package now exports a single 
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package now exports a single
   `index.js` source file that is the production version of the code, to access a development package
   `npm link` should be used from source.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Now uses the correct set of webpack
   `externals` and `fallbacks` to improve build reliability and reduce masking of incorrect browser
   support.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): When running in a browser environment
-  the following built-in modules are no longer `require`'ed. These modules are also **not** 
+  the following built-in modules are no longer `require`'ed. These modules are also **not**
   polyfilled via a `fallback` (unchanged):
   - `http`
   - `https`
-  
+
   Additionally, the following external modules are no longer `require`'ed, as they do not support a
   browser runtime. These modules are marked as `externals` in the build:
   - `dtrace-provider`
