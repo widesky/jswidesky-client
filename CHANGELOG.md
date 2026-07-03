@@ -60,6 +60,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `_impersonateLookup` promise. An internal `_impersonateGen`
   counter ensures synchronous caller mutations (`unsetImpersonate()`, `impersonateAs('other')`)
   during an in-flight lookup are not silently overwritten when the lookup completes.
+- [CORE-1992](https://widesky.atlassian.net/browse/CORE-1992): `batch.hisWrite` now accepts a
+  `batchSizeEntity` option capping the number of distinct entities per underlying request
+  (default 100, max 1000). Mirrors the existing `batch.hisDelete` `batchSizeEntity` option.
+
+### CHANGED
+- [CORE-1992](https://widesky.atlassian.net/browse/CORE-1992): `batch.hisWrite` now defaults to a
+  maximum of 100 entities per request. Callers that previously relied on sending more than 100
+  entities in a single underlying request must set `batchSizeEntity` explicitly (up to 1000).
 
 ## [3.3.1] - 2026-04-17
 
