@@ -1,4 +1,5 @@
 const yup = require("yup");
+const { QUEUE_SCHEMA } = require('../client/queue');
 
 const HIS_READ_BATCH_SIZE = 100;
 const HIS_READ_BATCH_SIZE_MAX = 1000;
@@ -221,12 +222,14 @@ const CLIENT_SCHEMA = yup.object({
         updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA,
         multiFind: BATCH_MULTI_FIND_SCHEMA
     }),
-    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA
+    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA,
+    queue: QUEUE_SCHEMA
 });
 
 module.exports = {
     CLIENT_SCHEMA,
     PERFORM_OP_IN_BATCH_SCHEMA,
+    QUEUE_SCHEMA,
     BATCH_HIS_WRITE_SCHEMA,
     BATCH_HIS_READ_SCHEMA,
     BATCH_HIS_DELETE_SCHEMA,

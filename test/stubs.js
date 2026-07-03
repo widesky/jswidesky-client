@@ -93,6 +93,10 @@ const StubHTTPClient = function() {
  * @returns An instance of the WideSky Client.
  */
 const getInstance = function(http, log, override={}) {
+    const options = { ...(override.options ?? {}) };
+    if (override.clientOptions !== undefined) {
+        options.client = override.clientOptions;
+    }
     let c = new WideSkyClient(
         override.baseUrl ?? WS_URI,
         override.user ?? WS_USER,
@@ -101,7 +105,7 @@ const getInstance = function(http, log, override={}) {
         override.clientSecret ?? WS_CLIENT_SECRET,
         log,
         undefined,
-        override.client !== undefined ? { client: override.client } : {}
+        options
     );
     http.stubClient(c);
     return c;

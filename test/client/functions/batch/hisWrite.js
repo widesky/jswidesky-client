@@ -308,7 +308,7 @@ describe("client.batch.hisWrite", () => {
         describe("client-level default", () => {
             it("should honour clientOptions.batch.hisWrite.batchSizeEntity", async () => {
                 ws = getInstance(http, log, {
-                    client: {
+                    clientOptions: {
                         batch: {
                             hisWrite: { batchSizeEntity: 25 }
                         }
