@@ -101,8 +101,24 @@ class GraphQLError extends RequestError {
     }
 }
 
+/**
+ * Raised when a request is enqueued into a RequestQueue that is already at
+ * its maxQueueDepth. Distinct from RequestError because there is no
+ * underlying axios error — the request was rejected before becoming HTTP
+ * traffic. Callers can `if (err instanceof QueueFullError)` to back off.
+ */
+class QueueFullError extends Error {
+    constructor(message, info = {}) {
+        super(message);
+        this.name = 'QueueFullError';
+        this.depth = info.depth;
+        this.inFlight = info.inFlight;
+    }
+}
+
 module.exports = {
     RequestError,
     HaystackError,
-    GraphQLError
+    GraphQLError,
+    QueueFullError
 }

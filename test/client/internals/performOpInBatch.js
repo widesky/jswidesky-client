@@ -26,7 +26,7 @@ describe('client', () => {
         let http;
         let log;
         let ws;
-        let targetUser = 'a_user_id';
+        let targetUser = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
         beforeEach(async () => {
             http = new stubs.StubHTTPClient();

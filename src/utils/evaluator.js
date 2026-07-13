@@ -1,9 +1,12 @@
 const yup = require("yup");
+const { QUEUE_SCHEMA } = require('../client/queue');
 
 const HIS_READ_BATCH_SIZE = 100;
 const HIS_READ_BATCH_SIZE_MAX = 1000;
 const HIS_WRITE_BATCH_SIZE  = 10000;
 const HIS_WRITE_BATCH_SIZE_MAX = 20000;
+const HIS_WRITE_ENTITY_BATCH_SIZE = 100;
+const HIS_WRITE_ENTITY_BATCH_SIZE_MAX = 1000;
 const HIS_DELETE_DATA_POINT_BATCH_SIZE = 1500;
 const HIS_DELETE_DATA_POINT_BATCH_SIZE_MAX = 3000;
 const HIS_DELETE_ENTITY_BATCH_SIZE = 100;
@@ -90,6 +93,11 @@ const BATCH_HIS_READ_SCHEMA = yup.object({
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
     ...getBatchProp(HIS_WRITE_BATCH_SIZE, HIS_WRITE_BATCH_SIZE_MAX),
+    ...getBatchProp(
+        HIS_WRITE_ENTITY_BATCH_SIZE,
+        HIS_WRITE_ENTITY_BATCH_SIZE_MAX,
+        "batchSizeEntity"
+    ),
     ...getReturnResultProp(false)
 });
 const BATCH_HIS_DELETE_SCHEMA = yup.object({
@@ -214,12 +222,14 @@ const CLIENT_SCHEMA = yup.object({
         updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA,
         multiFind: BATCH_MULTI_FIND_SCHEMA
     }),
-    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA
+    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA,
+    queue: QUEUE_SCHEMA
 });
 
 module.exports = {
     CLIENT_SCHEMA,
     PERFORM_OP_IN_BATCH_SCHEMA,
+    QUEUE_SCHEMA,
     BATCH_HIS_WRITE_SCHEMA,
     BATCH_HIS_READ_SCHEMA,
     BATCH_HIS_DELETE_SCHEMA,

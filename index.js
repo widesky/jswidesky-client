@@ -6,6 +6,9 @@
 "use strict";
 
 const client = require('./src/client/client');
+const PublisherSession = require('./src/client/publisher');
+const ControlSession = require('./src/client/control');
+const ConsumerWatchRenewer = require('./src/client/watchRenew');
 const data = require('./src/data');
 const replace = require('./src/graphql/replace');
 const exprParser = require('./src/graphql/exprParser');
@@ -13,16 +16,20 @@ const find = require('./src/graphql/find');
 const HaystackTools = require('./src/utils/haystack');
 const HisWritePayload = require('./src/utils/hisWritePayload');
 const EntityCriteria = require("./src/utils/EntityCriteria");
-const {RequestError, HaystackError, GraphQLError} = require("./src/errors");
+const {RequestError, HaystackError, GraphQLError, QueueFullError} = require("./src/errors");
 
 /* Exported symbols */
 const jsWideSky = {
     /* Client code */
     WideSkyClient: client,
+    PublisherSession,
+    ControlSession,
+    ConsumerWatchRenewer,
     clientErrors: {
         RequestError,
         HaystackError,
         GraphQLError,
+        QueueFullError,
     },
     /* Constants */
     VER_2: data.VER_2,
