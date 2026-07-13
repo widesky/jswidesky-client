@@ -4,6 +4,73 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-07-13
+
+### Breaking
+- [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): `WideSkyClient#impersonateAs(userId)`
+  and `options.client.impersonateAs` now require a valid RFC 4122 UUID for non-email
+  values. Empty strings, non-strings, email-like strings, and free-form names that
+  previously passed through to the `X-IMPERSONATE` header now throw `TypeError`. The
+  email-acceptance path (any string containing `@` in `options.client.impersonateAs`,
+  and `impersonateAsEmail(email)` at runtime) is unchanged. Existing callers passing a
+  legacy free-form name will need to migrate to a real user UUID or to the new
+  `impersonateAsEmail(email)` method.
+
+### ADDED
+- [CORE-8891](https://widesky.atlassian.net/browse/CORE-8891): Added a
+  Bitbucket Pipelines CI config (`bitbucket-pipelines.yml`) running the mocha
+  suite + coverage on develop, pull-request, and manual triggers, migrating
+  CI from Bamboo. Node bumped to 20.19.2 (`.nvmrc`).
+- [CORE-8664](https://widesky.atlassian.net/browse/CORE-8664): Realtime
+  publisher API. `createPublisher()` returns a `PublisherSession` that
+  registers a cur-ingress watch (`watchPub`/`watchUnpub`), opens a socket and
+  streams `pointUpdate` frames, surfacing server `pointCadence` hints and typed
+  `pointUpdateError`s; a `pointUpdate` can opt into history persistence with
+  `{ his: true }`. Adds `createControlListener()` (a `ControlSession` that
+  receives `pointWrite` commands and replies `reportWrite`, over its own socket
+  or shared on an owning publisher's) and `createWatchRenewer()` (a consumer
+  watch lease auto-renewer). Sessions self-heal a socket loss by re-registering
+  with a fresh watch.
+- [CORE-8377](https://widesky.atlassian.net/browse/CORE-8377): Opt-in
+  outbound request queue. Configure via `options.client.queue`
+  (`maxConcurrent`, `minDelayMs`, `maxQueueDepth`, `highWaterPct`,
+  `highWaterLogEveryN`); default off. One queue per `WideSkyClient`
+  instance, composes with `client.batch.*`. Throws `QueueFullError`
+  (exported via `clientErrors`) when `maxQueueDepth` is exceeded.
+  `/oauth2/token` bypasses the queue so auth refreshes aren't subject
+  to data-plane backpressure.
+- [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): Added `impersonateAsEmail(email)`
+  method on `WideSkyClient`, and accepted an email value for the `client.impersonateAs`
+  option (resolved lazily on the first authenticated request). The email lookup uses
+  `limit: 2` and rejects duplicate matches, malformed `userRef` values (non-UUID),
+  and empty/whitespace inputs. The lookup always runs unimpersonated even when an
+  earlier impersonation is already in effect. Filter interpolation now two-pass-escapes
+  backslashes then double quotes. Concurrent calls (parallel lazy resolutions and
+  explicit back-to-back invocations) are serialised through a single in-flight promise
+  so order of resolution matches order of invocation and no request is ever sent without
+  the resolved `X-IMPERSONATE` header. `impersonateAs(userId)` now rejects email-like
+  and empty/non-string values with a `TypeError`, accepts `null` or `undefined` to
+  clear (equivalent to `unsetImpersonate()`), and validates `options.client.impersonateAs`
+  at construction. Impersonation state changes are logged at `info`; the email-to-user-id
+  mapping is logged only at `debug` (PII). Error messages from the email lookup carry a
+  redacted email (e.g. `a***@example.com`) in `err.message`, with the raw email on
+  `err.email` for callers that need it. Synchronous `impersonateAs(userId)` now rejects
+  malformed UUIDs with `TypeError`. The lookup itself goes through `submitRequest` with
+  an internal Symbol-keyed flag (re-stamped on the cloned config so the 401-retry
+  path inside the same `submitRequest` lifecycle still bypasses the join) so the
+  recursive call to `_attachReqConfig` cannot deadlock on the in-flight
+  `_impersonateLookup` promise. An internal `_impersonateGen`
+  counter ensures synchronous caller mutations (`unsetImpersonate()`, `impersonateAs('other')`)
+  during an in-flight lookup are not silently overwritten when the lookup completes.
+- [CORE-1992](https://widesky.atlassian.net/browse/CORE-1992): `batch.hisWrite` now accepts a
+  `batchSizeEntity` option capping the number of distinct entities per underlying request
+  (default 100, max 1000). Mirrors the existing `batch.hisDelete` `batchSizeEntity` option.
+
+### CHANGED
+- [CORE-1992](https://widesky.atlassian.net/browse/CORE-1992): `batch.hisWrite` now defaults to a
+  maximum of 100 entities per request. Callers that previously relied on sending more than 100
+  entities in a single underlying request must set `batchSizeEntity` explicitly (up to 1000).
+
 ## [3.3.1] - 2026-04-17
 
 ### FIXED
@@ -62,14 +129,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `jsWideSky.min.js` and `jsWideSky.develop.js`.
 
 ### FIXED
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a check for the process 
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a check for the process
   environment so that the client can be used in the browser. `http` and `https` agent options now
   only apply in a Node.js runtime (they will not work outside of it).
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Audited packages and updated to
   remove potential vulnerabilities.
 
 ### ADDED
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a new 
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Added a new
   [option](./docs/client/options.md) group `http2` to allow enabling of http2 as a transport method.
   Can be enabled by setting `http2.enabled` to `true`.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Support for typing in the published
@@ -97,21 +164,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   - `docs/`
   - `CHANGELOG.md`
   - `package.json`
-  
+
   The resulting package size is `243.1 kB`, down from `2.6 MB`.
 
-- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package now exports a single 
+- [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): NPM package now exports a single
   `index.js` source file that is the production version of the code, to access a development package
   `npm link` should be used from source.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): Now uses the correct set of webpack
   `externals` and `fallbacks` to improve build reliability and reduce masking of incorrect browser
   support.
 - [CORE-4871](https://widesky.atlassian.net/browse/CORE-4871): When running in a browser environment
-  the following built-in modules are no longer `require`'ed. These modules are also **not** 
+  the following built-in modules are no longer `require`'ed. These modules are also **not**
   polyfilled via a `fallback` (unchanged):
   - `http`
   - `https`
-  
+
   Additionally, the following external modules are no longer `require`'ed, as they do not support a
   browser runtime. These modules are marked as `externals` in the build:
   - `dtrace-provider`
@@ -359,7 +426,8 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.3.1
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.4.0
+[3.4.0]: https://github.com/widesky/jswidesky-client/compare/3.4.0...3.3.1
 [3.3.1]: https://github.com/widesky/jswidesky-client/compare/3.3.1...3.3.0
 [3.3.0]: https://github.com/widesky/jswidesky-client/compare/3.3.0...3.2.1
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0

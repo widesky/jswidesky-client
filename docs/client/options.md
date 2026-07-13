@@ -26,7 +26,7 @@ The Object defined in `client` is expected to have the following structure:
 
 | Path from `client` | Description                                                                                        |  Type  | Default |
 | ------------------ | -------------------------------------------------------------------------------------------------- | :----: | :-----: |
-| `impersonateAs`    | A WideSky user ID to impersonate requests as.                                                      | String | `null`  |
+| `impersonateAs`    | A WideSky user **UUID**, or an account email, to impersonate requests as. Strings without `@` are validated as RFC 4122 UUIDs at construction (`TypeError` on miss). Empty / whitespace-only strings are rejected at construction. If an email is supplied, the lookup is deferred and runs as part of the first authenticated request (failure surfaces at that request, the email is retained so the next request retries, no result is cached across client instances). `unsetImpersonate()` and `impersonateAs(null)` both cancel a pending lookup. | String | `null`  |
 | `progress`         | An Object defining live progress report configurations. Not used if `progress.enabled` is `false`. | Object | `false` |
 | `performOpInBatch` | An Object defining default configurations for the function `performOpInBatch`                      | Object |         |
 | `batch`            | An Object defining default configurations for various batch functions.                             | Object |         |

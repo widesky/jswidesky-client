@@ -12,3 +12,5 @@ coverage/
 report.xml
 .idea
 dist/
+# Superpowers spec/plan workspace (local-only)
+docs/superpowers/

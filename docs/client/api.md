@@ -15,6 +15,8 @@
     - [WideSkyClient.entityCount(filter)](#wideskycliententitycountfilter)
     - [WideSkyClient.findAsId(filter, limit)](#wideskyclientfindasidfilter-limit)
     - [WideSkyClient.impersonateAs(userId)](#wideskyclientimpersonateasuserid)
+    - [WideSkyClient.impersonateAsEmail(email)](#wideskyclientimpersonateasemailemail)
+    - [WideSkyClient.unsetImpersonate()](#wideskyclientunsetimpersonate)
     - [WideSkyClient.submitRequest(method, uri, body, config)](#wideskyclientsubmitrequestmethod-uri-body-config)
     - [WideSkyClient.setAcceptGzip(acceptGzip)](#wideskyclientsetacceptgzipacceptgzip)
 - [Haystack Functions](#haystack-functions)
@@ -31,6 +33,25 @@
     - [WideSkyClient.watchUnsub(watchId, deletePointIds, close, config)](#wideskyclientwatchunsubwatchid-deletepointids-close-config)
     - [WideSkyClient.getWatchSocket(watchId)](#wideskyclientgetwatchsocketwatchid)
     - [WideSkyClient.hisDelete(ids, range)](#wideskyclienthisdeleteids-range)
+- [Realtime Publisher Functions](#realtime-publisher-functions)
+    - [WideSkyClient.createPublisher()](#wideskyclientcreatepublisher)
+    - [PublisherSession.watchPub(body, config)](#publishersessionwatchpubbody-config)
+    - [PublisherSession.watchUnpub(watchId, config)](#publishersessionwatchunpubwatchid-config)
+    - [PublisherSession.connect(watchId, opts)](#publishersessionconnectwatchid-opts)
+    - [PublisherSession.pointUpdate(entries, opts)](#publishersessionpointupdateentries-opts)
+    - [PublisherSession.close(opts)](#publishersessioncloseopts)
+    - [PublisherSession events](#publishersession-events)
+- [Realtime Control Listener Functions](#realtime-control-listener-functions)
+    - [WideSkyClient.createControlListener(options)](#wideskyclientcreatecontrollisteneroptions)
+    - [ControlSession.controlSub(body, config)](#controlsessioncontrolsubbody-config)
+    - [ControlSession.controlUnsub(registrationId, config)](#controlsessioncontrolunsubregistrationid-config)
+    - [ControlSession.connect(registrationId, opts)](#controlsessionconnectregistrationid-opts)
+    - [ControlSession.reportWrite(requestId, data, opts)](#controlsessionreportwriterequestid-data-opts)
+    - [ControlSession.attachTo(publisher)](#controlsessionattachtopublisher)
+    - [ControlSession.close(opts)](#controlsessioncloseopts)
+    - [ControlSession events](#controlsession-events)
+- [Consumer Watch Lease Renewal](#consumer-watch-lease-renewal)
+    - [WideSkyClient.createWatchRenewer(opts)](#wideskyclientcreatewatchreneweropts)
 - [Version 2 Functions](#version-2-functions)
     - [WideSkyClient.v2.find(filter, limit)](#wideskyclientv2findfilter-limit)
 - [Batch Functions](#batch-functions)
@@ -221,14 +242,89 @@ Date inputs for this function is the standard ISO8601 dates. For example:
 **Returns:** `Promise<Array<String>>` - Array of Ids of the entities found.
 
 ### WideSkyClient.impersonateAs(userId)
-**Description:** Impersonate as a WideSky user when performing requests.  
+**Description:** Impersonate as a WideSky user when performing requests, or
+clear any existing impersonation. Pass `null` (or `undefined`) as `userId` to
+clear both an active impersonation and any pending email-based impersonation
+queued via the `client.impersonateAs` option — equivalent to calling
+[`unsetImpersonate()`](#wideskyclientunsetimpersonate).
+
+To impersonate via an email instead of a UUID, use
+[`impersonateAsEmail()`](#wideskyclientimpersonateasemailemail). Passing an
+email string here throws — emails are not auto-detected on this method to
+avoid an unresolved email being sent to the server in the `X-IMPERSONATE`
+header.
+
 **Parameters:**
 
-| Param    | Description                                     |  Type  |
-|----------|-------------------------------------------------|:------:|
-| `userId` | The UUID of the User entity to be impersonated. | String |
+| Param    | Description                                                                                             |        Type        |
+|----------|---------------------------------------------------------------------------------------------------------|:------------------:|
+| `userId` | The UUID of the User entity to be impersonated, or `null` / `undefined` to clear any impersonation.     | String / null      |
+
+**Throws:** `TypeError` if `userId` is an empty string, a non-string value, contains `@`, or is not a valid UUID (per RFC 4122 / `uuid.validate`). The same validation is applied to `options.client.impersonateAs` when an `@`-free string is passed in (which is otherwise treated as a literal user UUID).
 
 **Returns:** None
+
+### WideSkyClient.impersonateAsEmail(email)
+**Description:** Resolve a WideSky user by account email and impersonate as
+that user for subsequent requests. Performs a Haystack `find` for the matching
+`account` entity (`account and email=="<email>"`), reads its `userRef` tag to
+obtain the user UUID, and then delegates to
+[`impersonateAs`](#wideskyclientimpersonateasuserid).
+
+The lookup itself always runs as the configured (authenticated) user — any
+impersonation already in effect when this method is called is suspended for
+the duration of the find and reinstated only if the lookup fails. Concurrent
+calls (whether from parallel lazy resolutions or explicit back-to-back
+invocations) are serialised through a single in-flight promise, so order of
+resolution matches order of invocation and no request is ever sent without
+the resolved `X-IMPERSONATE` header.
+
+The email is logged at `debug` level only; the resolved user UUID is logged
+at `info`. Treat the email as PII when configuring log aggregation.
+
+**Parameters:**
+
+| Param   | Description                                                    |  Type  |
+|---------|----------------------------------------------------------------|:------:|
+| `email` | Email of the account whose user entity should be impersonated. | String |
+
+**Returns:** `Promise<String>` — the resolved user UUID now being impersonated.
+
+Error messages from **lookup-result** failures (no rows, multiple rows,
+no `userRef`, malformed `userRef`) carry a **redacted** form of the email
+(e.g. `a***@example.com`) in `err.message` so that generic
+`logger.error(err)` / `JSON.stringify(err)` / `util.inspect(err)` patterns do
+NOT exfiltrate the local-part as PII. The raw email is attached on
+`err.email` as a **non-enumerable** property — callers that need the full
+value can access it deliberately (`err.email`), while default serialisers
+skip it.
+
+**Transport** errors (network failure, axios 4xx/5xx, Haystack parse error)
+from the underlying `submitRequest` call are re-thrown **unmodified**.
+Axios errors carry `err.config.data` which embeds the request body, and the
+body contains the Haystack filter literal `account and email=="<email>"`.
+Bunyan's default `stdSerializers.err` extracts only `name`/`message`/`stack`
+and is safe; generic `JSON.stringify(err)` via axios's own `toJSON()` is not.
+Configure your error serialiser accordingly if the lookup endpoint may
+fail transient-ly in environments where the email is treated as PII.
+
+**Throws:**
+- `TypeError` when `email` is not a non-empty string.
+- `Error('No account found for email <redacted>')` when the lookup returns no rows.
+- `Error('Multiple accounts (<n>) found for email <redacted>')` when more than one account matches (the find is issued with `limit: 2` specifically to detect this).
+- `Error('Account for <redacted> has no userRef tag')` when the matched account entity has no `userRef` tag.
+- `Error('Account for <redacted> has a malformed userRef (not a UUID): <value>')` when the extracted user id is not a valid UUID.
+- Any error raised by the underlying `submitRequest` call (network failure, authentication error, Haystack parse error, axios 4xx/5xx, etc.).
+
+### WideSkyClient.unsetImpersonate()
+**Description:** Clear any active impersonation and any pending email-based
+impersonation queued via the `client.impersonateAs` option. Equivalent to
+calling `impersonateAs(null)`. The prior user UUID (if any) is logged at
+`info` level for audit purposes.
+
+**Parameters:** None.
+
+**Returns:** None.
 
 ### WideSkyClient.submitRequest(method, uri, body, config)
 **Description:** Submit a request manually to the WideSky server.  
@@ -412,6 +508,241 @@ will be removed from the watch.
 | `range` | A valid hisRead range string. Note that the end range is not inclusive. |     String      |
 
 **Returns:** `Promise<RawGrid>` - A response that resolved to the raw grid.
+
+## Realtime Publisher Functions
+Functions for pushing current ("cur") values into WideSky in realtime over a
+socket.io namespace (the publisher role). A `PublisherSession` registers a point
+set over REST, opens a socket, emits `pointUpdate` frames, and surfaces
+server-pushed `pointCadence` / `pointUpdateError` events. Cadence is watch-driven
+server-side (a live consumer watch selects the fast cadence, no watch selects the
+slow cadence); the publisher only sees the resulting `pointCadence` hints.
+
+### WideSkyClient.createPublisher()
+**Description:** Create a new, unregistered realtime `PublisherSession` bound to
+this client.  
+**Parameters:** None.
+
+**Returns:** `PublisherSession` - A new publisher session.
+
+### PublisherSession.watchPub(body, config)
+**Description:** Register (or update) a publisher watch over REST
+(`POST /api/watchPub`). Three modes: **fresh** (omit `watchId`), **referenced
+update** (supply `watchId`; the claim set is replaced in place and the same
+`watchId` returned; points absent from `data` are unpublished), and
+**supersede** (omit `watchId` but include points already claimed by the same
+user's prior watch; the old watch is released and the points re-claimed). The
+returned `watchId` is stashed on the session and the body retained for
+dead-namespace recovery.  
+**Parameters:**
+
+| Param    | Description                                                                                                                                              |  Type  | Default |
+|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------|:------:|:-------:|
+| `body`   | watchPub body: `{ watchId?, onDisconnect?, shortRefs?, data:[{ id, intervalFast, intervalSlow?, curVal?, curStatus?, curErr? }] }`. `data` is required and non-empty. `intervalFast` is the in-demand cadence; `intervalSlow` the out-of-demand cadence (0 = sleep out of demand). The retired `intervalHot`/`intervalWarm` names are rejected. | Object |         |
+| `config` | Configuration options used in `submitRequest()`.                                                                                                       | Object |  `{}`   |
+
+**Returns:** `Promise<Object>` - The parsed `{ watchId, data:[...] }` response.
+
+### PublisherSession.watchUnpub(watchId, config)
+**Description:** Release all claims belonging to a publisher watch
+(`POST /api/watchUnpub`). A `404` for a legitimate owner is idempotent success
+(the watch was already released).  
+**Parameters:**
+
+| Param     | Description                                       |  Type  |    Default     |
+|-----------|---------------------------------------------------|:------:|:--------------:|
+| `watchId` | Watch to release.                                 | String | `this.watchId` |
+| `config`  | Configuration options used in `submitRequest()`.  | Object |      `{}`      |
+
+**Returns:** `Promise<Object>` - The (empty) response body.
+
+### PublisherSession.connect(watchId, opts)
+**Description:** Open a socket.io connection to the watch namespace and resolve
+once connected. The handshake carries the access token in the connection query
+exactly as `getWatchSocket` does. `watchPub()` must have completed first.  
+**Parameters:**
+
+| Param   | Description                                                                                                                       |  Type  |    Default     |
+|---------|---------------------------------------------------------------------------------------------------------------------------------|:------:|:--------------:|
+| `watchId` | Namespace to connect to.                                                                                                       | String | `this.watchId` |
+| `opts`  | `{ timeoutMs=10000, autoReregister=true }`. `autoReregister` enables a fresh `watchPub` of the same point set when the namespace is found dead. | Object |      `{}`      |
+
+**Returns:** `Promise<Socket>` - The connected socket.io socket.
+
+### PublisherSession.pointUpdate(entries, opts)
+**Description:** Emit a `pointUpdate` frame (a socket.io `message` event with
+`command: "pointUpdate"`). Each entry's `id` may be a full Haystack ref or a
+short key registered in the watchPub `shortRefs` map. An `id`-only entry is a
+no-op accepted by the server; an entry with no `id` is malformed and dropped
+server-side.  
+**Parameters:**
+
+| Param     | Description                                                       |  Type  | Default |
+|-----------|------------------------------------------------------------------|:------:|:-------:|
+| `entries` | Array of `{ id, curVal?, curStatus?, curErr?, ts? }` (or a single such object). | Array  |         |
+| `opts`    | `{ ts?, his? }`. `ts` is a message-level timestamp applied to entries that omit their own `ts`. `his: true` asks the server to ALSO persist each entry's value to history at its effective ts (a frame-level, per-call opt-in, independent of the point's own `his` marker tag); omitted/false is a cur-only update (the default: `pointUpdate` never historises unless you opt in). | Object |  `{}`   |
+
+**Returns:** `void`
+
+### PublisherSession.close(opts)
+**Description:** Cleanly close the session: stop the socket (no reconnect), drop
+all listeners, and clear retained state so no timers/sockets linger. Optionally
+release the watch over REST first.  
+**Parameters:**
+
+| Param  | Description                              |  Type  | Default |
+|--------|------------------------------------------|:------:|:-------:|
+| `opts` | `{ unpub=false }` also issue watchUnpub. | Object |  `{}`   |
+
+**Returns:** `Promise<void>`
+
+### PublisherSession events
+A `PublisherSession` is an `EventEmitter`. Events emitted:
+
+| Event              | Payload                | Description                                                                          |
+|--------------------|------------------------|--------------------------------------------------------------------------------------|
+| `connect`          | (none)                 | Socket.io transport connected (owner socket live).                                   |
+| `disconnect`       | `reason`               | Socket.io disconnected.                                                              |
+| `pointCadence`     | `{ data:[{id,mode}] }` | Server publish-cadence hint (`mode` is `fast`/`slow`); also fired as a connect burst. |
+| `pointUpdateError` | `{ err, errorCode }`   | Typed rejection. Codes: 404 (namespace/ownership), 413 (frame too large), 409 (superseded). |
+| `superseded`       | `{ err, errorCode }`   | Convenience event fired alongside a 409 `pointUpdateError`.                          |
+| `reregister`       | watchPub response      | Automatic fresh watchPub completed after the namespace was found dead (also fired alongside `reregistered` on socket-loss recovery so existing handlers resync). |
+| `reregisterError`  | `Error`                | Automatic re-register failed.                                                        |
+| `connectionError`  | `reason`               | Socket.io connection_error / connect_error (e.g. a non-owner socket rejected).       |
+| `recovering`       | `reason`               | Socket-loss recovery has begun (a clean restart presents as a plain disconnect / connect_error, not a 404). |
+| `reregistered`     | watchPub response      | Socket-loss recovery completed: a fresh watchPub + reconnect succeeded; the app should resend its last-known values. |
+| `socketSwap`       | the new socket         | The session replaced its socket with a fresh one (after a recovery / re-register); a shared `ControlSession` listens for this to rebind its command handler. |
+
+## Realtime Control Listener Functions
+Functions for receiving realtime control commands (the listener role). A
+`ControlSession` registers as a control-command listener for a set of points over
+REST, connects a socket (or reuses an owning publisher's socket for a shared
+registration), surfaces inbound `pointWrite` commands as `command` events, and
+settles them with `reportWrite`. A listener raises no publisher demand and
+receives no point value data; it needs `POINT_WRITE` to receive a command and
+`CONTROL_EXECUTE` to reply.
+
+### WideSkyClient.createControlListener(options)
+**Description:** Create a new, unregistered realtime `ControlSession` bound to
+this client.  
+**Parameters:**
+
+| Param     | Description                                                                                             |  Type  | Default |
+|-----------|-------------------------------------------------------------------------------------------------------|:------:|:-------:|
+| `options` | `{ publisher?, autoRecover=true }`. `publisher` reuses a `PublisherSession`'s socket for a shared registration. | Object | `{}`    |
+
+**Returns:** `ControlSession` - A new control listener session.
+
+### ControlSession.controlSub(body, config)
+**Description:** Register a control listener for a set of points over REST
+(`POST /api/controlSub`). Per-point `POINT_WRITE` is checked server-side and a
+per-point `forbidden`/`unknown-point` status is reported (like watchPub). The
+response `shared` flag selects the transport: `shared:true` reuses an owning
+publisher's namespace, otherwise the registration id is a standalone listener
+namespace.  
+**Parameters:**
+
+| Param    | Description                                                                                          |  Type  | Default |
+|----------|-----------------------------------------------------------------------------------------------------|:------:|:-------:|
+| `body`   | controlSub body `{ data:[{ id }] }`, or a bare id / array of ids / array of `{ id }` (wrapped).      | Object |         |
+| `config` | Configuration options used in `submitRequest()`.                                                    | Object |  `{}`   |
+
+**Returns:** `Promise<Object>` - The parsed `{ registrationId?, shared, data:[...] }` response.
+
+### ControlSession.controlUnsub(registrationId, config)
+**Description:** Release the control registration over REST
+(`POST /api/controlUnsub`). Owner-only; an unknown or non-owner registration
+404s.  
+**Parameters:**
+
+| Param            | Description                                       |  Type  |        Default        |
+|------------------|---------------------------------------------------|:------:|:---------------------:|
+| `registrationId` | Registration to release.                          | String | `this.registrationId` |
+| `config`         | Configuration options used in `submitRequest()`.  | Object |          `{}`         |
+
+**Returns:** `Promise<Object>` - The (empty) response body.
+
+### ControlSession.connect(registrationId, opts)
+**Description:** Start receiving control commands. For a shared registration
+(owning publisher set) no socket of our own is opened — the command handler binds
+to the publisher's socket. For a standalone registration a socket.io connection
+is opened to the registration namespace (resolves on the `WideSkyConnected` open
+handshake).  
+**Parameters:**
+
+| Param            | Description                                                                          |  Type  |        Default        |
+|------------------|--------------------------------------------------------------------------------------|:------:|:---------------------:|
+| `registrationId` | Namespace to connect to.                                                             | String | `this.registrationId` |
+| `opts`           | `{ timeoutMs=10000, autoReregister=true, autoRecover }`.                              | Object |          `{}`         |
+
+**Returns:** `Promise<Socket|null>` - The connected socket (standalone), or `null` (shared transport).
+
+### ControlSession.reportWrite(requestId, data, opts)
+**Description:** Reply to a `pointWrite` command, settling the request. Sent on
+whichever socket carries the registration (the publisher's for a shared
+transport, else the standalone listener socket).  
+**Parameters:**
+
+| Param       | Description                                                              |  Type  | Default |
+|-------------|-------------------------------------------------------------------------|:------:|:-------:|
+| `requestId` | The `requestId` of the `pointWrite` being settled.                      | String |         |
+| `data`      | Per-point results `[{ id, writeVal?, writeStatus, writeErr? }]` (or one such object). | Array  |         |
+| `opts`      | `{ done=true }` whether this reply fulfils the request.                 | Object |  `{}`   |
+
+**Returns:** `void`
+
+### ControlSession.attachTo(publisher)
+**Description:** Bind an owning `PublisherSession` so a shared registration
+reuses its socket. Call before `controlSub()` (or pass `{ publisher }` to
+`createControlListener`).  
+**Parameters:**
+
+| Param       | Description                  |        Type       | Default |
+|-------------|------------------------------|:-----------------:|:-------:|
+| `publisher` | The owning publisher session.| PublisherSession  |         |
+
+**Returns:** `ControlSession` - this (for chaining).
+
+### ControlSession.close(opts)
+**Description:** Cleanly close the session: stop the socket (no reconnect), drop
+the shared handler off any owning publisher socket, drop all listeners and clear
+retained state. Optionally release the registration over REST first.  
+**Parameters:**
+
+| Param  | Description                                |  Type  | Default |
+|--------|--------------------------------------------|:------:|:-------:|
+| `opts` | `{ unsub=false }` also issue controlUnsub. | Object |  `{}`   |
+
+**Returns:** `Promise<void>`
+
+### ControlSession events
+A `ControlSession` is an `EventEmitter`. Events emitted:
+
+| Event             | Payload                                  | Description                                                              |
+|-------------------|------------------------------------------|-------------------------------------------------------------------------|
+| `connect`         | (none)                                   | Listener connected (own socket open, or bound to the publisher socket). |
+| `disconnect`      | `reason`                                 | Standalone listener socket disconnected.                                |
+| `command`         | `{ command, requestId, data:[{id,value}] }` | Inbound `pointWrite` command to settle with `reportWrite`.           |
+| `connectionError` | `reason`                                 | Socket.io connection_error / connect_error.                            |
+| `recovering`      | `reason`                                 | Standalone socket-loss recovery has begun.                             |
+| `reregister` / `reregistered` | controlSub response          | Standalone socket-loss recovery completed (fresh controlSub + connect). |
+| `reregisterError` | `Error`                                  | Automatic re-register failed.                                          |
+
+## Consumer Watch Lease Renewal
+
+### WideSkyClient.createWatchRenewer(opts)
+**Description:** Create a lease auto-renewer for a consumer watch.
+`/api/watchPoll` renews a watch's lease server-side, so a polling consumer never
+needs explicit renewal. A socket-style consumer (`watchSub` + `getWatchSocket`,
+no `watchPoll`) gets no special lease treatment, so the renewer re-issues
+`watchSub` with the watchId (the `watchExtend` form) at half the lease until
+stopped (`start()` / `stop()`).  
+**Parameters:**
+
+| Param  | Description                                                                                                       |  Type  | Default |
+|--------|-----------------------------------------------------------------------------------------------------------------|:------:|:-------:|
+| `opts` | `{ watchId, pointIds, lease, leaseMs?, renewFraction=0.5, onError? }`. `leaseMs` is parsed from `lease` if omitted. | Object |         |
+
+**Returns:** `ConsumerWatchRenewer` - A new, unstarted renewer; call `start()` to begin.
 
 ## Version 2 Functions
 A list of functions that modify the response of the Haystack functions to be more suitable for machine consumption.

@@ -24,12 +24,60 @@ const FormData = require('form-data');
 const socket = require('socket.io-client');
 const { RequestError } = require("./../errors");
 const { CLIENT_SCHEMA } = require("./../utils/evaluator");
+const { RequestQueue } = require('./queue');
+const PublisherSession = require('./publisher');
+const ControlSession = require('./control');
+const ConsumerWatchRenewer = require('./watchRenew');
 const { parseMetadata } = require("./../utils/metadata");
 const clientV2Functions = require("./functions/v2");
 const { performOpInBatch, ...allBatchFunctions } = require("./functions/batch");
 const {GraphQLError} = require("../errors");
 const bunyan = require("bunyan");
 const bFormat = require("bunyan-format");
+const HaystackTools = require('../utils/haystack');
+const { validate: uuidValidate } = require('uuid');
+
+/**
+ * Redact the local-part of an email for use in error messages / logs.
+ * Keeps the domain (useful for diagnosis) and the first character of the
+ * local-part. Falls back to a placeholder if the input is not parseable as
+ * a typical "local@domain" string.
+ */
+function redactEmail(email) {
+    if (typeof email !== 'string') return '<email>';
+    const at = email.indexOf('@');
+    if (at <= 0) return '<email>';
+    return `${email[0]}***${email.slice(at)}`;
+}
+
+/**
+ * Construct an Error for an email-lookup failure. Attaches the raw email as
+ * a NON-ENUMERABLE `err.email` so callers that need to log the full value
+ * can opt-in (e.g. `err.email`), while `err.message` carries only the
+ * redacted form. Non-enumerable means standard `JSON.stringify(err)` and
+ * `util.inspect(err)` (which most logger backends pipe errors through) do
+ * NOT exfiltrate the raw email. N12.
+ */
+function makeEmailLookupError(message, email) {
+    const err = new Error(message);
+    Object.defineProperty(err, 'email', {
+        value: email,
+        enumerable: false,
+        writable: false,
+        configurable: false,
+    });
+    return err;
+}
+
+/**
+ * Module-private Symbol used by `_performImpersonateEmailLookup` to ask
+ * `_attachReqConfig` to skip the `_impersonateLookup` join when the lookup
+ * issues its own `/api/read` request. Hidden behind a Symbol (rather than a
+ * plain string key) so external callers cannot pass `_skipImpersonateJoin:
+ * true` through a normal `submitRequest` config and silently bypass
+ * impersonation. N13.
+ */
+const SKIP_IMPERSONATE_JOIN = Symbol('skipImpersonateJoin');
 
 // Check for the runtime
 let runtimeEnv;
@@ -58,7 +106,7 @@ if (runtimeEnv == 'node') {
     // node process
     axios = require('axios');
     fs = require('fs');
-    
+
     http = require('http');
     https = require('https');
     http2 = require('http2-wrapper');
@@ -147,6 +195,10 @@ class WideSkyClient {
      */
     _acceptGzipEncoding
     _impersonate        // The user id which the original user is impersonating as.
+    _impersonatePendingEmail        // Email queued for lazy impersonation resolution.
+    _impersonateLookup              // Single-flight Promise for an in-flight email lookup, or null.
+    _impersonateGen                 // Monotonic counter bumped on every impersonation-state mutation (N2).
+    _requestQueue                   // RequestQueue for outbound HTTP pacing, or null when opt-out.
 
     /**
      * Constructor for WideSky Client
@@ -191,7 +243,11 @@ class WideSkyClient {
         this.options = options;
         this.clientOptions = null;
         this._impersonate = null;
+        this._impersonatePendingEmail = null;
+        this._impersonateLookup = null;
+        this._impersonateGen = 0;
         this._acceptGzipEncoding  = true;
+        this._requestQueue = null;
 
         this.initAccessToken();
         this.initAxios();
@@ -287,7 +343,7 @@ class WideSkyClient {
             baseURL,
         };
 
-        // In the browser, low-level HTTP options like 'keepAlive' cannot be configured 
+        // In the browser, low-level HTTP options like 'keepAlive' cannot be configured
         // manually, as the browser handles connection reuse internally. Axios options such as
         // 'httpAgent' or 'httpsAgent' are ignored in this environment. Connection behavior is
         // controlled by the browser's own HTTP stack.
@@ -331,10 +387,33 @@ class WideSkyClient {
     async initClientOptions() {
         CLIENT_SCHEMA.validateSync(this.options.client);
         this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
+
+        // The queue setup below MUST stay synchronous. The constructor at
+        // line 251 calls initClientOptions() without await and relies on
+        // _requestQueue being populated before any subsequent method call.
+        // Do NOT insert an `await` anywhere above this block, or early
+        // requests will see _requestQueue === null with no test failure
+        // surfacing it (existing tests do `await ws.initClientOptions()` and
+        // would still pass).
+        const qOpts = this.clientOptions.queue;
+        this._requestQueue = qOpts !== undefined
+            ? new RequestQueue(qOpts, this.logger)
+            : null;
+
         this.setAcceptGzip(this.clientOptions.acceptGzip);
 
         if (this.clientOptions.impersonateAs !== null) {
-            this.impersonateAs(this.clientOptions.impersonateAs);
+            const value = this.clientOptions.impersonateAs;
+            if (typeof value !== 'string' || value.trim() === '') {
+                throw new TypeError(
+                    'options.client.impersonateAs must be a non-empty UUID or email string, or null'
+                );
+            }
+            if (value.includes('@')) {
+                this._impersonatePendingEmail = value.trim();
+            } else {
+                this.impersonateAs(value);
+            }
         }
 
         if (this.isProgressEnabled) {
@@ -356,8 +435,231 @@ class WideSkyClient {
         return this.getToken();
     };
 
+    /**
+     * Impersonate as a WideSky user when performing requests, or clear any
+     * existing impersonation.
+     *
+     * Pass `null` (or `undefined`) to clear any active impersonation AND any
+     * pending email-based impersonation queued via the `client.impersonateAs`
+     * option (equivalent to calling `unsetImpersonate()`).
+     *
+     * To impersonate via email, use {@link WideSkyClient#impersonateAsEmail}
+     * instead - passing an email string here throws.
+     *
+     * @param userId The UUID of the User entity to be impersonated, or
+     *               `null` / `undefined` to clear impersonation.
+     * @throws {TypeError} if `userId` is an empty string, a non-string value,
+     *                     contains `@` (use `impersonateAsEmail` for emails),
+     *                     or is not a valid RFC 4122 UUID.
+     */
     impersonateAs(userId) {
+        if (userId == null) {
+            this.unsetImpersonate();
+            return;
+        }
+        if (typeof userId !== 'string' || userId.trim() === '') {
+            throw new TypeError(
+                'impersonateAs requires a non-empty user UUID string, ' +
+                'or null/undefined to clear impersonation'
+            );
+        }
+        if (userId.includes('@')) {
+            throw new TypeError(
+                'impersonateAs requires a user UUID; use impersonateAsEmail() ' +
+                'for email-based impersonation'
+            );
+        }
+        if (!uuidValidate(userId)) {
+            throw new TypeError(
+                `impersonateAs requires a valid UUID; got ${userId}`
+            );
+        }
         this._impersonate = userId;
+        this._impersonateGen++;
+        this.logger.info("Now impersonating as user ID %s", userId);
+    };
+
+    /**
+     * Resolve a WideSky user by account email and impersonate as that user
+     * for all subsequent requests. Authentication uses the client's
+     * configured credentials; the lookup itself runs as that authenticated
+     * user (without impersonation), regardless of any active impersonation
+     * already set when this method is called. After it resolves, impersonation
+     * applies to every subsequent request.
+     *
+     * Concurrent calls (whether from parallel lazy resolutions or from explicit
+     * back-to-back invocations) are serialised through a single in-flight
+     * promise, so order of resolution matches order of invocation and no
+     * request is ever sent without the resolved `X-IMPERSONATE` header.
+     *
+     * @param email Email of the account whose user entity should be impersonated.
+     * @returns {Promise<string>} The resolved user UUID now being impersonated.
+     * @throws {TypeError} if `email` is not a non-empty string.
+     * @throws {Error} if no account matches the email, more than one account
+     *                 matches, the matched account has no `userRef` tag, or the
+     *                 extracted user id is not a valid UUID. The error's
+     *                 `message` carries a redacted email; the raw value is on
+     *                 a non-enumerable `err.email`.
+     * @throws Any error raised by the underlying `submitRequest` call
+     *         (network failure, authentication error, Haystack parse error,
+     *         axios 4xx/5xx, etc.).
+     */
+    async impersonateAsEmail(email) {
+        if (typeof email !== 'string' || email.trim() === '') {
+            throw new TypeError(
+                'impersonateAsEmail requires a non-empty email string'
+            );
+        }
+        // N3: normalise here too - the perform-lookup helper trims again, but
+        // doing it at the entry point makes the value consistent in any logs
+        // / error paths added later.
+        email = email.trim();
+
+        // M4: prior capture is correct only because the assignment
+        // `this._impersonateLookup = run` below runs synchronously with no
+        // intervening await. Do not insert an await between prior, the IIFE,
+        // and the assignment - a peer could otherwise install its own lookup
+        // in the gap and we would lose the serialisation order.
+        const prior = this._impersonateLookup;
+        const run = (async () => {
+            // Serialise: wait for any in-flight lookup to settle so that the
+            // last caller's value wins (mirrors getToken's wait-queue semantics).
+            if (prior) {
+                try { await prior; } catch (_) { /* swallow - we run regardless */ }
+            }
+            return this._performImpersonateEmailLookup(email);
+        })();
+        this._impersonateLookup = run;
+        try {
+            return await run;
+        } finally {
+            if (this._impersonateLookup === run) {
+                this._impersonateLookup = null;
+            }
+        }
+    };
+
+    /**
+     * @private
+     * Internal: perform the actual Haystack lookup for an email and install
+     * impersonation. Always runs unimpersonated (snapshots `_impersonate`,
+     * nulls it for the duration of the lookup, restores on failure).
+     */
+    async _performImpersonateEmailLookup(email) {
+        // N3: trim AFTER guard so the validated string is also the one we send.
+        email = email.trim();
+
+        // H1: two-pass escape - backslashes first, then double quotes.
+        const escaped = email
+            .replaceAll('\\', '\\\\')
+            .replaceAll('"', '\\"');
+
+        const filter = `account and email=="${escaped}"`;
+
+        // H5: the lookup must run as the configured (authenticated) user, not
+        // under any active impersonation. Snapshot, clear, restore on failure.
+        const savedImpersonate = this._impersonate;
+        this._impersonate = null;
+
+        // N2: snapshot the impersonation generation. If the caller mutates
+        // impersonation state synchronously while the lookup is in flight
+        // (e.g. calls `unsetImpersonate()` or `impersonateAs('other')`), the
+        // generation moves and our completion no longer represents the
+        // caller's intent - we abandon our write rather than clobbering.
+        const myGen = ++this._impersonateGen;
+
+        let response;
+        try {
+            // N1 / N10: call submitRequest directly (skipping v2.find) AND mark
+            // the request with the module-private `SKIP_IMPERSONATE_JOIN`
+            // Symbol so the recursive `_attachReqConfig` invocation does NOT
+            // await `_impersonateLookup` (which IS the very promise we are
+            // running inside, hence the self-deadlock the original design
+            // suffered from). The Symbol survives axios serialisation /
+            // `JSON.stringify` / `util.inspect` because Symbols are skipped
+            // by all three. The 401-retry path also relies on the Symbol
+            // being re-stamped onto the cloned config returned by
+            // `_attachReqConfig`.
+            response = await this.submitRequest(
+                'POST',
+                '/api/read',
+                {
+                    meta: { ver: '2.0' },
+                    cols: [{ name: 'filter' }, { name: 'limit' }],
+                    rows: [
+                        {
+                            filter: `s:${filter}`,
+                            // limit: 2 so we can detect (and reject) duplicate matches.
+                            limit: 'n:2'
+                        }
+                    ]
+                },
+                { [SKIP_IMPERSONATE_JOIN]: true }
+            );
+        } catch (err) {
+            // Restore prior impersonation ONLY if no caller intervened.
+            if (this._impersonateGen === myGen) {
+                this._impersonate = savedImpersonate;
+            }
+            throw err;
+        }
+
+        const rows = (response && response.rows) || [];
+
+        try {
+            if (rows.length === 0) {
+                throw makeEmailLookupError(
+                    `No account found for email ${redactEmail(email)}`,
+                    email
+                );
+            }
+            if (rows.length > 1) {
+                throw makeEmailLookupError(
+                    `Multiple accounts (${rows.length}) found for email ${redactEmail(email)}`,
+                    email
+                );
+            }
+            if (typeof rows[0].userRef !== 'string') {
+                throw makeEmailLookupError(
+                    `Account for ${redactEmail(email)} has no userRef tag`,
+                    email
+                );
+            }
+            const userId = HaystackTools.getId(rows[0], 'userRef');
+            if (!uuidValidate(userId)) {
+                throw makeEmailLookupError(
+                    `Account for ${redactEmail(email)} has a malformed userRef ` +
+                    `(not a UUID): ${userId}`,
+                    email
+                );
+            }
+
+            // N5: PII-bearing format - email + user id at debug only.
+            this.logger.debug(
+                "Resolved impersonation email %s to user ID %s",
+                email,
+                userId
+            );
+
+            // N2: only install if no caller intervened. If they did (e.g.
+            // explicit impersonateAs('other-uuid') or unsetImpersonate()),
+            // honour their write and discard ours.
+            if (this._impersonateGen === myGen) {
+                this.impersonateAs(userId);
+            } else {
+                this.logger.debug(
+                    "Impersonation generation advanced during email lookup; " +
+                    "discarding resolved user ID %s",
+                    userId
+                );
+            }
+            return userId;
+        } catch (err) {
+            if (this._impersonateGen === myGen) {
+                this._impersonate = savedImpersonate;
+            }
+            throw err;
+        }
     };
 
     isImpersonating() {
@@ -365,7 +667,17 @@ class WideSkyClient {
     };
 
     unsetImpersonate() {
+        if (this._impersonate !== null) {
+            this.logger.info(
+                "Cleared impersonation (was user ID %s)",
+                this._impersonate
+            );
+        } else if (this._impersonatePendingEmail !== null) {
+            this.logger.info("Cleared pending email-based impersonation");
+        }
         this._impersonate = null;
+        this._impersonatePendingEmail = null;
+        this._impersonateGen++;
     };
 
     setAcceptGzip(acceptGzip) {
@@ -392,6 +704,10 @@ class WideSkyClient {
 
     /**
      * Protected method for submitting requests against the API server with Axios.
+     * Low-level axios dispatcher: no queue, no retry. Queue and 401-retry
+     * orchestration lives in submitRequest, which wraps both the original
+     * dispatch and the retry inside a single queue slot.
+     *
      * @param method Request method to be performed. Not case-sensitive.
      * @param uriPath Endpoint to for request to be sent, relative to the base URI given to the client.
      * @param body Body of the request. Ignored if given method is "GET".
@@ -419,13 +735,7 @@ class WideSkyClient {
         };
 
         let res;
-
         if (this._requestTimeoutMs > 0 && this.options.http2?.enabled) {
-            // Guard against HTTP/2 session establishment hangs.
-            // When the server accepts TLS and negotiates h2 via ALPN but never
-            // sends the HTTP/2 SETTINGS frame, http2-wrapper's Agent waits
-            // forever. This Promise.race ensures we fail with a clear error
-            // instead of hanging indefinitely.
             let timeoutId;
             const timeoutPromise = new Promise((_, reject) => {
                 timeoutId = setTimeout(() => {
@@ -435,18 +745,14 @@ class WideSkyClient {
                     ));
                 }, this._requestTimeoutMs);
             });
-
             try {
                 res = await Promise.race([axiosCall(), timeoutPromise]);
-            }
-            finally {
+            } finally {
                 clearTimeout(timeoutId);
             }
-        }
-        else {
+        } else {
             res = await axiosCall();
         }
-
         return res.data;
     };
 
@@ -457,6 +763,68 @@ class WideSkyClient {
      */
     async _attachReqConfig(config) {
         const token = await this.getToken();
+
+        // N1 / N10 / N13: lookup-internal requests carry SKIP_IMPERSONATE_JOIN
+        // as a Symbol-keyed flag so:
+        //   - the recursive call below doesn't deadlock by awaiting the very
+        //     _impersonateLookup promise it is running inside (N1),
+        //   - the flag survives the 401-retry path (N10), where the 401 handler
+        //     re-invokes _attachReqConfig with the SAME config object,
+        //   - external callers cannot bypass impersonation by setting a plain
+        //     string key in their own config (N13).
+        //
+        // Read by Symbol; propagate by Symbol; never mutate the input object.
+        const skipImpersonateJoin = !!(config && config[SKIP_IMPERSONATE_JOIN]);
+
+        // C1/H9: single-flight join with a re-check loop, so concurrent
+        // first-burst requests converge on one lookup and one retry on
+        // failure, never N retries from N peers.
+        //
+        // The first request to find a pending email here launches
+        // impersonateAsEmail (which synchronously installs _impersonateLookup);
+        // every later request sees that promise and awaits it instead of
+        // starting a parallel lookup. We deliberately do NOT clear
+        // _impersonatePendingEmail before the lookup: on failure, peers that
+        // unblock between impersonateAsEmail's finally (which clears
+        // _impersonateLookup) and the originator's catch would otherwise see
+        // null pending AND null _impersonate, and fall through to send an
+        // un-impersonated request. Leaving pending set means peers correctly
+        // observe "no lookup, but still pending" and join the retry that the
+        // first surviving peer launches. Pending is cleared only on success.
+        if (!skipImpersonateJoin) while (true) {
+            if (this._impersonateLookup) {
+                try {
+                    await this._impersonateLookup;
+                } catch (_) { /* originator surfaces the error; we just re-check state */ }
+                continue;
+            }
+
+            if (!this._impersonatePendingEmail || this._impersonate) {
+                break;
+            }
+
+            // No-yield invariant: the read of _impersonatePendingEmail above,
+            // the assignment to `pending` below, and the synchronous portion
+            // of `impersonateAsEmail` (up to its `_impersonateLookup = run`
+            // assignment) MUST run without an intervening await. Otherwise a
+            // peer could win the race for the launch and we would double-launch.
+            const pending = this._impersonatePendingEmail;
+            try {
+                await this.impersonateAsEmail(pending);
+                // Success: _impersonate now set by impersonateAs(userId).
+                // Forget the pending email so future unsetImpersonate /
+                // impersonateAs(null) calls don't re-arm it.
+                this._impersonatePendingEmail = null;
+            } catch (err) {
+                // Pending remains set - peers waiting on _impersonateLookup
+                // will re-enter the while loop, see pending still truthy,
+                // and the first peer to win the loop iteration will retry.
+                // Subsequent peers in that iteration will join the retry via
+                // the in-flight _impersonateLookup check above.
+                throw err;
+            }
+            break;
+        }
 
         config = Object.assign({}, config);       // make a copy
         if (config.headers === undefined) {
@@ -474,32 +842,64 @@ class WideSkyClient {
             config.headers['X-IMPERSONATE'] = this._impersonate;
         }
 
+        // N10: re-stamp the skip-join Symbol on the cloned config so the
+        // 401-retry path (which feeds this config back into _attachReqConfig
+        // inside the SAME submitRequest call) still bypasses the join. Axios
+        // ignores unknown top-level keys, so leaving the Symbol on the
+        // outgoing config has no wire effect.
+        if (skipImpersonateJoin) {
+            config[SKIP_IMPERSONATE_JOIN] = true;
+        }
+
         return config;
     }
 
     async submitRequest(method, uri, body={}, config={}) {
         config = await this._attachReqConfig(config);
 
-        try {
+        // The dispatch + 401-retry sequence is wrapped together so a single
+        // queue slot is held across both. If the 401 retry ran OUTSIDE the
+        // slot (e.g. directly after queue.add resolves with a rejection),
+        // the queue's .finally would release the slot and dispatch the next
+        // queued request — which would then race alongside the retry,
+        // briefly exceeding maxConcurrent. By keeping the retry inside the
+        // same async function passed to queue.add, the slot is held until
+        // the retry settles.
+        const dispatchWithRetry = async () => {
             this.logger.info("Submitting request [%s] %s", method.toUpperCase(), uri);
             this.logger.debug("With body %j and config %j", body, config);
-            return await this._wsRawSubmit(method, uri, body, config);
+            try {
+                return await this._wsRawSubmit(method, uri, body, config);
+            }
+            catch (err) {
+                if (isAxiosError(err) && err.response
+                    && err.response.status === 401 && this._ws_token) {
+                    // 401 on dispatch: token expired (likely while waiting
+                    // in the queue). Refresh and retry within this same
+                    // slot — the queue's _inFlight counter stays at 1 for
+                    // this request the whole time.
+                    this._ws_token = null;
+                    config = await this._attachReqConfig(config);
+                    return await this._wsRawSubmit(method, uri, body, config);
+                }
+                throw err;
+            }
+        };
+
+        try {
+            // Auth endpoint bypass: a tight maxQueueDepth must not be able
+            // to reject a token refresh with QueueFullError. /oauth2/token
+            // is never invoked through submitRequest in practice (auth uses
+            // _wsRawSubmit), but the check is kept defensively.
+            if (this._requestQueue && uri !== '/oauth2/token') {
+                return await this._requestQueue.add(dispatchWithRetry);
+            }
+            return await dispatchWithRetry();
         }
         catch (err) {
             let parsedErr = err;
-            if (isAxiosError(err)) {
-                if (err.response) {
-                    // response has been received from API server
-                    if (err.response.status === 401 && this._ws_token) {
-                        // If error is 401, then get new token
-                        this._ws_token = null;
-                        config = await this._attachReqConfig(config);
-                        return this._wsRawSubmit(method, uri, body, config);
-                    }
-                    else {
-                        parsedErr = RequestError.make(err, this.logger);
-                    }
-                }
+            if (isAxiosError(err) && err.response) {
+                parsedErr = RequestError.make(err, this.logger);
             }
             this.logger.error(parsedErr);
             if (parsedErr instanceof GraphQLError && parsedErr.errors.length > 1) {
@@ -1433,9 +1833,9 @@ class WideSkyClient {
 
     /**
      * Delete a set of files given a point id and time range.
-     * Returning an object keyed by the requested point id, 
+     * Returning an object keyed by the requested point id,
      * where the value is an array of objects containing the file uuid and time.
-     * 
+     *
      * Return example:
      * [
      *       {
@@ -1448,14 +1848,14 @@ class WideSkyClient {
      *           ]
      *       }
      *   ]
-     * 
-     * @param   {string} pointId   The point id of the point a file is attached to. 
+     *
+     * @param   {string} pointId   The point id of the point a file is attached to.
      *                             The point must be `kind=File`
      * @param   {Date} start  Starting ISO8601 timestamp to delete files from.
      * @param   {Date} end    Ending ISO8601 timestamp to delete files from.
      *
      * @returns {Promise<Array<{pointId: string, removed: Array<{time: string, fileId: string}>}>>}
-     * 
+     *
      */
     fileDelete (pointId, start, end) {
 
@@ -1471,7 +1871,7 @@ class WideSkyClient {
             throw new Error("Missing end date input for file delete.");
         }
 
-        if (["last", "first", "today", "yesterday"].includes(start) || 
+        if (["last", "first", "today", "yesterday"].includes(start) ||
             ["last", "first", "today", "yesterday"].includes(end)) {
             throw new Error("File delete does not support " +
                 "input that is not in date format (YYYY-MM-DD).");
@@ -1740,6 +2140,66 @@ class WideSkyClient {
     }
 
     /**
+     * Create a realtime publisher session for cur-ingress over WebSocket.
+     *
+     * The returned PublisherSession registers a publisher watch over REST
+     * (watchPub), opens a socket.io connection to the watch namespace using the
+     * same token handshake as getWatchSocket, emits pointUpdate frames, and
+     * surfaces pointCadence / pointUpdateError events. See
+     * docs/design/realtime-publisher.md §5, §7.
+     *
+     * @param {Object} [options]  Session options forwarded to PublisherSession,
+     *                            e.g. { autoRecover: false } to opt out of the
+     *                            built-in socket-loss recovery.
+     * @returns {PublisherSession} A new, unregistered publisher session bound to
+     *                             this client.
+     */
+    createPublisher(options) {
+        return new PublisherSession(this, options);
+    }
+
+    /**
+     * Create a realtime control-command listener session.
+     *
+     * The returned ControlSession registers a control listener over REST
+     * (controlSub), connects a socket (or reuses an owning publisher's socket
+     * when the server returns a shared registration), surfaces inbound
+     * pointWrite commands as 'command' events, and settles them with
+     * reportWrite(). It raises no publisher demand and receives no point value
+     * data. See docs/design/realtime-publisher.md.
+     *
+     * @param {Object} [options]  Session options forwarded to ControlSession,
+     *                            e.g. { publisher } to reuse a publisher session's
+     *                            socket for a shared registration, or
+     *                            { autoRecover: false } to opt out of socket-loss
+     *                            recovery.
+     * @returns {ControlSession} A new, unregistered control listener session
+     *                           bound to this client.
+     */
+    createControlListener(options) {
+        return new ControlSession(this, options);
+    }
+
+    /**
+     * Create a lease auto-renewer for a consumer watch.
+     *
+     * /api/watchPoll renews a watch's lease server-side as a side effect of
+     * polling, so a polling consumer never needs explicit renewal. A socket-style
+     * consumer (watchSub + getWatchSocket, no watchPoll) gets no special lease
+     * treatment and its watch expires when the lease lapses even while the socket
+     * stays connected. The returned renewer re-issues watchSub with the watchId
+     * (watchExtend) at half the lease until stopped.
+     *
+     * @param {Object} opts  { watchId, pointIds, lease, leaseMs?, renewFraction?,
+     *                         onError? } — see ConsumerWatchRenewer.
+     * @returns {ConsumerWatchRenewer} A new, unstarted renewer bound to this
+     *                                 client; call start() to begin renewing.
+     */
+    createWatchRenewer(opts) {
+        return new ConsumerWatchRenewer(this, opts);
+    }
+
+    /**
      * Perform a history delete request.
      * @param {*} ids An array of point entity UUIDs for the delete operations or a single string.
      * @param {String} range A valid hisRead range string.
@@ -1874,6 +2334,19 @@ class WideSkyClient {
 
 // attach for testing
 WideSkyClient.initLogger = initLogger;
+/**
+ * Test-only re-export of the impersonation-join bypass Symbol (N13).
+ *
+ * The Symbol itself is module-private; tests need it to assert that the
+ * lookup helper's bypass flag propagates through the request config.
+ *
+ * **Internal. Do NOT use externally.** Public callers that set this on a
+ * `submitRequest` config will silently bypass the in-flight lookup join
+ * and may issue un-impersonated requests. This static is exposed only so
+ * the unit tests in `test/client/internals/impersonateAsEmail.js` can
+ * round-trip the Symbol without exporting it from the module surface.
+ */
+WideSkyClient._skipImpersonateJoinSymbol = SKIP_IMPERSONATE_JOIN;
 
 /* Exported symbols */
 module.exports = WideSkyClient;

@@ -69,7 +69,7 @@ function isRowsSorted(rows) {
  * @param transformer A transformer for the batched arguments.
  * @returns {{p1, hasMore: (function(): boolean), getNext}}
  */
-function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
+function createBatchIterator(op, payload, clientArgs, batchSize, transformer, batchSizeEntity) {
     let hasMore, getNext, p1;
     if (Array.isArray(payload)) {
         getNext = () => {
@@ -100,15 +100,22 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
             }
         }
 
+        const entityCap = (batchSizeEntity == null) ? Infinity : batchSizeEntity;
         const payloadKeys = Object.keys(payload);
         const keyValueLength = payloadKeys.map((key) => Object.keys(payload[key]).length);
         const keyValueRemaining = [...keyValueLength];
         let currKeyIndex = 0;
         getNext = () => {
-            // get next set using batchSize as maximum number of rows, not inclusive of the key
+            // get next set using batchSize as maximum number of rows, not inclusive of the key,
+            // and batchSizeEntity as maximum number of distinct top-level keys in the batch.
             const next = {};
             let totalRows = 0;
-            while (totalRows < batchSize && currKeyIndex < payloadKeys.length) {
+            let entityCount = 0;
+            while (
+                totalRows < batchSize &&
+                entityCount < entityCap &&
+                currKeyIndex < payloadKeys.length
+            ) {
                 if (keyValueRemaining[currKeyIndex] === 0) {
                     // all data fetched from here
                     currKeyIndex++;
@@ -122,8 +129,10 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
                 const keyValueStartFrom = keyMax - keyRemaining;
                 if (currKeyEntries.length > (batchSize - totalRows) || keyValueStartFrom !== Object.keys(payload[currKey]).length) {
                     // take part of the set that doesn't exceed the current batch size
-                    if (next[currKey] === undefined) {
+                    const isNewEntity = next[currKey] === undefined;
+                    if (isNewEntity) {
                         next[currKey] = {};
+                        entityCount++;
                     }
 
                     let taken = 0;
@@ -138,6 +147,7 @@ function createBatchIterator(op, payload, clientArgs, batchSize, transformer) {
                     next[currKey] = payload[currKey];
                     keyValueRemaining[currKeyIndex] = 0;
                     totalRows += currKeyEntries.length;
+                    entityCount++;
                     currKeyIndex++;
                 }
             }
@@ -213,6 +223,7 @@ async function performOpInBatch(op, args, options={}) {
     await PERFORM_OP_IN_BATCH_SCHEMA.validate(options);
     const {
         batchSize,
+        batchSizeEntity,
         batchDelay,
         returnResult,
         parallel,
@@ -235,7 +246,9 @@ async function performOpInBatch(op, args, options={}) {
         errors: [],
         success: []
     };
-    const { getNext, hasMore, p1 } = createBatchIterator.call(this, op, payload, clientArgs, batchSize, transformer);
+    const { getNext, hasMore, p1 } = createBatchIterator.call(
+        this, op, payload, clientArgs, batchSize, transformer, batchSizeEntity
+    );
     if (!hasMore()) {
         return result;
     }

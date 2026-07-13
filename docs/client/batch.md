@@ -54,6 +54,7 @@ The Object in `client.batch.hisWrite` is expected to have the following structur
 | Path from `client.batch.hisWrite` | Description                                                                   |  Type   | Default |
 |-----------------------------------|-------------------------------------------------------------------------------|:-------:|:-------:|
 | `batchSize`                       | Define the maximum number of rows of each payload for `hisWrite` operations.  | Number  |  10000  |
+| `batchSizeEntity`                 | Define the maximum number of entities per `hisWrite` request. Maximum 1000.   | Number  |   100   |
 | `batchDelay`                      | Define the time in between each batch `hisWrite` request (ms).                | Number  |    0    |
 | `parallel`                        | Define the number of batched requests to be run in parallel                   | Number  |    1    |
 | `parallelDelay`                   | Define the delay between each set of batched requests run in parallel (ms)    | Number  |    0    |
