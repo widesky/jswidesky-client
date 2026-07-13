@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-07-13
+
 ### Breaking
 - [CORE-8484](https://widesky.atlassian.net/browse/CORE-8484): `WideSkyClient#impersonateAs(userId)`
   and `options.client.impersonateAs` now require a valid RFC 4122 UUID for non-email
@@ -424,7 +426,8 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.3.1
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.4.0
+[3.4.0]: https://github.com/widesky/jswidesky-client/compare/3.4.0...3.3.1
 [3.3.1]: https://github.com/widesky/jswidesky-client/compare/3.3.1...3.3.0
 [3.3.0]: https://github.com/widesky/jswidesky-client/compare/3.3.0...3.2.1
 [1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
