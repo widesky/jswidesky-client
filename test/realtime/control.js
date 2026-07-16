@@ -19,6 +19,7 @@ const socket = require("socket.io-client"),
     getInstance = stubs.getInstance;
 
 const { verifyRequestCall } = require("../client/utils");
+const ControlSession = require("../../src/client/control");
 const { validate: uuidValidate } = require("uuid");
 
 const TEST_POINTS = [
@@ -76,11 +77,6 @@ class FakeSocket extends EventEmitter {
     /* Drive an inbound server-to-listener event in a test. */
     serverEmit(event, payload) {
         super.emit(event, payload);
-    }
-
-    /* True while this socket is still "live": opened, not torn down. */
-    isLive() {
-        return this.opened && !this.disconnected && !this.closed;
     }
 }
 
@@ -268,6 +264,9 @@ describe("Realtime", function () {
                         "force new connection": true,
                         autoConnect: false,
                         reconnection: true,
+                        reconnectionDelay: 5000,
+                        reconnectionDelayMax: 300000,
+                        randomizationFactor: 0.5,
                         path: "/socket.io",
                     },
                 ]);
@@ -628,11 +627,126 @@ describe("Realtime", function () {
         });
 
         /* ------------------------------------------------------------
-         * Socket-loss recovery (standalone). Setup runs on the real clock;
-         * a fake clock then drives the disconnect-grace window and recovery
-         * backoff deterministically (no wall-clock waits). The shared-transport
-         * recovery (a registration that rides an owning publisher's socket) is
-         * exercised separately below: it follows the publisher's socket swap.
+         * Shared-transport re-registration across OVERLAPPING publisher watch
+         * swaps (-lpa.3, the _resubShared wedge). A publisher socket-loss storm
+         * can swap the watch AGAIN while a shared resub is still in flight. The
+         * in-flight resub bound its controlSub to the watch that was live when
+         * it started; if it completes against that now-superseded watch the
+         * registration is stranded on a dead namespace the publisher no longer
+         * holds, with no further event to shake it loose. The session must
+         * re-check on completion and resub against the LIVE watch.
+         * ---------------------------------------------------------- */
+        describe("shared transport re-registration (overlapping swaps)", function () {
+            const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+            /* An EventEmitter publisher exposing the surface a shared
+             * ControlSession touches: a mutable watchId + socket and the
+             * 'reregistered' event a socket-loss recovery fires. */
+            function makePublisher(watchId, sock) {
+                const pub = new EventEmitter();
+                pub.watchId = watchId;
+                pub.socket = sock;
+                return pub;
+            }
+
+            it("resubs against the LIVE watch when a swap lands mid-resub (does not strand on a dead watch)", async function () {
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const WATCH_A = "aaaaaaaa-0000-0000-0000-000000000000";
+                const WATCH_B = "bbbbbbbb-0000-0000-0000-000000000000";
+                const WATCH_C = "cccccccc-0000-0000-0000-000000000000";
+
+                const socketA = new FakeSocket();
+                socketA.connected = true;
+                const socketB = new FakeSocket();
+                socketB.connected = true;
+                const socketC = new FakeSocket();
+                socketC.connected = true;
+
+                const subAttachTos = [];
+                let controlSubCount = 0;
+                let releaseGate;
+                const gate = new Promise((resolve) => {
+                    releaseGate = resolve;
+                });
+
+                ws._wsRawSubmit = sinon.spy((method, uri, body) => {
+                    if (uri === "/oauth2/token") {
+                        return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                    }
+                    if (uri === "/api/controlSub") {
+                        controlSubCount += 1;
+                        const attachTo = body && body.attachTo;
+                        subAttachTos.push(attachTo);
+                        /* For the shared transport the server returns the
+                         * registrationId equal to the publisher watchId it
+                         * attached the listener to. */
+                        const response = {
+                            registrationId: attachTo,
+                            shared: true,
+                            data: [],
+                        };
+                        /* Gate the FIRST resub controlSub (call #2; the setup
+                         * controlSub is #1) so the SECOND swap can land while it
+                         * is still in flight. */
+                        if (controlSubCount === 2) {
+                            return gate.then(() => response);
+                        }
+                        return Promise.resolve(response);
+                    }
+                    return Promise.resolve({});
+                });
+
+                /* Setup: registered + connected on the shared transport, watch A. */
+                const publisher = makePublisher(WATCH_A, socketA);
+                const ctl = ws.createControlListener().attachTo(publisher);
+                await ctl.controlSub({ data: [{ id: TEST_POINTS[0] }] });
+                await ctl.connect();
+                expect(ctl.shared).to.equal(true);
+                expect(ctl.registrationId).to.equal(WATCH_A);
+
+                /* Swap 1: the publisher recovers onto watch B. Its
+                 * 'reregistered' kicks off a shared resub whose controlSub is
+                 * gated, so it parks in flight. */
+                publisher.watchId = WATCH_B;
+                publisher.socket = socketB;
+                publisher.emit("reregistered", { registrationId: WATCH_B });
+                for (let i = 0; i < 50 && controlSubCount < 2; i++) {
+                    await flush();
+                }
+                expect(controlSubCount).to.equal(2);
+                expect(ctl._recovering).to.equal(true);
+                expect(subAttachTos).to.eql([WATCH_A, WATCH_B]);
+
+                /* Swap 2 lands WHILE resub#1 is still in flight: the publisher
+                 * is now on watch C. Pre-fix this event coalesces into the
+                 * in-flight recovery and is lost. */
+                publisher.watchId = WATCH_C;
+                publisher.socket = socketC;
+                publisher.emit("reregistered", { registrationId: WATCH_C });
+
+                /* Let resub#1 complete (it bound watch B) and the stabilisation
+                 * re-check run to completion. */
+                releaseGate();
+                for (let i = 0; i < 200 && ctl._recovering; i++) {
+                    await flush();
+                }
+
+                /* The registration must end bound to the LIVE watch (C), never
+                 * stranded on the superseded watch (B). */
+                expect(ctl._recovering).to.equal(false);
+                expect(ctl.registrationId).to.equal(WATCH_C);
+                expect(ctl.registrationId).to.not.equal(WATCH_B);
+                /* It resubbed a second time, against the live watch. */
+                expect(subAttachTos).to.eql([WATCH_A, WATCH_B, WATCH_C]);
+            });
+        });
+
+        /* ------------------------------------------------------------
+         * Socket-loss recovery (standalone). A shared registration follows
+         * the owning publisher's recovery and does not recover itself.
          * ---------------------------------------------------------- */
 
         describe("socket-loss recovery (standalone)", function () {
@@ -673,115 +787,38 @@ describe("Realtime", function () {
                 return { ctl, ws, sockets, subCount: () => subCalls };
             }
 
+            const settle = () => new Promise((r) => setImmediate(r));
+
             it("should re-register fresh on a connect_error", async function () {
                 const { ctl, sockets, subCount } = await recoverableCtl();
                 expect(subCount()).to.equal(1);
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    const reregistered = [];
-                    ctl.on("reregistered", (res) => reregistered.push(res));
+                const reregistered = [];
+                ctl.on("reregistered", (res) => reregistered.push(res));
 
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1);
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                await settle();
+                await settle();
 
-                    expect(subCount()).to.equal(2);
-                    expect(sockets.length).to.equal(2);
-                    expect(reregistered).to.have.length(1);
-                } finally {
-                    clock.restore();
-                }
-                await ctl.close();
-            });
-
-            it("should re-register fresh on a connection_error after grace (authz vs transient split)", async function () {
-                /* tg-4: a connection_error must NOT storm a fresh controlSub on a
-                 * loop. The publisher splits connect_error (dead namespace ->
-                 * recover) from connection_error (a non-owner/authz reject); the
-                 * control listener must mirror that split, so a connection_error
-                 * goes through the dead-namespace re-register path exactly ONCE,
-                 * not the connect_error retry loop that would re-issue controlSub
-                 * forever against a reject that never clears. */
-                const http = new stubs.StubHTTPClient(),
-                    log = new stubs.StubLogger(),
-                    ws = getInstance(http, log);
-
-                /* The initial controlSub succeeds; every RE-register controlSub
-                 * fails (a non-owner / authz reject that will never clear). Under
-                 * the buggy connect_error retry loop this would re-issue
-                 * controlSub on each backoff (1s,2s,4s,8s,16s -> many calls). The
-                 * one-shot dead-namespace path tries exactly once and stops. */
-                let subCalls = 0;
-                ws._wsRawSubmit = sinon.spy((method, uri) => {
-                    if (uri === "/oauth2/token") {
-                        return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
-                    }
-                    if (uri === "/api/controlSub") {
-                        subCalls += 1;
-                        if (subCalls === 1) {
-                            return Promise.resolve({
-                                registrationId: TEST_REG_ID,
-                                shared: false,
-                                data: [],
-                            });
-                        }
-                        return Promise.reject(new Error("Forbidden"));
-                    }
-                    return Promise.resolve();
-                });
-
-                const sockets = [];
-                sinon.stub(socket, "connect").callsFake(() => {
-                    const sk = new FakeSocket();
-                    sockets.push(sk);
-                    return sk;
-                });
-                sinon.stub(ws, "getToken")
-                    .returns({ access_token: WS_ACCESS_TOKEN });
-
-                const ctl = ws.createControlListener();
-                await ctl.controlSub({ data: [{ id: TEST_POINTS[0] }] });
-                await ctl.connect(TEST_REG_ID);
-                expect(subCalls).to.equal(1);
-
-                const clock = sinon.useFakeTimers();
-                try {
-                    const errors = [];
-                    ctl.on("reregisterError", (e) => errors.push(e));
-
-                    sockets[0].serverEmit("connection_error", "Forbidden");
-                    /* Advance well past several backoff cycles a storming loop
-                     * would use (1s+2s+4s+8s+16s). */
-                    await clock.tickAsync(1 + 1000 + 2000 + 4000 + 8000 + 16000);
-
-                    /* Exactly ONE re-register controlSub was attempted (the
-                     * initial + a single failed re-register = 2 total), and a
-                     * single reregisterError fired. It did NOT storm a loop. */
-                    expect(subCalls).to.equal(2);
-                    expect(errors).to.have.length(1);
-                } finally {
-                    clock.restore();
-                }
+                expect(subCount()).to.equal(2);
+                expect(sockets.length).to.equal(2);
+                expect(reregistered).to.have.length(1);
                 await ctl.close();
             });
 
             it("should re-register fresh on a disconnect after grace", async function () {
                 const { ctl, sockets, subCount } = await recoverableCtl();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    const reregistered = [];
-                    ctl.on("reregistered", (res) => reregistered.push(res));
+                const reregistered = [];
+                ctl.on("reregistered", (res) => reregistered.push(res));
 
-                    sockets[0].serverEmit("disconnect", "transport close");
-                    await clock.tickAsync(1100);
+                sockets[0].serverEmit("disconnect", "transport close");
+                await new Promise((r) => setTimeout(r, 1100));
+                await settle();
 
-                    expect(subCount()).to.equal(2);
-                    expect(sockets.length).to.equal(2);
-                    expect(reregistered).to.have.length(1);
-                } finally {
-                    clock.restore();
-                }
+                expect(subCount()).to.equal(2);
+                expect(sockets.length).to.equal(2);
+                expect(reregistered).to.have.length(1);
                 await ctl.close();
             });
 
@@ -789,18 +826,13 @@ describe("Realtime", function () {
                 const { ctl, sockets, subCount } = await recoverableCtl();
                 const before = subCount();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    sockets[0].serverEmit("disconnect", "transport close");
-                    /* socket.io rejoins within grace (re-fires WideSkyConnected). */
-                    sockets[0].serverEmit("WideSkyConnected", { success: 200 });
-                    await clock.tickAsync(1100);
+                sockets[0].serverEmit("disconnect", "transport close");
+                /* socket.io rejoins within grace (re-fires WideSkyConnected). */
+                sockets[0].serverEmit("WideSkyConnected", { success: 200 });
+                await new Promise((r) => setTimeout(r, 1100));
 
-                    expect(subCount()).to.equal(before);
-                    expect(sockets.length).to.equal(1);
-                } finally {
-                    clock.restore();
-                }
+                expect(subCount()).to.equal(before);
+                expect(sockets.length).to.equal(1);
                 await ctl.close();
             });
 
@@ -810,15 +842,10 @@ describe("Realtime", function () {
                 });
                 const before = subCount();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1100);
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                await new Promise((r) => setTimeout(r, 1100));
 
-                    expect(subCount()).to.equal(before);
-                } finally {
-                    clock.restore();
-                }
+                expect(subCount()).to.equal(before);
                 await ctl.close();
             });
 
@@ -828,16 +855,11 @@ describe("Realtime", function () {
                 });
                 const before = subCount();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    sockets[0].serverEmit("disconnect", "transport close");
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1100);
+                sockets[0].serverEmit("disconnect", "transport close");
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                await new Promise((r) => setTimeout(r, 1100));
 
-                    expect(subCount()).to.equal(before);
-                } finally {
-                    clock.restore();
-                }
+                expect(subCount()).to.equal(before);
                 await ctl.close();
             });
 
@@ -847,232 +869,344 @@ describe("Realtime", function () {
 
                 await ctl.close();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    sockets[0].serverEmit("disconnect", "transport close");
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1100);
+                sockets[0].serverEmit("disconnect", "transport close");
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                await new Promise((r) => setTimeout(r, 1100));
 
-                    expect(subCount()).to.equal(before);
-                } finally {
-                    clock.restore();
-                }
+                expect(subCount()).to.equal(before);
             });
         });
 
         /* ------------------------------------------------------------
-         * Shared-transport recovery: a shared ControlSession rides the owning
-         * publisher's socket, so when the publisher swaps its socket on recovery
-         * the control handler must be rebound to the NEW socket. This is the
-         * tg-2 / re-2 / kai-1 defect: previously the handler was bound once to
-         * the original socket and went deaf after the publisher recovered.
+         * Recovery robustness (CORE-8790, kai-1 / kai-2 review findings). A
+         * throwing 'recovering' listener must not wedge the guard flag
+         * forever (kai-1, TWO sites: _resubShared + standalone _recover), and
+         * a hung recovery REST call must not wedge the retry loop forever
+         * either (kai-2, same two sites). Both are permanent-silent-wedge
+         * bugs on an unattended device: exactly the failure class this PR
+         * exists to prevent.
          * ---------------------------------------------------------- */
 
-        describe("shared transport recovery", function () {
-            /* A publisher-compatible fake socket: its open() resolves the
-             * publisher handshake by firing 'connect' (not WideSkyConnected). */
-            class PubFakeSocket extends FakeSocket {
-                open() {
-                    this.opened = true;
-                    setImmediate(() => {
-                        this.connected = true;
-                        EventEmitter.prototype.emit.call(this, "connect");
-                    });
-                }
+        describe("recovery robustness (CORE-8790)", function () {
+            const settle = () => new Promise((r) => setImmediate(r));
+
+            function makePublisher(watchId, sock) {
+                const pub = new EventEmitter();
+                pub.watchId = watchId;
+                pub.socket = sock;
+                return pub;
             }
 
-            /*
-             * Build a real PublisherSession + a shared ControlSession riding it.
-             * Setup runs on the real clock; the caller installs a fake clock to
-             * drive the publisher's recovery. socket.connect hands out a
-             * PubFakeSocket per call so a publisher recovery opens a NEW socket.
-             */
-            async function sharedOverPublisher() {
-                const http = new stubs.StubHTTPClient(),
-                    log = new stubs.StubLogger(),
-                    ws = getInstance(http, log);
+            describe("kai-1: throwing 'recovering' listener", function () {
+                it("must not wedge _recovering forever (_resubShared, shared transport)", async function () {
+                    let http = new stubs.StubHTTPClient(),
+                        log = new stubs.StubLogger(),
+                        ws = getInstance(http, log);
 
-                let watchPubCalls = 0;
-                ws._wsRawSubmit = sinon.spy((method, uri) => {
-                    if (uri === "/oauth2/token") {
-                        return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
-                    }
-                    if (uri === "/api/watchPub") {
-                        watchPubCalls += 1;
-                        return Promise.resolve({
-                            watchId:
-                                watchPubCalls === 1
-                                    ? "pub-watch-1"
-                                    : "pub-watch-" + watchPubCalls,
-                            data: [],
-                        });
-                    }
-                    if (uri === "/api/controlSub") {
-                        /* Shared registration: rides the publisher's namespace. */
-                        return Promise.resolve({
-                            registrationId: "pub-watch-1",
-                            shared: true,
-                            data: [],
-                        });
-                    }
-                    return Promise.resolve();
-                });
+                    const WATCH_A = "aaaaaaaa-0000-0000-0000-000000000000";
+                    const WATCH_B = "bbbbbbbb-0000-0000-0000-000000000000";
+                    const WATCH_C = "cccccccc-0000-0000-0000-000000000000";
+                    const socketA = new FakeSocket();
+                    socketA.connected = true;
+                    const socketB = new FakeSocket();
+                    socketB.connected = true;
+                    const socketC = new FakeSocket();
+                    socketC.connected = true;
 
-                const sockets = [];
-                sinon.stub(socket, "connect").callsFake(() => {
-                    const s = new PubFakeSocket();
-                    sockets.push(s);
-                    return s;
-                });
-                sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
-
-                const pub = ws.createPublisher();
-                await pub.watchPub({
-                    data: [{ id: TEST_POINTS[0], intervalFast: 1000 }],
-                });
-                await pub.connect("pub-watch-1");
-
-                const ctl = ws.createControlListener().attachTo(pub);
-                await ctl.controlSub({ data: [{ id: TEST_POINTS[0] }] });
-                await ctl.connect();
-
-                return { pub, ctl, ws, sockets };
-            }
-
-            it("should dispatch a command on the publisher socket before any recovery", async function () {
-                const { pub, ctl, sockets } = await sharedOverPublisher();
-                expect(ctl.shared).to.equal(true);
-                expect(sockets.length).to.equal(1);
-
-                const commands = [];
-                ctl.on("command", (c) => commands.push(c));
-
-                pub.socket.serverEmit("message", {
-                    command: "pointWrite",
-                    requestId: "req-pre",
-                    data: [{ id: TEST_POINTS[0], writeVal: 1 }],
-                });
-
-                expect(commands).to.have.length(1);
-                expect(commands[0].requestId).to.equal("req-pre");
-                await ctl.close();
-                await pub.close();
-            });
-
-            it("should rebind the command handler to the publisher's NEW socket after recovery", async function () {
-                const { pub, ctl, sockets } = await sharedOverPublisher();
-
-                const clock = sinon.useFakeTimers();
-                try {
-                    const commands = [];
-                    ctl.on("command", (c) => commands.push(c));
-
-                    /* Drive the publisher through a connect_error recovery so it
-                     * tears down sockets[0] and opens a brand-new socket. */
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1);
-
-                    /* The publisher swapped to a new socket. */
-                    expect(sockets.length).to.equal(2);
-                    expect(pub.socket).to.equal(sockets[1]);
-
-                    /* The OLD socket is dead; a pointWrite on it must NOT surface
-                     * (it was the source of the silent-deafness defect). */
-                    sockets[0].serverEmit("message", {
-                        command: "pointWrite",
-                        requestId: "req-dead",
-                        data: [{ id: TEST_POINTS[0], writeVal: 2 }],
+                    let controlSubCount = 0;
+                    ws._wsRawSubmit = sinon.spy((method, uri, body) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/controlSub") {
+                            controlSubCount += 1;
+                            const attachTo = body && body.attachTo;
+                            return Promise.resolve({
+                                registrationId: attachTo,
+                                shared: true,
+                                data: [],
+                            });
+                        }
+                        return Promise.resolve({});
                     });
 
-                    /* A pointWrite on the NEW publisher socket MUST surface as a
-                     * command: the shared control handler was rebound on swap. */
-                    sockets[1].serverEmit("message", {
-                        command: "pointWrite",
-                        requestId: "req-new",
-                        data: [{ id: TEST_POINTS[0], writeVal: 3 }],
+                    const publisher = makePublisher(WATCH_A, socketA);
+                    const ctl = ws.createControlListener().attachTo(publisher);
+                    await ctl.controlSub({ data: [{ id: TEST_POINTS[0] }] });
+                    await ctl.connect();
+                    expect(controlSubCount).to.equal(1);
+
+                    const boom = new Error("listener boom");
+                    ctl.on("recovering", () => {
+                        throw boom;
+                    });
+                    const reregistered = [];
+                    ctl.on("reregistered", (res) => reregistered.push(res));
+
+                    /* Publisher recovers onto watch B: fires 'reregistered',
+                     * which drives _resubShared() and now emits 'recovering'
+                     * INSIDE the try/finally: the listener above throws
+                     * immediately. */
+                    publisher.watchId = WATCH_B;
+                    publisher.socket = socketB;
+                    publisher.emit("reregistered", { registrationId: WATCH_B });
+
+                    for (let i = 0; i < 50 && controlSubCount < 2; i++) {
+                        await settle();
+                    }
+
+                    /* (a) the guard flag must clear. */
+                    expect(ctl._recovering).to.equal(false);
+                    /* (b) recovery proceeded despite the throw. */
+                    expect(controlSubCount).to.equal(2);
+                    expect(ctl.registrationId).to.equal(WATCH_B);
+                    expect(reregistered).to.have.length(1);
+                    const loggedErrors = log.error.getCalls().map((c) => c.args[0]);
+                    expect(loggedErrors).to.include(boom);
+
+                    /* A SUBSEQUENT swap/resub is not permanently wedged. */
+                    publisher.watchId = WATCH_C;
+                    publisher.socket = socketC;
+                    publisher.emit("reregistered", { registrationId: WATCH_C });
+
+                    for (let i = 0; i < 50 && controlSubCount < 3; i++) {
+                        await settle();
+                    }
+
+                    expect(ctl._recovering).to.equal(false);
+                    expect(controlSubCount).to.equal(3);
+                    expect(ctl.registrationId).to.equal(WATCH_C);
+                });
+
+                it("must not wedge _recovering forever (socket-loss _recover, standalone)", async function () {
+                    let http = new stubs.StubHTTPClient(),
+                        log = new stubs.StubLogger(),
+                        ws = getInstance(http, log);
+
+                    let subCalls = 0;
+                    ws._wsRawSubmit = sinon.spy((method, uri) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/controlSub") {
+                            subCalls += 1;
+                            return Promise.resolve({
+                                registrationId:
+                                    subCalls === 1 ? TEST_REG_ID : "fresh-reg-" + subCalls,
+                                shared: false,
+                                data: [],
+                            });
+                        }
+                        return Promise.resolve();
                     });
 
-                    const ids = commands.map((c) => c.requestId);
-                    expect(ids).to.include("req-new");
-                    expect(ids).to.not.include("req-dead");
-                } finally {
-                    clock.restore();
-                }
-                await ctl.close();
-                await pub.close();
-            });
+                    const sockets = [];
+                    sinon.stub(socket, "connect").callsFake(() => {
+                        const s = new FakeSocket();
+                        sockets.push(s);
+                        return s;
+                    });
+                    sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
 
-            it("should not leave a stale handler on the old socket after recovery", async function () {
-                const { pub, ctl, sockets } = await sharedOverPublisher();
+                    const ctl = ws.createControlListener();
+                    await ctl.controlSub({ data: [{ id: TEST_POINTS[0] }] });
+                    await ctl.connect(TEST_REG_ID);
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    const commands = [];
-                    ctl.on("command", (c) => commands.push(c));
+                    const boom = new Error("listener boom");
+                    ctl.on("recovering", () => {
+                        throw boom;
+                    });
+                    const reregistered = [];
+                    ctl.on("reregistered", (res) => reregistered.push(res));
 
                     sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1);
 
-                    /* The old socket had ALL listeners removed by the publisher's
-                     * teardown (no stale control handler clinging to a dead
-                     * socket). */
-                    expect(sockets[0].listenerCount("message")).to.equal(0);
+                    await settle();
+                    await settle();
+                    await settle();
 
-                    /* And it no longer surfaces commands: a pointWrite replayed on
-                     * the dead socket is silently inert. */
-                    sockets[0].serverEmit("message", {
-                        command: "pointWrite",
-                        requestId: "req-stale",
-                        data: [{ id: TEST_POINTS[0], writeVal: 9 }],
-                    });
-                    expect(commands.map((c) => c.requestId))
-                        .to.not.include("req-stale");
-                } finally {
-                    clock.restore();
-                }
-                await ctl.close();
-                await pub.close();
-            });
+                    expect(ctl._recovering).to.equal(false);
+                    expect(subCalls).to.equal(2);
+                    expect(reregistered).to.have.length(1);
+                    const loggedErrors = log.error.getCalls().map((c) => c.args[0]);
+                    expect(loggedErrors).to.include(boom);
 
-            it("should drop the rebound handler on close (no leak on the publisher socket)", async function () {
-                const { pub, ctl, sockets } = await sharedOverPublisher();
+                    sockets[1].serverEmit("connect_error", "Invalid namespace");
+                    await settle();
+                    await settle();
+                    await settle();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    const commands = [];
-                    ctl.on("command", (c) => commands.push(c));
-
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1);
-
-                    /* The rebound handler is live on the new socket before close
-                     * (a pointWrite surfaces). */
-                    sockets[1].serverEmit("message", {
-                        command: "pointWrite",
-                        requestId: "req-live",
-                        data: [{ id: TEST_POINTS[0], writeVal: 1 }],
-                    });
-                    expect(commands.map((c) => c.requestId)).to.include("req-live");
+                    expect(ctl._recovering).to.equal(false);
+                    expect(subCalls).to.equal(3);
+                    expect(reregistered).to.have.length(2);
 
                     await ctl.close();
+                });
+            });
 
-                    /* After close the shared handler is gone: a later pointWrite on
-                     * the live publisher socket no longer surfaces, and we did not
-                     * tear that socket down (the publisher owns it). */
-                    sockets[1].serverEmit("message", {
-                        command: "pointWrite",
-                        requestId: "req-after-close",
-                        data: [{ id: TEST_POINTS[0], writeVal: 2 }],
+            describe("kai-2: recovery REST calls must not hang forever", function () {
+                it("times out a hung shared resub controlSub and moves on to the next attempt (_resubShared)", async function () {
+                    let http = new stubs.StubHTTPClient(),
+                        log = new stubs.StubLogger(),
+                        ws = getInstance(http, log);
+
+                    const WATCH_A = "aaaaaaaa-0000-0000-0000-000000000000";
+                    const socketA = new FakeSocket();
+                    socketA.connected = true;
+
+                    let controlSubCount = 0;
+                    const recoveryConfigs = [];
+                    ws._wsRawSubmit = sinon.spy((method, uri, body, config) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/controlSub") {
+                            controlSubCount += 1;
+                            if (controlSubCount === 1) {
+                                return Promise.resolve({
+                                    registrationId: WATCH_A, shared: true, data: [],
+                                });
+                            }
+                            recoveryConfigs.push(config);
+                            if (controlSubCount === 2) {
+                                return new Promise((resolve, reject) => {
+                                    if (config && config.timeout) {
+                                        setTimeout(() => {
+                                            reject(new Error(
+                                                `timeout of ${config.timeout}ms exceeded`));
+                                        }, config.timeout);
+                                        return;
+                                    }
+                                });
+                            }
+                            return new Promise(() => {});
+                        }
+                        return Promise.resolve({});
                     });
-                    expect(commands.map((c) => c.requestId))
-                        .to.not.include("req-after-close");
-                    expect(pub.socket.closed).to.equal(false);
-                } finally {
-                    clock.restore();
-                }
-                await pub.close();
+
+                    const publisher = new EventEmitter();
+                    publisher.watchId = WATCH_A;
+                    publisher.socket = socketA;
+
+                    const ctl = ws.createControlListener().attachTo(publisher);
+                    await ctl.controlSub({ data: [{ id: TEST_POINTS[0] }] });
+                    await ctl.connect();
+                    expect(controlSubCount).to.equal(1);
+
+                    const clock = sinon.useFakeTimers();
+                    try {
+                        const reregisterErrors = [];
+                        ctl.on("reregisterError", (err) => reregisterErrors.push(err));
+
+                        publisher.emit("reregistered", { registrationId: WATCH_A });
+
+                        await clock.tickAsync(0);
+                        expect(controlSubCount).to.equal(2);
+                        expect(ctl._recovering).to.equal(true);
+                        /* Pin the literal wire value: pre-fix both sides
+                         * would be undefined and this would pass vacuously. */
+                        expect(recoveryConfigs[0].timeout).to.equal(45000);
+                        expect(recoveryConfigs[0].timeout).to.equal(
+                            ControlSession.RECOVERY_REQUEST_TIMEOUT_MS);
+
+                        await clock.tickAsync(
+                            ControlSession.RECOVERY_REQUEST_TIMEOUT_MS + 1);
+                        expect(reregisterErrors).to.have.length(1);
+                        expect(reregisterErrors[0].message).to.match(/timeout/);
+
+                        await clock.tickAsync(
+                            ControlSession.RECOVER_MAX_BACKOFF_MS + 1);
+                        expect(controlSubCount).to.equal(3);
+                    }
+                    finally {
+                        clock.restore();
+                    }
+                });
+
+                it("times out a hung recovery controlSub and moves on to the next attempt (socket-loss _recover, standalone)", async function () {
+                    let http = new stubs.StubHTTPClient(),
+                        log = new stubs.StubLogger(),
+                        ws = getInstance(http, log);
+
+                    let subCalls = 0;
+                    const recoveryConfigs = [];
+                    ws._wsRawSubmit = sinon.spy((method, uri, body, config) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/controlSub") {
+                            subCalls += 1;
+                            if (subCalls === 1) {
+                                return Promise.resolve({
+                                    registrationId: TEST_REG_ID, shared: false, data: [],
+                                });
+                            }
+                            recoveryConfigs.push(config);
+                            if (subCalls === 2) {
+                                return new Promise((resolve, reject) => {
+                                    if (config && config.timeout) {
+                                        setTimeout(() => {
+                                            reject(new Error(
+                                                `timeout of ${config.timeout}ms exceeded`));
+                                        }, config.timeout);
+                                        return;
+                                    }
+                                });
+                            }
+                            return new Promise(() => {});
+                        }
+                        return Promise.resolve();
+                    });
+
+                    const sockets = [];
+                    sinon.stub(socket, "connect").callsFake(() => {
+                        const s = new FakeSocket();
+                        sockets.push(s);
+                        return s;
+                    });
+                    sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
+
+                    const ctl = ws.createControlListener();
+                    await ctl.controlSub({ data: [{ id: TEST_POINTS[0] }] });
+                    await ctl.connect(TEST_REG_ID);
+
+                    const clock = sinon.useFakeTimers();
+                    try {
+                        const reregisterErrors = [];
+                        ctl.on("reregisterError", (err) => reregisterErrors.push(err));
+
+                        sockets[0].serverEmit("connect_error", "Invalid namespace");
+
+                        await clock.tickAsync(0);
+                        expect(subCalls).to.equal(2);
+                        expect(ctl._recovering).to.equal(true);
+                        /* Pin the literal wire value: pre-fix both sides
+                         * would be undefined and this would pass vacuously. */
+                        expect(recoveryConfigs[0].timeout).to.equal(45000);
+                        expect(recoveryConfigs[0].timeout).to.equal(
+                            ControlSession.RECOVERY_REQUEST_TIMEOUT_MS);
+
+                        await clock.tickAsync(
+                            ControlSession.RECOVERY_REQUEST_TIMEOUT_MS + 1);
+                        expect(reregisterErrors).to.have.length(1);
+                        expect(reregisterErrors[0].message).to.match(/timeout/);
+
+                        await clock.tickAsync(
+                            ControlSession.RECOVER_MAX_BACKOFF_MS + 1);
+                        expect(subCalls).to.equal(3);
+                    }
+                    finally {
+                        clock.restore();
+                    }
+                });
             });
         });
+
+
+        /* ------------------------------------------------------------
+         * Teardown
+         * ---------------------------------------------------------- */
+
         describe("close (standalone)", function () {
             it("should disconnect and close the socket and drop listeners", async function () {
                 let http = new stubs.StubHTTPClient(),

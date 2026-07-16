@@ -29,9 +29,77 @@ const EventEmitter = require('events');
 /** Socket.io message-event name used for both directions on the namespace. */
 const MESSAGE_EVENT = 'message';
 
-/** Initial / ceiling backoff (ms) for socket-loss re-registration retries. */
+/** Initial / ceiling backoff (ms) for socket-loss re-registration retries.
+ * The ceiling is 5 min (-lpa.2, was 30 s): these retries ride metered
+ * cellular links and each attempt costs a watchPub REST round-trip plus a
+ * full TLS + engine.io handshake. */
 const RECOVER_BACKOFF_MS = 1000;
-const RECOVER_MAX_BACKOFF_MS = 30000;
+const RECOVER_MAX_BACKOFF_MS = 5 * 60 * 1000;
+
+/**
+ * Request timeout (ms, kai-2 CORE-8790) applied ONLY to the REST calls the
+ * recovery ladder itself issues (watchPub inside _maybeReregister /
+ * _recover). A half-open TCP flow (the far end is gone but never sends a
+ * RST, common on cellular) otherwise leaves the await hanging forever,
+ * wedging the whole recovery loop behind one stuck request. Deliberately NOT
+ * the client's global _requestTimeoutMs (client.js, HTTP/2-only, opt-in):
+ * that default's blast radius is every request on the client, far broader
+ * than this ladder needs. 45 s is generous for a slow-but-alive cellular
+ * round trip on a small watchPub payload, yet short enough that a genuinely
+ * dead flow does not block a retry-with-backoff loop for an unreasonable
+ * stretch.
+ */
+const RECOVERY_REQUEST_TIMEOUT_MS = 45000;
+
+/**
+ * Auth-rejection park (-lpa.2, CORE-8790 hot-loop audit H2): a 401/403-class
+ * denial is NOT a transport failure. It is permanent until a human or another
+ * service acts (credential rotation, authz propagation), yet socket.io's
+ * reconnection and the recovery ladder both used to treat it as transient,
+ * producing a measured ~6 MB/h reconnect flap per denied device. Recovery
+ * attempts that fail auth now jump STRAIGHT to this parked cadence instead of
+ * riding the transient ladder. Each parked attempt still re-reads the client
+ * token (_openSocket calls getToken()), so a credential fixed or refreshed
+ * while parked re-authenticates on the next attempt: parking slows the loop,
+ * it never strands a recovered credential.
+ */
+const AUTH_PARK_MS = 5 * 60 * 1000;
+
+/** socket.io Manager reconnection pacing (-lpa.2; see _openSocket). */
+const RECONNECTION_DELAY_MS = 5000;
+const RECONNECTION_DELAY_MAX_MS = 5 * 60 * 1000;
+const RECONNECTION_JITTER = 0.5;
+
+/**
+ * The auth-rejection shapes this stack produces: the apiserver's publisher /
+ * control namespaces emit a `connection_error` with 'Bad request' (invalid /
+ * unresolvable token) or 'Forbidden' (owner mismatch) and then disconnect;
+ * HTTP-level handshake denials surface as 401/403 codes in the reason.
+ * Deliberately does NOT match 'Watch no longer active' (dead namespace: the
+ * re-register path owns it) or transport reasons.
+ */
+const AUTH_REJECTION_RE = /\b40[13]\b|forbidden|unauthori[sz]ed|bad request/i;
+
+/**
+ * Classify a socket rejection reason (string or Error) as an auth denial.
+ * @param {*} reason The connect_error / connection_error reason.
+ * @returns {boolean} true when the reason is 401/403-shaped.
+ */
+function isAuthRejection(reason) {
+    const msg = (reason && reason.message !== undefined)
+        ? reason.message : reason;
+    return (typeof msg === 'string') && AUTH_REJECTION_RE.test(msg);
+}
+
+/**
+ * Equal-jitter delay: half fixed, half random, so a fleet knocked over by one
+ * server event does not retry in lockstep (-lpa.2, org backoff policy).
+ * @param {number} ms The un-jittered delay.
+ * @returns {number} A delay in [ms/2, ms].
+ */
+function jitteredMs(ms) {
+    return Math.round(ms / 2 + Math.random() * (ms / 2));
+}
 
 /**
  * Grace (ms) granted to socket.io's own reconnection after a plain `disconnect`
@@ -101,11 +169,12 @@ function assertCadenceFieldNames(body) {
  *   - 'reregistered'   — socket-loss recovery completed: a fresh watchPub +
  *                        reconnect succeeded. Payload is the new watchPub
  *                        response. The app should resend its last-known values.
- *   - 'socketSwap'     — the session replaced its socket with a fresh one (after
- *                        a dead-namespace re-register or a socket-loss recovery).
- *                        Payload is the new socket. A shared ControlSession
- *                        listens for this to rebind its command handler to the
- *                        new socket (the old one is torn down).
+ *   - 'authParked'     — a recovery attempt was DENIED (401/403-class:
+ *                        'Forbidden' / 'Bad request'); recovery is parked at
+ *                        the AUTH_PARK_MS cadence instead of the transient
+ *                        ladder. Payload is { reason, retryInMs }. Each parked
+ *                        attempt re-reads the client token, so a refreshed
+ *                        credential re-authenticates without app action.
  *
  * Socket-loss recovery is ON by default and can be disabled per session via
  * createPublisher() options ({ autoRecover: false }) or per connect()
@@ -123,7 +192,6 @@ function assertCadenceFieldNames(body) {
  * @fires PublisherSession#reregistered
  * @fires PublisherSession#recovering
  * @fires PublisherSession#connectionError
- * @fires PublisherSession#socketSwap
  */
 class PublisherSession extends EventEmitter {
     /**
@@ -166,6 +234,13 @@ class PublisherSession extends EventEmitter {
          * raw session would publish into a dead socket forever. This drives a
          * fresh re-registration on those signals instead. */
         this._autoRecover = (options.autoRecover !== false);
+
+        /* Optional engine.io perMessageDeflate setting forwarded verbatim to the
+         * socket.io connection (e.g. { threshold: 100 } so sub-1KB frames still
+         * compress; engine.io-client's default threshold of 1024 leaves them
+         * raw). Undefined => engine.io-client default. The caller owns the
+         * value; the session is a transparent forwarder. */
+        this._perMessageDeflate = options.perMessageDeflate;
 
         /* True once connect() has opened the first socket; recovery never runs
          * before the first registration. */
@@ -275,11 +350,6 @@ class PublisherSession extends EventEmitter {
      * (it primes the client's cached token via submitRequest), so the token
      * read here is synchronous and already valid.
      *
-     * On any reject (timeout / connect_error / connection_error) the freshly
-     * opened socket is torn down before the promise settles, so a failed connect
-     * never leaves a self-reconnecting (`reconnection: true`) socket orphaned
-     * against the server.
-     *
      * @param {string} [watchId]      Namespace to connect to (default
      *                                this.watchId, i.e. the last watchPub).
      * @param {Object} [opts]         { timeoutMs=10000, autoReregister=true,
@@ -307,14 +377,21 @@ class PublisherSession extends EventEmitter {
         }
 
         this.watchId = id;
+
+        /* Detach any previous socket BEFORE opening a new one (-lpa.2). A
+         * failed recovery attempt used to overwrite this.socket while the old
+         * socket's reconnection loop kept running: every failed attempt
+         * leaked one more socket hammering the server forever, the flap
+         * amplifier behind the measured ~6 MB/h denial loop. */
+        this._detachSocket();
+
         const sock = this._openSocket(id);
         this.socket = sock;
         this._wireSocket(sock);
 
         return new Promise((resolve, reject) => {
             let settled = false;
-
-            const settle = (fn, arg) => {
+            const finish = (fn, arg) => {
                 if (settled) {
                     return;
                 }
@@ -323,31 +400,31 @@ class PublisherSession extends EventEmitter {
                 fn(arg);
             };
 
-            /* Reject path: tear the just-opened socket down BEFORE settling so a
-             * failed connect does not leave a `reconnection: true` socket (and
-             * its persistent connect_error handler) hammering the server. If a
-             * later connect() already replaced this.socket, leave that alone. */
-            const rejectWith = (arg) => {
-                if (settled) {
-                    return;
-                }
-                this._teardownSocket(sock);
-                if (this.socket === sock) {
-                    this.socket = null;
-                }
-                settle(reject, arg);
-            };
-
             const timer = setTimeout(() => {
-                rejectWith(new Error(`connect to ${id} timed out`));
+                finish(reject, new Error(`connect to ${id} timed out`));
             }, timeoutMs);
 
             sock.once('connect', () => {
                 this._connected = true;
-                settle(resolve, sock);
+                finish(resolve, sock);
             });
-            sock.once('connect_error', (reason) => rejectWith(reason));
-            sock.once('connection_error', (reason) => rejectWith(reason));
+            const rejectConnect = (reason) => {
+                /* An auth-shaped denial must not leave this socket's own
+                 * reconnection ladder running behind the rejected promise:
+                 * denial is permanent until credentials/authz change, and the
+                 * caller (whose connect() just failed) owns the retry pacing.
+                 * A transport-shaped failure keeps the socket so socket.io's
+                 * (now slowed, jittered) reconnection can self-heal. */
+                if (isAuthRejection(reason)) {
+                    this.logger.warn(
+                        'Publisher socket to %s denied (auth): %s; stopping '
+                        + 'the transport retry ladder', id, reason);
+                    this._detachSocket();
+                }
+                finish(reject, reason);
+            };
+            sock.once('connect_error', rejectConnect);
+            sock.once('connection_error', rejectConnect);
 
             sock.open();
         });
@@ -383,13 +460,25 @@ class PublisherSession extends EventEmitter {
             `nsp: "${watchId}"`
         );
 
-        return socket.connect(url, {
+        const connectOpts = {
             query: { Authorization: accessToken },
             'force new connection': true,
             autoConnect: false,
             reconnection: true,
+            /* Reconnection pacing (-lpa.2, hot-loop audit H2): socket.io's
+             * defaults (1 s delay, 5 s ceiling) flap a cellular device hard
+             * whenever the server is down or rejecting. Base 5 s, ceiling
+             * 5 min, with the default 0.5 randomization so a fleet does not
+             * retry in lockstep. */
+            reconnectionDelay: RECONNECTION_DELAY_MS,
+            reconnectionDelayMax: RECONNECTION_DELAY_MAX_MS,
+            randomizationFactor: RECONNECTION_JITTER,
             path: `${subPath}/socket.io`
-        });
+        };
+        if (this._perMessageDeflate !== undefined) {
+            connectOpts.perMessageDeflate = this._perMessageDeflate;
+        }
+        return socket.connect(url, connectOpts);
     }
 
     /**
@@ -424,12 +513,23 @@ class PublisherSession extends EventEmitter {
             this.emit('connectionError', reason);
             /* A failed reconnection attempt against a namespace that no longer
              * exists (post-restart) is a dead-socket signal. Recover now rather
-             * than wait out the disconnect grace. */
+             * than wait out the disconnect grace. _recover detaches this
+             * socket (stopping its transport retry ladder) and, on an
+             * auth-shaped denial, parks at the AUTH_PARK_MS cadence. */
             this._recover(reason);
         });
 
         sock.on('connection_error', (reason) => {
             this.emit('connectionError', reason);
+            /* An auth-shaped denial ('Bad request' / 'Forbidden') is NOT the
+             * dead-namespace signal: an immediate fresh watchPub + connect
+             * would be denied the same way, at transport cadence (-lpa.2,
+             * hot-loop H2). Route it to recovery, which detaches the socket
+             * and parks. */
+            if (isAuthRejection(reason)) {
+                this._recover(reason);
+                return;
+            }
             /* A connection_error after the namespace went away (post-grace) is
              * the dead-namespace signal: fall back to a fresh watchPub. */
             this._maybeReregister(reason);
@@ -496,19 +596,7 @@ class PublisherSession extends EventEmitter {
      * per-point ts > message ts > server receipt time).
      *
      * @param {Array}  entries   Per-point entries.
-     * @param {Object} [opts]    { ts, his } optional message-level timestamp and
-     *                           historise flag.
-     * @param {string} [opts.ts] Message-level timestamp applied to entries that
-     *                           omit their own per-point ts.
-     * @param {boolean} [opts.his] When true, the server ALSO persists each
-     *                           entry's value to history at its effective ts
-     *                           (frame-level, design §7.2): the client decides
-     *                           per frame, independent of the point's own `his`
-     *                           marker tag. Omitted/false is a cur-only update
-     *                           (the default; pointUpdate never historises unless
-     *                           the caller opts in). Mirrors the apiserver
-     *                           socketDispatch handler, which historises only
-     *                           when the inbound frame carries his === true.
+     * @param {Object} [opts]    { ts } optional message-level timestamp.
      */
     pointUpdate(entries, opts = {}) {
         if (!this.socket) {
@@ -524,8 +612,7 @@ class PublisherSession extends EventEmitter {
         }
         /* Forward the frame-level historise flag so the server persists each
          * sample to history (his:true) in addition to the cur update. Without
-         * this the flag is omitted and the frame is cur-only. Gated so an
-         * unset his never appears on the wire (the server tests his === true). */
+         * this the flag is silently dropped and a his frame is cur-only. */
         if (opts.his !== undefined) {
             frame.his = opts.his;
         }
@@ -571,14 +658,13 @@ class PublisherSession extends EventEmitter {
             const freshBody = Object.assign({}, this._lastPubBody);
             delete freshBody.watchId;
 
-            const res = await this.watchPub(freshBody);
+            const res = await this.watchPub(
+                freshBody, { timeout: RECOVERY_REQUEST_TIMEOUT_MS });
             if (this._closed) {
                 return;
             }
 
             await this.connect(res.watchId, { autoReregister: this._autoReregister });
-            /* The socket was replaced; let a shared ControlSession rebind. */
-            this._emitSocketSwap();
             this.emit('reregister', res);
         }
         catch (err) {
@@ -664,7 +750,6 @@ class PublisherSession extends EventEmitter {
 
         this._cancelPendingRecovery();
         this._recovering = true;
-        this.emit('recovering', reason);
 
         /* Stop the dead socket's reconnection loop so it does not keep hammering
          * the gone namespace alongside the fresh one. */
@@ -672,6 +757,21 @@ class PublisherSession extends EventEmitter {
 
         let backoff = RECOVER_BACKOFF_MS;
         try {
+            /* Emit INSIDE the guarded try/finally (kai-1, CORE-8790): emit()
+             * is synchronous, so a throwing 'recovering' listener used to
+             * escape BEFORE this try ran, leaving _recovering stuck true
+             * forever (self-recovery permanently, silently disabled). Catch
+             * the listener's own throw locally, log it loudly (it is a
+             * consumer bug, not hidden), and let the ladder proceed
+             * regardless: a buggy listener must not be able to corrupt this
+             * session's recovery state. */
+            try {
+                this.emit('recovering', reason);
+            }
+            catch (emitErr) {
+                this.logger.error(emitErr, 'recovering listener threw');
+            }
+
             for (;;) {
                 if (this._closed) {
                     return;
@@ -683,7 +783,8 @@ class PublisherSession extends EventEmitter {
                     const freshBody = Object.assign({}, this._lastPubBody);
                     delete freshBody.watchId;
 
-                    const res = await this.watchPub(freshBody);
+                    const res = await this.watchPub(
+                        freshBody, { timeout: RECOVERY_REQUEST_TIMEOUT_MS });
                     if (this._closed) {
                         return;
                     }
@@ -692,10 +793,6 @@ class PublisherSession extends EventEmitter {
                         autoReregister: this._autoReregister,
                         autoRecover: this._autoRecover
                     });
-
-                    /* The socket was replaced; let a shared ControlSession rebind
-                     * its command handler to the new socket. */
-                    this._emitSocketSwap();
 
                     /* Re-emit under both names: 'reregistered' is the socket-loss
                      * recovery event; 'reregister' keeps existing app handlers
@@ -709,57 +806,40 @@ class PublisherSession extends EventEmitter {
                     if (this._closed) {
                         return;
                     }
-                    /* watchPub or connect failed (apiserver still settling); back
-                     * off and try again. The failed connect() already tore its
-                     * own socket down, so no orphaned socket lingers between
-                     * iterations. */
-                    this.logger.warn(
-                        err,
-                        'Publisher socket-loss recovery not yet accepted; ' +
-                        `retrying in ${backoff} ms`
-                    );
+                    let delay;
+                    if (isAuthRejection(err)) {
+                        /* Auth denial is permanent until credentials / authz
+                         * change: do not ride the transient ladder (-lpa.2).
+                         * Park at the capped cadence; each parked attempt
+                         * re-reads the token, so a refreshed credential
+                         * re-auths on the next pass. Loud on purpose. */
+                        delay = jitteredMs(AUTH_PARK_MS);
+                        this.logger.error(
+                            err,
+                            'Publisher recovery DENIED (auth); parked, ' +
+                            `next attempt in ${delay} ms`
+                        );
+                        this.emit('authParked', { reason: err, retryInMs: delay });
+                        backoff = AUTH_PARK_MS;
+                    }
+                    else {
+                        /* watchPub or connect failed (apiserver still
+                         * settling); back off and try again, jittered. */
+                        delay = jitteredMs(backoff);
+                        this.logger.warn(
+                            err,
+                            'Publisher socket-loss recovery not yet accepted; ' +
+                            `retrying in ${delay} ms`
+                        );
+                        backoff = Math.min(backoff * 2, RECOVER_MAX_BACKOFF_MS);
+                    }
                     this.emit('reregisterError', err);
-                    await sleep(backoff);
-                    backoff = Math.min(backoff * 2, RECOVER_MAX_BACKOFF_MS);
+                    await sleep(delay);
                 }
             }
         }
         finally {
             this._recovering = false;
-        }
-    }
-
-    /**
-     * Notify listeners (a shared ControlSession) that the active socket was
-     * replaced so they can rebind to `this.socket`. Only fires when a live
-     * socket is present.
-     * @private
-     */
-    _emitSocketSwap() {
-        if (this.socket) {
-            this.emit('socketSwap', this.socket);
-        }
-    }
-
-    /**
-     * Tear down a specific socket: remove its listeners, stop its reconnection
-     * loop, and close the transport. Safe to call on an already-closed socket
-     * and on a socket that is not (or is no longer) `this.socket`.
-     *
-     * @param {Object} sock The socket to tear down.
-     * @private
-     */
-    _teardownSocket(sock) {
-        if (!sock) {
-            return;
-        }
-        try {
-            sock.removeAllListeners();
-            sock.disconnect();
-            sock.close();
-        }
-        catch (err) {
-            /* best-effort */
         }
     }
 
@@ -775,7 +855,14 @@ class PublisherSession extends EventEmitter {
             return;
         }
         this.socket = null;
-        this._teardownSocket(sock);
+        try {
+            sock.removeAllListeners();
+            sock.disconnect();
+            sock.close();
+        }
+        catch (err) {
+            /* best-effort */
+        }
     }
 
     /* ================================================================
@@ -825,3 +912,11 @@ class PublisherSession extends EventEmitter {
 }
 
 module.exports = PublisherSession;
+// Reconnect / auth-park behaviour surface (-lpa.2), exported so consumers'
+// vendor-contract tests can pin it against the installed tarball.
+module.exports.isAuthRejection = isAuthRejection;
+module.exports.AUTH_PARK_MS = AUTH_PARK_MS;
+module.exports.RECONNECTION_DELAY_MS = RECONNECTION_DELAY_MS;
+module.exports.RECONNECTION_DELAY_MAX_MS = RECONNECTION_DELAY_MAX_MS;
+module.exports.RECOVER_MAX_BACKOFF_MS = RECOVER_MAX_BACKOFF_MS;
+module.exports.RECOVERY_REQUEST_TIMEOUT_MS = RECOVERY_REQUEST_TIMEOUT_MS;
