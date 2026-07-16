@@ -289,5 +289,151 @@ describe("Realtime", function () {
                 }
             });
         });
+
+        /* ------------------------------------------------------------
+         * Renewal REST timeout (CORE-8790, kai-2). watchExtend must not be
+         * able to hang forever on a half-open TCP flow, and the renewal
+         * timeout must stay below the lease it renews (a renewal that could
+         * still be in flight after its own watch expired is pointless).
+         * ---------------------------------------------------------- */
+
+        describe("renewal timeout (CORE-8790, kai-2)", function () {
+            it("caps the renewal timeout below a safe fraction of a short lease", function () {
+                let http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const renewer = ws.createWatchRenewer({
+                    watchId: TEST_WATCH_ID,
+                    pointIds: TEST_POINTS,
+                    lease: "n:100 sec",
+                    leaseMs: 10000,
+                });
+
+                /* leaseMs * 0.4 (4000) is well below the module's 45s
+                 * ceiling, so the lease-safe cap applies: the renewal must
+                 * not be able to outlive the watch it renews. */
+                expect(renewer._renewTimeoutMs).to.equal(4000);
+            });
+
+            it("uses the module ceiling for a long lease (well above the 40% cap)", function () {
+                let http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const renewer = ws.createWatchRenewer({
+                    watchId: TEST_WATCH_ID,
+                    pointIds: TEST_POINTS,
+                    lease: "n:120 sec",
+                });
+
+                expect(renewer._renewTimeoutMs).to.equal(
+                    ConsumerWatchRenewer.RECOVERY_REQUEST_TIMEOUT_MS);
+                /* Sanity: the ceiling really is below 40% of this lease. */
+                expect(renewer._renewTimeoutMs).to.be.below(120000 * 0.4);
+            });
+
+            it("threads the renewal timeout into the watchExtend REST call", async function () {
+                let http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const renewer = ws.createWatchRenewer({
+                    watchId: TEST_WATCH_ID,
+                    pointIds: TEST_POINTS,
+                    lease: "n:120 sec",
+                });
+
+                await renewer.renew();
+
+                const subCall = ws._wsRawSubmit
+                    .getCalls()
+                    .find((c) => c.args[1] === "/api/watchSub");
+                /* Pin the literal wire value (not renewer._renewTimeoutMs):
+                 * pre-fix both sides would be undefined and this assertion
+                 * would pass vacuously. n:120 sec -> 40% cap (48000) is above
+                 * the 45s module ceiling, so the ceiling applies. */
+                expect(subCall.args[3].timeout).to.equal(45000);
+                expect(subCall.args[3].timeout).to.equal(renewer._renewTimeoutMs);
+            });
+
+            it("times out a hung watchExtend rather than wedging _renewing forever", async function () {
+                const clock = sinon.useFakeTimers();
+                try {
+                    let http = new stubs.StubHTTPClient(),
+                        log = new stubs.StubLogger(),
+                        ws = getInstance(http, log);
+
+                    let extendCalls = 0;
+                    let sawConfig = null;
+                    ws._wsRawSubmit = sinon.spy((method, uri, body, config) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/watchSub") {
+                            extendCalls += 1;
+                            sawConfig = config;
+                            /* Simulate a half-open TCP flow: only the
+                             * per-call timeout unwedges it. */
+                            return new Promise((resolve, reject) => {
+                                if (config && config.timeout) {
+                                    setTimeout(() => {
+                                        reject(new Error(
+                                            `timeout of ${config.timeout}ms exceeded`));
+                                    }, config.timeout);
+                                    return;
+                                }
+                            });
+                        }
+                        return Promise.resolve();
+                    });
+
+                    const errors = [];
+                    const renewer = ws.createWatchRenewer({
+                        watchId: TEST_WATCH_ID,
+                        pointIds: TEST_POINTS,
+                        lease: "n:120 sec",
+                        onError: (e) => errors.push(e),
+                    });
+
+                    const pending = renewer.renew();
+                    await clock.tickAsync(0);
+                    expect(extendCalls).to.equal(1);
+                    expect(renewer._renewing).to.equal(true);
+                    expect(sawConfig.timeout).to.equal(renewer._renewTimeoutMs);
+
+                    /* Advance past the renewal timeout: pre-fix this hangs
+                     * forever; post-fix it rejects, and renew()'s own
+                     * try/finally (already correct; the pattern the recovery
+                     * fixes mirror) clears _renewing and reports the failure
+                     * via onError rather than throwing. */
+                    await clock.tickAsync(renewer._renewTimeoutMs + 1);
+                    await pending;
+
+                    expect(renewer._renewing).to.equal(false);
+                    expect(errors).to.have.length(1);
+                    expect(errors[0].message).to.match(/timeout/);
+
+                    /* _renewing is not permanently wedged: a subsequent
+                     * renewal can run (and this time succeeds). */
+                    ws._wsRawSubmit = sinon.spy((method, uri) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/watchSub") {
+                            extendCalls += 1;
+                        }
+                        return Promise.resolve({ meta: {} });
+                    });
+
+                    await renewer.renew();
+                    expect(extendCalls).to.equal(2);
+                    expect(renewer._renewing).to.equal(false);
+                } finally {
+                    clock.restore();
+                }
+            });
+        });
+
     });
 });

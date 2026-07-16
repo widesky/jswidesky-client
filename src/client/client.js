@@ -2135,6 +2135,16 @@ class WideSkyClient {
             query: { Authorization: accessToken },
             'force new connection': true,
             autoConnect: false,
+            /* Reconnection pacing (-lpa.2, hot-loop audit H2): socket.io's
+             * defaults (1 s delay, 5 s ceiling) turn a server-side rejection
+             * or outage into a fast reconnect flap (measured ~6 MB/h per
+             * denied device: every attempt is a full TLS + engine.io
+             * handshake carrying the token). Base 5 s, ceiling 5 min, with
+             * the default 0.5 randomization so a fleet does not retry in
+             * lockstep. Values shared with PublisherSession / ControlSession. */
+            reconnectionDelay: PublisherSession.RECONNECTION_DELAY_MS,
+            reconnectionDelayMax: PublisherSession.RECONNECTION_DELAY_MAX_MS,
+            randomizationFactor: 0.5,
             path: `${subPath}/socket.io`
         });
     }
@@ -2150,7 +2160,11 @@ class WideSkyClient {
      *
      * @param {Object} [options]  Session options forwarded to PublisherSession,
      *                            e.g. { autoRecover: false } to opt out of the
-     *                            built-in socket-loss recovery.
+     *                            built-in socket-loss recovery, or
+     *                            { perMessageDeflate: { threshold: 100 } } to
+     *                            tune outbound frame compression (engine.io's
+     *                            default 1024-byte threshold leaves small frames
+     *                            uncompressed).
      * @returns {PublisherSession} A new, unregistered publisher session bound to
      *                             this client.
      */

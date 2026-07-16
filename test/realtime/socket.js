@@ -46,6 +46,9 @@ describe("Realtime", function () {
                     },
                     "force new connection": true,
                     autoConnect: false,
+                    reconnectionDelay: 5000,
+                    reconnectionDelayMax: 300000,
+                    randomizationFactor: 0.5,
                     path: '/socket.io'
                 }
             ]);
@@ -77,6 +80,9 @@ describe("Realtime", function () {
                     },
                     "force new connection": true,
                     autoConnect: false,
+                    reconnectionDelay: 5000,
+                    reconnectionDelayMax: 300000,
+                    randomizationFactor: 0.5,
                     path: '/widesky/socket.io'
                 }
             ]);
