@@ -4,7 +4,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
-### FIXED
+### Fixed
+- [CORE-8790](https://widesky.atlassian.net/browse/CORE-8790): Realtime
+  publisher/control recovery hardening. Paced socket.io reconnection and raised
+  the recovery backoff ceiling, park 401/403 auth denials instead of flapping the
+  transport, rebind the shared `ControlSession` across publisher socket-loss
+  recovery, forward `perMessageDeflate` to the socket transport, and re-check the
+  live watch after a shared-control resub. Prevents hot reconnect loops, wedged
+  recovery, and needless cellular-data burn on the edge publisher.
 - [CORE-9107](https://widesky.atlassian.net/browse/CORE-9107): Invalid
   `options.client` values now throw a catchable `ValidationError` from
   `new WideSkyClient(...)` instead of crashing the process with an

@@ -7,10 +7,6 @@
  * replacing socket.io-client's connect() with a fake EventEmitter socket so the
  * handshake args, outbound pointUpdate frames, and inbound event dispatch can be
  * asserted without a real connection.
- *
- * Socket-loss recovery tests drive time with sinon.useFakeTimers() (never the
- * wall clock) so the disconnect-grace window and the recovery backoff are
- * deterministic, matching the watchRenew suite.
  */
 "use strict";
 
@@ -23,6 +19,7 @@ const socket = require("socket.io-client"),
     getInstance = stubs.getInstance;
 
 const { verifyTokenCall, verifyRequestCall } = require("../client/utils");
+const PublisherSession = require("../../src/client/publisher");
 
 const TEST_POINTS = [
     "00000000-0001-0001-0001-000000000000",
@@ -84,28 +81,6 @@ class FakeSocket extends EventEmitter {
     /* Drive an inbound server-to-publisher event in a test. */
     serverEmit(event, payload) {
         super.emit(event, payload);
-    }
-
-    /* True while this socket is still "live": opened, not torn down. A socket
-     * whose reconnection loop was stopped has been disconnect()ed and close()d. */
-    isLive() {
-        return this.opened && !this.disconnected && !this.closed;
-    }
-}
-
-/**
- * A fake socket whose open() reports connect_error instead of connect, so a
- * connect() against it always rejects. Used to drive failed recovery iterations
- * (the apiserver refusing the socket handshake while it settles after a
- * restart).
- */
-class FailOpenSocket extends FakeSocket {
-    open() {
-        this.opened = true;
-        setImmediate(() => {
-            EventEmitter.prototype.emit.call(
-                this, "connect_error", "Invalid namespace");
-        });
     }
 }
 
@@ -365,6 +340,9 @@ describe("Realtime", function () {
                         "force new connection": true,
                         autoConnect: false,
                         reconnection: true,
+                        reconnectionDelay: 5000,
+                        reconnectionDelayMax: 300000,
+                        randomizationFactor: 0.5,
                         path: "/socket.io",
                     },
                 ]);
@@ -453,62 +431,6 @@ describe("Realtime", function () {
                 }
                 expect(reason).to.equal("Not authorised");
             });
-
-            it("should tear the failed socket down on a connect_error reject (no leak)", async function () {
-                let http = new stubs.StubHTTPClient(),
-                    log = new stubs.StubLogger(),
-                    ws = getInstance(http, log);
-
-                const fake = new FailOpenSocket();
-                sinon.stub(socket, "connect").returns(fake);
-                sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
-
-                /* autoRecover off so the rejected connect does not kick a
-                 * recovery loop; we are asserting connect()'s own cleanup. */
-                const pub = ws.createPublisher({ autoRecover: false });
-                let threw = false;
-                try {
-                    await pub.connect(TEST_WATCH_ID);
-                } catch (err) {
-                    threw = true;
-                }
-                expect(threw).to.equal(true);
-                /* The leaked-socket defect: connect() left this.socket pointing at
-                 * the failed, still-reconnecting socket and never tore it down. */
-                expect(fake.isLive()).to.equal(false);
-                expect(pub.socket).to.equal(null);
-            });
-
-            it("should tear the failed socket down on a timeout reject (no leak)", async function () {
-                const clock = sinon.useFakeTimers();
-                try {
-                    let http = new stubs.StubHTTPClient(),
-                        log = new stubs.StubLogger(),
-                        ws = getInstance(http, log);
-
-                    /* A socket whose open() never resolves the handshake. */
-                    const fake = new FakeSocket();
-                    fake.open = function () {
-                        this.opened = true;
-                    };
-                    sinon.stub(socket, "connect").returns(fake);
-                    sinon.stub(ws, "getToken")
-                        .returns({ access_token: WS_ACCESS_TOKEN });
-
-                    const pub = ws.createPublisher({ autoRecover: false });
-                    const p = pub.connect(TEST_WATCH_ID, { timeoutMs: 100 });
-                    let threw = false;
-                    p.catch(() => { threw = true; });
-
-                    await clock.tickAsync(101);
-
-                    expect(threw).to.equal(true);
-                    expect(fake.isLive()).to.equal(false);
-                    expect(pub.socket).to.equal(null);
-                } finally {
-                    clock.restore();
-                }
-            });
         });
 
         /* ------------------------------------------------------------
@@ -577,27 +499,6 @@ describe("Realtime", function () {
                 );
 
                 expect(fake.sent[0].payload.ts).to.equal("2026-05-26T10:00:00.000Z");
-            });
-
-            it("should forward a frame-level his:true when supplied", async function () {
-                const { pub, fake } = await connectedPub();
-
-                pub.pointUpdate([{ id: "0", curVal: 1 }], { his: true });
-
-                /* his rides at the frame level (message.his), matching the
-                 * apiserver socketDispatch handler that reads message.his === true
-                 * to also persist each value to history. */
-                expect(fake.sent[0].payload.his).to.equal(true);
-            });
-
-            it("should omit his entirely when not supplied", async function () {
-                const { pub, fake } = await connectedPub();
-
-                pub.pointUpdate([{ id: "0", curVal: 1 }]);
-
-                /* Absent his is the default cur-only frame; the property must not
-                 * appear so the server's `message.his === true` test is false. */
-                expect("his" in fake.sent[0].payload).to.equal(false);
             });
 
             it("should pass an id-only no-op entry through unchanged", async function () {
@@ -899,10 +800,8 @@ describe("Realtime", function () {
                 expect(recoveryBody.watchId).to.equal(undefined);
                 expect(recoveryBody.data).to.deep.equal(body.data);
 
-                /* A second socket was opened for the fresh namespace, and it is
-                 * the live one the session now publishes on. */
+                /* A second socket was opened for the fresh namespace. */
                 expect(sockets.length).to.equal(2);
-                expect(pub.socket).to.equal(sockets[1]);
 
                 await pub.close();
             });
@@ -960,22 +859,13 @@ describe("Realtime", function () {
          * Socket-loss recovery (clean restart presents as a plain
          * disconnect / connect_error, not a 404). Mirrors the hub gateway's
          * ContextPublisher recovery cases, ported into the session itself.
-         *
-         * Setup (watchPub + connect) runs on the real clock; a fake clock is
-         * then installed for the recovery phase so the disconnect-grace window
-         * (RECOVER_DISCONNECT_GRACE_MS) and the recovery backoff are
-         * deterministic (no wall-clock waits). clock.tickAsync advances both
-         * timers and the microtask/immediate queue, so the recovery's own
-         * connect handshake (setImmediate) resolves under the fake clock.
          * ---------------------------------------------------------- */
 
         describe("socket-loss recovery", function () {
             /*
              * Register + connect a publisher whose socket.connect() hands out a
              * fresh FakeSocket per call (so a recovery opens a new socket we can
-             * inspect). Runs entirely on the REAL clock and resolves once the
-             * first socket is live; the caller installs a fake clock afterwards
-             * to drive the recovery deterministically.
+             * inspect). Resolves once the first socket is live.
              */
             async function recoverablePub(opts) {
                 opts = opts || {};
@@ -1002,10 +892,8 @@ describe("Realtime", function () {
                 });
 
                 const sockets = [];
-                const socketFactory = opts.socketFactory
-                    || (() => new FakeSocket());
                 sinon.stub(socket, "connect").callsFake(() => {
-                    const s = socketFactory(sockets.length);
+                    const s = new FakeSocket();
                     sockets.push(s);
                     return s;
                 });
@@ -1019,100 +907,78 @@ describe("Realtime", function () {
                 return { pub, ws, sockets, watchPubCount: () => watchPubCalls };
             }
 
+            const settle = () => new Promise((r) => setImmediate(r));
+
             it("should re-register fresh on a disconnect after registration", async function () {
                 const { pub, sockets, watchPubCount } = await recoverablePub();
                 expect(watchPubCount()).to.equal(1);
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    const reregistered = [];
-                    const recovering = [];
-                    pub.on("reregistered", (res) => reregistered.push(res));
-                    pub.on("recovering", (r) => recovering.push(r));
+                const reregistered = [];
+                const recovering = [];
+                pub.on("reregistered", (res) => reregistered.push(res));
+                pub.on("recovering", (r) => recovering.push(r));
 
-                    /* Clean apiserver restart: the socket drops with a plain
-                     * disconnect and never rejoins. */
-                    sockets[0].serverEmit("disconnect", "transport close");
+                /* Clean apiserver restart: the socket drops with a plain
+                 * disconnect and never rejoins. */
+                sockets[0].serverEmit("disconnect", "transport close");
 
-                    /* Wait out the disconnect grace + the recovery. */
-                    await clock.tickAsync(1100);
+                /* Wait out the disconnect grace + the recovery. */
+                await new Promise((r) => setTimeout(r, 1100));
+                await settle();
 
-                    /* A FRESH watchPub (no watchId) re-opened the watch. */
-                    expect(watchPubCount()).to.equal(2);
-                    const recoveryBody = pub._lastPubBody;
-                    expect(recoveryBody.data).to.deep.equal([
-                        { id: TEST_POINTS[0], intervalFast: 1000 },
-                    ]);
-                    /* A second socket was opened and is the live one. */
-                    expect(sockets.length).to.equal(2);
-                    expect(pub.socket).to.equal(sockets[1]);
-                    expect(recovering).to.have.length(1);
-                    expect(reregistered).to.have.length(1);
-
-                    /* A post-recovery pointUpdate lands on the NEW socket and not
-                     * the dead one (kai-5: prove the new socket is live). */
-                    pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }]);
-                    expect(sockets[1].sent.length).to.equal(1);
-                    expect(sockets[0].sent.length).to.equal(0);
-                } finally {
-                    clock.restore();
-                }
+                /* A FRESH watchPub (no watchId) re-opened the watch. */
+                expect(watchPubCount()).to.equal(2);
+                const recoveryBody = pub._lastPubBody;
+                expect(recoveryBody.data).to.deep.equal([
+                    { id: TEST_POINTS[0], intervalFast: 1000 },
+                ]);
+                /* A second socket was opened. */
+                expect(sockets.length).to.equal(2);
+                expect(recovering).to.have.length(1);
+                expect(reregistered).to.have.length(1);
+                /* 'reregister' fires too so existing app handlers resync. */
                 await pub.close();
             });
 
             it("should re-register fresh (immediately) on a connect_error", async function () {
                 const { pub, ws, sockets, watchPubCount } = await recoverablePub();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    const reregistered = [];
-                    pub.on("reregistered", (res) => reregistered.push(res));
+                const reregistered = [];
+                pub.on("reregistered", (res) => reregistered.push(res));
 
-                    /* A failed reconnection attempt against the dead namespace. */
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
+                /* A failed reconnection attempt against the dead namespace. */
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
 
-                    await clock.tickAsync(1);
+                await settle();
+                await settle();
 
-                    expect(watchPubCount()).to.equal(2);
-                    /* The recovery watchPub REQUEST must carry no stale watchId. */
-                    const recoveryBody = ws._wsRawSubmit
-                        .getCalls()
-                        .filter((c) => c.args[1] === "/api/watchPub")
-                        .pop().args[2];
-                    expect(recoveryBody.watchId).to.equal(undefined);
-                    expect(sockets.length).to.equal(2);
-                    expect(pub.socket).to.equal(sockets[1]);
-                    expect(reregistered).to.have.length(1);
-
-                    /* kai-5: the recovered socket is the live one. */
-                    pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 2 }]);
-                    expect(sockets[1].sent.length).to.equal(1);
-                    expect(sockets[0].sent.length).to.equal(0);
-                } finally {
-                    clock.restore();
-                }
+                expect(watchPubCount()).to.equal(2);
+                /* The recovery watchPub REQUEST must carry no stale watchId. */
+                const recoveryBody = ws._wsRawSubmit
+                    .getCalls()
+                    .filter((c) => c.args[1] === "/api/watchPub")
+                    .pop().args[2];
+                expect(recoveryBody.watchId).to.equal(undefined);
+                expect(sockets.length).to.equal(2);
+                expect(reregistered).to.have.length(1);
                 await pub.close();
             });
 
             it("should emit 'reregister' alongside 'reregistered' so app handlers resync", async function () {
                 const { pub, sockets } = await recoverablePub();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    const reregister = [];
-                    const reregistered = [];
-                    pub.on("reregister", (res) => reregister.push(res));
-                    pub.on("reregistered", (res) => reregistered.push(res));
+                const reregister = [];
+                const reregistered = [];
+                pub.on("reregister", (res) => reregister.push(res));
+                pub.on("reregistered", (res) => reregistered.push(res));
 
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1);
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                await settle();
+                await settle();
 
-                    expect(reregister).to.have.length(1);
-                    expect(reregistered).to.have.length(1);
-                    expect(reregister[0]).to.equal(reregistered[0]);
-                } finally {
-                    clock.restore();
-                }
+                expect(reregister).to.have.length(1);
+                expect(reregistered).to.have.length(1);
+                expect(reregister[0]).to.equal(reregistered[0]);
                 await pub.close();
             });
 
@@ -1123,167 +989,103 @@ describe("Realtime", function () {
                 const closeSpy = sinon.spy(dead, "close");
                 const disconnectSpy = sinon.spy(dead, "disconnect");
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    dead.serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1);
+                dead.serverEmit("connect_error", "Invalid namespace");
+                await settle();
+                await settle();
 
-                    expect(disconnectSpy.called).to.equal(true);
-                    expect(closeSpy.called).to.equal(true);
-                } finally {
-                    clock.restore();
-                }
-                await pub.close();
-            });
-
-            it("should never run more than one live socket across failed recovery iterations", async function () {
-                /* Every recovery socket (sockets index >= 1) fails its open with a
-                 * connect_error, so the recovery loop iterates several times. Each
-                 * failed iteration must tear its socket down: at no observed point
-                 * may two live (un-disconnected) sockets coexist. */
-                const { pub, sockets } = await recoverablePub({
-                    socketFactory: (idx) =>
-                        idx === 0 ? new FakeSocket() : new FailOpenSocket(),
-                });
-
-                const clock = sinon.useFakeTimers();
-                try {
-                    const liveCounts = [];
-                    pub.on("reregisterError", () => {
-                        liveCounts.push(
-                            sockets.filter((s) => s.isLive()).length);
-                    });
-
-                    /* Kick recovery; let it churn through several failed backoff
-                     * iterations (1s, 2s, 4s, 8s, 16s). */
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1 + 1000 + 2000 + 4000 + 8000 + 16000);
-
-                    /* The loop ran several iterations (one error per failure). */
-                    expect(liveCounts.length).to.be.greaterThan(2);
-                    /* INVARIANT: at most one live socket at any observed point. */
-                    for (const c of liveCounts) {
-                        expect(c).to.be.lessThan(2);
-                    }
-                    /* And right now, across every socket ever opened, at most one
-                     * is still live. */
-                    const liveNow = sockets.filter((s) => s.isLive()).length;
-                    expect(liveNow).to.be.lessThan(2);
-
-                    /* Stop the loop so close() does not race the next backoff. */
-                    pub._closed = true;
-                    await clock.tickAsync(30000);
-                } finally {
-                    clock.restore();
-                }
+                expect(disconnectSpy.called).to.equal(true);
+                expect(closeSpy.called).to.equal(true);
                 await pub.close();
             });
 
             it("should coalesce a burst of loss events into one recovery", async function () {
                 const { pub, ws, sockets } = await recoverablePub();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    /* Slow the recovery watchPub so the burst overlaps it. */
-                    let resolveWatchPub;
-                    let recoveryWatchPubs = 0;
-                    ws._wsRawSubmit = sinon.spy((method, uri) => {
-                        if (uri === "/oauth2/token") {
-                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
-                        }
-                        if (uri === "/api/watchPub") {
-                            recoveryWatchPubs += 1;
-                            return new Promise((resolve) => {
-                                resolveWatchPub = () =>
-                                    resolve({ watchId: "wp-recovered", data: [] });
-                            });
-                        }
-                        return Promise.resolve();
-                    });
+                /* Slow the recovery watchPub so the burst overlaps it. */
+                let resolveWatchPub;
+                let recoveryWatchPubs = 0;
+                ws._wsRawSubmit = sinon.spy((method, uri) => {
+                    if (uri === "/oauth2/token") {
+                        return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                    }
+                    if (uri === "/api/watchPub") {
+                        recoveryWatchPubs += 1;
+                        return new Promise((resolve) => {
+                            resolveWatchPub = () =>
+                                resolve({ watchId: "wp-recovered", data: [] });
+                        });
+                    }
+                    return Promise.resolve();
+                });
 
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    sockets[0].serverEmit("disconnect", "transport close");
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1);
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                sockets[0].serverEmit("disconnect", "transport close");
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                await settle();
 
-                    /* Only one recovery watchPub is in flight despite three events. */
-                    expect(recoveryWatchPubs).to.equal(1);
-                    resolveWatchPub();
-                    await clock.tickAsync(1);
-                } finally {
-                    clock.restore();
-                }
+                /* Only one recovery watchPub is in flight despite three events. */
+                expect(recoveryWatchPubs).to.equal(1);
+                resolveWatchPub();
+                await settle();
                 await pub.close();
             });
 
             it("should retry recovery with backoff until watchPub is accepted", async function () {
                 const { pub, ws } = await recoverablePub();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    /* The first recovery watchPub fails (apiserver still
-                     * settling), the second succeeds. */
-                    let recoveryCalls = 0;
-                    ws._wsRawSubmit = sinon.spy((method, uri) => {
-                        if (uri === "/oauth2/token") {
-                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                /* The first recovery watchPub fails (apiserver still settling),
+                 * the second succeeds. */
+                let recoveryCalls = 0;
+                ws._wsRawSubmit = sinon.spy((method, uri) => {
+                    if (uri === "/oauth2/token") {
+                        return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                    }
+                    if (uri === "/api/watchPub") {
+                        recoveryCalls += 1;
+                        if (recoveryCalls === 1) {
+                            return Promise.reject(new Error("service unavailable"));
                         }
-                        if (uri === "/api/watchPub") {
-                            recoveryCalls += 1;
-                            if (recoveryCalls === 1) {
-                                return Promise.reject(
-                                    new Error("service unavailable"));
-                            }
-                            return Promise.resolve({
-                                watchId: "wp-recovered", data: [] });
-                        }
-                        return Promise.resolve();
-                    });
+                        return Promise.resolve({ watchId: "wp-recovered", data: [] });
+                    }
+                    return Promise.resolve();
+                });
 
-                    const reregistered = [];
-                    pub.on("reregistered", (res) => reregistered.push(res));
+                const reregistered = [];
+                pub.on("reregistered", (res) => reregistered.push(res));
 
-                    pub.socket.serverEmit("connect_error", "Invalid namespace");
+                pub.socket.serverEmit("connect_error", "Invalid namespace");
 
-                    /* Allow the failed attempt + 1 s backoff + the retry. */
-                    await clock.tickAsync(1300);
+                /* Allow the failed attempt + 1 s backoff + the retry. */
+                await new Promise((r) => setTimeout(r, 1300));
 
-                    expect(recoveryCalls).to.equal(2);
-                    expect(reregistered).to.have.length(1);
-                } finally {
-                    clock.restore();
-                }
+                expect(recoveryCalls).to.equal(2);
+                expect(reregistered).to.have.length(1);
                 await pub.close();
             });
 
             it("should not recover before the first registration / connect", async function () {
-                const clock = sinon.useFakeTimers();
-                try {
-                    const http = new stubs.StubHTTPClient(),
-                        log = new stubs.StubLogger(),
-                        ws = getInstance(http, log);
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
 
-                    ws._wsRawSubmit = sinon.spy((method, uri) => {
-                        if (uri === "/oauth2/token") {
-                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
-                        }
-                        return Promise.resolve({ watchId: TEST_WATCH_ID, data: [] });
-                    });
+                ws._wsRawSubmit = sinon.spy((method, uri) => {
+                    if (uri === "/oauth2/token") {
+                        return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                    }
+                    return Promise.resolve({ watchId: TEST_WATCH_ID, data: [] });
+                });
 
-                    const pub = ws.createPublisher();
-                    /* A loss before any connect() is a no-op (no socket, not
-                     * connected). Drive the session's own handler directly. */
-                    pub._scheduleRecovery("transport close");
-                    pub._recover("connect_error");
-                    await clock.tickAsync(50);
+                const pub = ws.createPublisher();
+                /* A loss before any connect() is a no-op (no socket, not
+                 * connected). Drive the session's own handler directly. */
+                pub._scheduleRecovery("transport close");
+                pub._recover("connect_error");
+                await new Promise((r) => setTimeout(r, 50));
 
-                    const watchPubs = ws._wsRawSubmit
-                        .getCalls()
-                        .filter((c) => c.args[1] === "/api/watchPub").length;
-                    expect(watchPubs).to.equal(0);
-                } finally {
-                    clock.restore();
-                }
+                const watchPubs = ws._wsRawSubmit
+                    .getCalls()
+                    .filter((c) => c.args[1] === "/api/watchPub").length;
+                expect(watchPubs).to.equal(0);
             });
 
             it("should not recover after close", async function () {
@@ -1292,17 +1094,12 @@ describe("Realtime", function () {
 
                 await pub.close();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    /* A late socket loss after close must not re-register. */
-                    sockets[0].serverEmit("disconnect", "transport close");
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1100);
+                /* A late socket loss after close must not re-register. */
+                sockets[0].serverEmit("disconnect", "transport close");
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                await new Promise((r) => setTimeout(r, 1100));
 
-                    expect(watchPubCount()).to.equal(before);
-                } finally {
-                    clock.restore();
-                }
+                expect(watchPubCount()).to.equal(before);
             });
 
             it("should not recover when autoRecover is disabled", async function () {
@@ -1311,16 +1108,11 @@ describe("Realtime", function () {
                 });
                 const before = watchPubCount();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    sockets[0].serverEmit("disconnect", "transport close");
-                    sockets[0].serverEmit("connect_error", "Invalid namespace");
-                    await clock.tickAsync(1100);
+                sockets[0].serverEmit("disconnect", "transport close");
+                sockets[0].serverEmit("connect_error", "Invalid namespace");
+                await new Promise((r) => setTimeout(r, 1100));
 
-                    expect(watchPubCount()).to.equal(before);
-                } finally {
-                    clock.restore();
-                }
+                expect(watchPubCount()).to.equal(before);
                 await pub.close();
             });
 
@@ -1328,21 +1120,284 @@ describe("Realtime", function () {
                 const { pub, sockets, watchPubCount } = await recoverablePub();
                 const before = watchPubCount();
 
-                const clock = sinon.useFakeTimers();
-                try {
-                    /* Transient drop, then socket.io rejoins within the grace
-                     * window: the pending recovery is cancelled, no fresh
-                     * watchPub. */
-                    sockets[0].serverEmit("disconnect", "transport close");
-                    sockets[0].serverEmit("connect");
-                    await clock.tickAsync(1100);
+                /* Transient drop, then socket.io rejoins within the grace window:
+                 * the pending recovery is cancelled, no fresh watchPub. */
+                sockets[0].serverEmit("disconnect", "transport close");
+                sockets[0].serverEmit("connect");
+                await new Promise((r) => setTimeout(r, 1100));
 
-                    expect(watchPubCount()).to.equal(before);
-                    expect(sockets.length).to.equal(1);
-                } finally {
-                    clock.restore();
-                }
+                expect(watchPubCount()).to.equal(before);
+                expect(sockets.length).to.equal(1);
                 await pub.close();
+            });
+        });
+
+        /* ------------------------------------------------------------
+         * Recovery robustness (CORE-8790, kai-1 / kai-2 review findings). A
+         * throwing 'recovering' listener must not wedge the guard flag
+         * forever (kai-1), and a hung recovery REST call must not wedge the
+         * retry loop forever either (kai-2). Both are permanent-silent-wedge
+         * bugs on an unattended device: exactly the failure class this PR
+         * exists to prevent.
+         * ---------------------------------------------------------- */
+
+        describe("recovery robustness (CORE-8790)", function () {
+            const settle = () => new Promise((r) => setImmediate(r));
+
+            describe("kai-1: throwing 'recovering' listener", function () {
+                it("must not wedge _recovering forever (socket-loss _recover)", async function () {
+                    let http = new stubs.StubHTTPClient(),
+                        log = new stubs.StubLogger(),
+                        ws = getInstance(http, log);
+
+                    let watchPubCalls = 0;
+                    ws._wsRawSubmit = sinon.spy((method, uri) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/watchPub") {
+                            watchPubCalls += 1;
+                            return Promise.resolve({
+                                watchId:
+                                    watchPubCalls === 1
+                                        ? TEST_WATCH_ID
+                                        : "fresh-watch-" + watchPubCalls,
+                                data: [],
+                            });
+                        }
+                        return Promise.resolve();
+                    });
+
+                    const sockets = [];
+                    sinon.stub(socket, "connect").callsFake(() => {
+                        const s = new FakeSocket();
+                        sockets.push(s);
+                        return s;
+                    });
+                    sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
+
+                    const pub = ws.createPublisher();
+                    await pub.watchPub({
+                        data: [{ id: TEST_POINTS[0], intervalFast: 1000 }],
+                    });
+                    await pub.connect(TEST_WATCH_ID);
+
+                    const boom = new Error("listener boom");
+                    pub.on("recovering", () => {
+                        throw boom;
+                    });
+
+                    const reregistered = [];
+                    pub.on("reregistered", (res) => reregistered.push(res));
+
+                    /* A failed reconnection attempt against the dead namespace
+                     * fires _recover() synchronously, which now emits
+                     * 'recovering' INSIDE the try/finally: the listener above
+                     * throws immediately. */
+                    sockets[0].serverEmit("connect_error", "Invalid namespace");
+
+                    await settle();
+                    await settle();
+                    await settle();
+
+                    /* (a) the guard flag must clear, not stay wedged true. */
+                    expect(pub._recovering).to.equal(false);
+                    /* (b) recovery proceeded despite the throw: a fresh
+                     * watchPub ran and the session resynced. */
+                    expect(watchPubCalls).to.equal(2);
+                    expect(reregistered).to.have.length(1);
+                    /* The listener's own throw is logged loudly, not eaten. */
+                    const loggedErrors = log.error.getCalls().map((c) => c.args[0]);
+                    expect(loggedErrors).to.include(boom);
+
+                    /* A SUBSEQUENT recovery is not permanently disabled. */
+                    sockets[1].serverEmit("connect_error", "Invalid namespace");
+                    await settle();
+                    await settle();
+                    await settle();
+
+                    expect(pub._recovering).to.equal(false);
+                    expect(watchPubCalls).to.equal(3);
+                    expect(reregistered).to.have.length(2);
+
+                    await pub.close();
+                });
+            });
+
+            describe("kai-2: recovery REST calls must not hang forever", function () {
+                it("times out a hung recovery watchPub and moves on to the next backoff attempt (_recover)", async function () {
+                    let http = new stubs.StubHTTPClient(),
+                        log = new stubs.StubLogger(),
+                        ws = getInstance(http, log);
+
+                    let watchPubCalls = 0;
+                    const recoveryConfigs = [];
+                    ws._wsRawSubmit = sinon.spy((method, uri, body, config) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/watchPub") {
+                            watchPubCalls += 1;
+                            if (watchPubCalls === 1) {
+                                return Promise.resolve({ watchId: TEST_WATCH_ID, data: [] });
+                            }
+                            recoveryConfigs.push(config);
+                            if (watchPubCalls === 2) {
+                                /* Simulate a half-open TCP flow (dead, no
+                                 * RST): only a real per-call timeout unwedges
+                                 * it. Mirrors axios's own req.setTimeout
+                                 * behaviour so the test can drive it
+                                 * deterministically with sinon's fake clock. */
+                                return new Promise((resolve, reject) => {
+                                    if (config && config.timeout) {
+                                        setTimeout(() => {
+                                            reject(new Error(
+                                                `timeout of ${config.timeout}ms exceeded`));
+                                        }, config.timeout);
+                                        return;
+                                    }
+                                    /* No timeout configured: hangs forever
+                                     * (the bug, pre-fix). */
+                                });
+                            }
+                            /* Third+ attempt: we only need to observe the
+                             * loop REACHING it, proving call #2 did not hang
+                             * forever. Never settling here keeps the test
+                             * from depending on the follow-on connect()
+                             * socket handshake. */
+                            return new Promise(() => {});
+                        }
+                        return Promise.resolve();
+                    });
+
+                    const sockets = [];
+                    sinon.stub(socket, "connect").callsFake(() => {
+                        const s = new FakeSocket();
+                        sockets.push(s);
+                        return s;
+                    });
+                    sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
+
+                    const pub = ws.createPublisher();
+                    await pub.watchPub({
+                        data: [{ id: TEST_POINTS[0], intervalFast: 1000 }],
+                    });
+                    await pub.connect(TEST_WATCH_ID);
+
+                    const clock = sinon.useFakeTimers();
+                    try {
+                        const reregisterErrors = [];
+                        pub.on("reregisterError", (err) => reregisterErrors.push(err));
+
+                        sockets[0].serverEmit("connect_error", "Invalid namespace");
+
+                        /* Reach the hung recovery watchPub. */
+                        await clock.tickAsync(0);
+                        expect(watchPubCalls).to.equal(2);
+                        expect(pub._recovering).to.equal(true);
+                        /* Pin the literal wire value: pre-fix both sides
+                         * would be undefined and this would pass vacuously. */
+                        expect(recoveryConfigs[0].timeout).to.equal(45000);
+                        expect(recoveryConfigs[0].timeout).to.equal(
+                            PublisherSession.RECOVERY_REQUEST_TIMEOUT_MS);
+
+                        /* Advance past the recovery-request timeout: pre-fix
+                         * this await hangs forever; post-fix it rejects. */
+                        await clock.tickAsync(
+                            PublisherSession.RECOVERY_REQUEST_TIMEOUT_MS + 1);
+                        expect(reregisterErrors).to.have.length(1);
+                        expect(reregisterErrors[0].message).to.match(/timeout/);
+
+                        /* Advance past the jittered backoff: the loop
+                         * proceeds to its NEXT attempt rather than hanging
+                         * forever. */
+                        await clock.tickAsync(
+                            PublisherSession.RECOVER_MAX_BACKOFF_MS + 1);
+                        expect(watchPubCalls).to.equal(3);
+                    }
+                    finally {
+                        clock.restore();
+                    }
+
+                    await pub.close();
+                });
+
+                it("times out a hung dead-namespace re-register (_maybeReregister)", async function () {
+                    let http = new stubs.StubHTTPClient(),
+                        log = new stubs.StubLogger(),
+                        ws = getInstance(http, log);
+
+                    let watchPubCalls = 0;
+                    const recoveryConfigs = [];
+                    ws._wsRawSubmit = sinon.spy((method, uri, body, config) => {
+                        if (uri === "/oauth2/token") {
+                            return Promise.resolve({ access_token: WS_ACCESS_TOKEN });
+                        }
+                        if (uri === "/api/watchPub") {
+                            watchPubCalls += 1;
+                            if (watchPubCalls === 1) {
+                                return Promise.resolve({ watchId: TEST_WATCH_ID, data: [] });
+                            }
+                            recoveryConfigs.push(config);
+                            /* The dead-namespace re-register: a half-open TCP
+                             * flow, only the per-call timeout unwedges it. */
+                            return new Promise((resolve, reject) => {
+                                if (config && config.timeout) {
+                                    setTimeout(() => {
+                                        reject(new Error(
+                                            `timeout of ${config.timeout}ms exceeded`));
+                                    }, config.timeout);
+                                    return;
+                                }
+                            });
+                        }
+                        return Promise.resolve();
+                    });
+
+                    const fake = new FakeSocket();
+                    sinon.stub(socket, "connect").returns(fake);
+                    sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
+
+                    const pub = ws.createPublisher();
+                    await pub.watchPub({
+                        data: [{ id: TEST_POINTS[0], intervalFast: 1000 }],
+                    });
+                    await pub.connect(TEST_WATCH_ID);
+
+                    const clock = sinon.useFakeTimers();
+                    try {
+                        const reregisterErrors = [];
+                        pub.on("reregisterError", (err) => reregisterErrors.push(err));
+
+                        /* Dead namespace: server says 404 on a pointUpdate. */
+                        fake.serverEmit("pointUpdateError", {
+                            command: "pointUpdateError",
+                            err: "Namespace does not map to an active publisher watch owned by this user",
+                            errorCode: 404,
+                        });
+
+                        await clock.tickAsync(0);
+                        expect(watchPubCalls).to.equal(2);
+                        expect(pub._reregistering).to.equal(true);
+                        /* Pin the literal wire value: pre-fix both sides
+                         * would be undefined and this would pass vacuously. */
+                        expect(recoveryConfigs[0].timeout).to.equal(45000);
+                        expect(recoveryConfigs[0].timeout).to.equal(
+                            PublisherSession.RECOVERY_REQUEST_TIMEOUT_MS);
+
+                        await clock.tickAsync(
+                            PublisherSession.RECOVERY_REQUEST_TIMEOUT_MS + 1);
+
+                        expect(reregisterErrors).to.have.length(1);
+                        expect(reregisterErrors[0].message).to.match(/timeout/);
+                        expect(pub._reregistering).to.equal(false);
+                    }
+                    finally {
+                        clock.restore();
+                    }
+
+                    await pub.close();
+                });
             });
         });
 

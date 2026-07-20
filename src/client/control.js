@@ -25,9 +25,7 @@
  *     publisher's open socket then also carries control frames, so this session
  *     reuses that socket instead of opening its own. Pass the owning
  *     PublisherSession via attachTo() (or createControlListener({ publisher }))
- *     to enable it. The shared session tracks the publisher's socket swaps
- *     (socketSwap event) so it rebinds its command handler whenever the
- *     publisher recovers and replaces its socket.
+ *     to enable it.
  *
  * Command delivery and reportWrite semantics are identical to the legacy watcher
  * path: a pointWrite arrives as a 'message' frame with command 'pointWrite' and
@@ -58,9 +56,58 @@ const CONNECTED_EVENT = 'WideSkyConnected';
 const CMD_POINT_WRITE = 'pointWrite';
 const CMD_REPORT_WRITE = 'reportWrite';
 
-/** Initial / ceiling backoff (ms) for socket-loss re-registration retries. */
+/** Initial / ceiling backoff (ms) for socket-loss re-registration retries.
+ * The ceiling is 5 min (-lpa.2, was 30 s): these retries ride metered
+ * cellular links and each attempt costs a controlSub REST round-trip plus a
+ * full TLS + engine.io handshake. */
 const RECOVER_BACKOFF_MS = 1000;
-const RECOVER_MAX_BACKOFF_MS = 30000;
+const RECOVER_MAX_BACKOFF_MS = 5 * 60 * 1000;
+
+/**
+ * Request timeout (ms, kai-2 CORE-8790) applied ONLY to the REST calls the
+ * recovery ladder itself issues (controlSub inside _resubShared / _recover).
+ * See src/client/publisher.js for the full half-open-TCP-flow rationale; the
+ * value is duplicated here (not imported) following this file's existing
+ * convention for the sibling recovery constants above.
+ */
+const RECOVERY_REQUEST_TIMEOUT_MS = 45000;
+
+/** Bound on the shared-resub stabilisation loop (-lpa.3): a publisher that
+ * swaps watches back-to-back must not spin _resubShared forever. Each pass
+ * costs a controlSub round-trip, so a small ceiling is ample for a realistic
+ * swap burst; exhausting it logs and defers to the next reregistered event. */
+const RESUB_STABILISE_MAX = 8;
+
+/** Auth-rejection park cadence (-lpa.2); see src/client/publisher.js. */
+const AUTH_PARK_MS = 5 * 60 * 1000;
+
+/** The auth-rejection reason shapes; see src/client/publisher.js. */
+const AUTH_REJECTION_RE = /\b40[13]\b|forbidden|unauthori[sz]ed|bad request/i;
+
+/** socket.io Manager reconnection pacing (-lpa.2; see _openSocket). */
+const RECONNECTION_DELAY_MS = 5000;
+const RECONNECTION_DELAY_MAX_MS = 5 * 60 * 1000;
+const RECONNECTION_JITTER = 0.5;
+
+/**
+ * Classify a socket rejection reason (string or Error) as an auth denial.
+ * @param {*} reason The connect_error / connection_error reason.
+ * @returns {boolean} true when the reason is 401/403-shaped.
+ */
+function isAuthRejection(reason) {
+    const msg = (reason && reason.message !== undefined)
+        ? reason.message : reason;
+    return (typeof msg === 'string') && AUTH_REJECTION_RE.test(msg);
+}
+
+/**
+ * Equal-jitter delay: half fixed, half random (-lpa.2 org backoff policy).
+ * @param {number} ms The un-jittered delay.
+ * @returns {number} A delay in [ms/2, ms].
+ */
+function jitteredMs(ms) {
+    return Math.round(ms / 2 + Math.random() * (ms / 2));
+}
 
 /**
  * Grace (ms) granted to socket.io's own reconnection after a plain `disconnect`
@@ -136,22 +183,35 @@ class ControlSession extends EventEmitter {
          * disconnect / connect_error events coalesces into one re-registration. */
         this._recovering = false;
 
-        /* In-flight one-shot re-register guard (dead-namespace path), so a burst
-         * of connection_error / 404 signals coalesces into one attempt. */
-        this._reregistering = false;
+        /* Set when a publisher watch swap arrives while a shared resub is
+         * already in flight (-lpa.3): the in-flight resub re-checks this on
+         * completion and runs again against the live watch rather than
+         * stranding the registration on the dead one. */
+        this._resubPending = false;
 
         /* Pending grace timer for a plain disconnect; a within-grace rejoin
          * cancels it. */
         this._recoverTimer = null;
 
         /* The shared-transport command handler bound to the owning publisher's
-         * socket, retained so it can be detached on a socket swap and on close. */
+         * socket, retained (with the socket OBJECT it was bound to) so it can
+         * be detached on close and re-bound after a publisher socket swap
+         * without stacking duplicates (-lpa.2). */
         this._sharedHandler = null;
+        this._sharedSocket = null;
 
-        /* The publisher socketSwap listener (shared transport) so the command
-         * handler rebinds to the publisher's new socket after a recovery, and so
-         * it can be removed on close. */
-        this._sharedSwapHandler = null;
+        /* The 'reregistered' listener bound onto the owning publisher session
+         * (-lpa.2): a publisher socket-loss recovery swaps in a fresh socket
+         * AND a fresh watch, which kills a shared registration twice over (the
+         * command handler is bound to the dead socket object, and the server
+         * purged the registration with the superseded watch). This listener
+         * re-runs controlSub against the publisher's NEW watch and rebinds the
+         * handler to the NEW socket. */
+        this._pubReregHandler = null;
+
+        if (this._publisher) {
+            this._wirePublisherHooks();
+        }
     }
 
     /* ================================================================
@@ -169,8 +229,51 @@ class ControlSession extends EventEmitter {
      * @returns {ControlSession} this (for chaining).
      */
     attachTo(publisher) {
+        this._detachPublisherHooks();
         this._publisher = publisher;
+        this._wirePublisherHooks();
         return this;
+    }
+
+    /**
+     * Subscribe to the owning publisher's 'reregistered' event so a shared
+     * registration survives the publisher's socket-loss recovery (-lpa.2; see
+     * the constructor comment). Idempotent per publisher.
+     * @private
+     */
+    _wirePublisherHooks() {
+        if (!this._publisher || typeof this._publisher.on !== 'function'
+                || this._pubReregHandler) {
+            return;
+        }
+        this._pubReregHandler = (res) => {
+            this._resubShared(res).catch((err) => {
+                /* _resubShared retries internally; a rejection here means it
+                 * bailed permanently (session closed). */
+                this.logger.debug(err,
+                    'shared control re-registration abandoned');
+            });
+        };
+        this._publisher.on('reregistered', this._pubReregHandler);
+    }
+
+    /**
+     * Drop the 'reregistered' listener off the owning publisher (close /
+     * re-attach).
+     * @private
+     */
+    _detachPublisherHooks() {
+        if (this._publisher && this._pubReregHandler
+                && typeof this._publisher.removeListener === 'function') {
+            try {
+                this._publisher.removeListener(
+                    'reregistered', this._pubReregHandler);
+            }
+            catch (err) {
+                /* best-effort */
+            }
+        }
+        this._pubReregHandler = null;
     }
 
     /* ================================================================
@@ -321,14 +424,20 @@ class ControlSession extends EventEmitter {
         }
 
         const timeoutMs = (opts.timeoutMs !== undefined) ? opts.timeoutMs : 10000;
+
+        /* Detach any previous listener socket BEFORE opening a new one
+         * (-lpa.2): a failed recovery attempt used to overwrite this.socket
+         * while the old socket's reconnection loop kept running, leaking one
+         * flapping socket per attempt. */
+        this._detachSocket();
+
         const sock = this._openSocket(id);
         this.socket = sock;
         this._wireSocket(sock);
 
         return new Promise((resolve, reject) => {
             let settled = false;
-
-            const settle = (fn, arg) => {
+            const finish = (fn, arg) => {
                 if (settled) {
                     return;
                 }
@@ -337,30 +446,28 @@ class ControlSession extends EventEmitter {
                 fn(arg);
             };
 
-            /* Reject path: tear the just-opened socket down BEFORE settling so a
-             * failed connect does not leave a `reconnection: true` socket (and
-             * its persistent connect_error handler) hammering the server. */
-            const rejectWith = (arg) => {
-                if (settled) {
-                    return;
-                }
-                this._teardownSocket(sock);
-                if (this.socket === sock) {
-                    this.socket = null;
-                }
-                settle(reject, arg);
-            };
-
             const timer = setTimeout(() => {
-                rejectWith(new Error(`connect to ${id} timed out`));
+                finish(reject, new Error(`connect to ${id} timed out`));
             }, timeoutMs);
 
             sock.once(CONNECTED_EVENT, () => {
                 this._connected = true;
-                settle(resolve, sock);
+                finish(resolve, sock);
             });
-            sock.once('connect_error', (reason) => rejectWith(reason));
-            sock.once('connection_error', (reason) => rejectWith(reason));
+            const rejectConnect = (reason) => {
+                /* Auth denial is permanent until credentials / authz change:
+                 * stop this socket's own reconnection ladder rather than let
+                 * it flap behind the rejected promise (-lpa.2, hot-loop H2). */
+                if (isAuthRejection(reason)) {
+                    this.logger.warn(
+                        'Control socket to %s denied (auth): %s; stopping '
+                        + 'the transport retry ladder', id, reason);
+                    this._detachSocket();
+                }
+                finish(reject, reason);
+            };
+            sock.once('connect_error', rejectConnect);
+            sock.once('connection_error', rejectConnect);
 
             sock.open();
         });
@@ -398,6 +505,12 @@ class ControlSession extends EventEmitter {
             'force new connection': true,
             autoConnect: false,
             reconnection: true,
+            /* Reconnection pacing (-lpa.2, hot-loop audit H2): base 5 s,
+             * ceiling 5 min, jittered, replacing socket.io's 1 s / 5 s
+             * defaults that flap metered links. */
+            reconnectionDelay: RECONNECTION_DELAY_MS,
+            reconnectionDelayMax: RECONNECTION_DELAY_MAX_MS,
+            randomizationFactor: RECONNECTION_JITTER,
             path: `${subPath}/socket.io`
         });
     }
@@ -431,21 +544,12 @@ class ControlSession extends EventEmitter {
 
         sock.on('connect_error', (reason) => {
             this.emit('connectionError', reason);
-            /* A failed reconnection attempt against a namespace that no longer
-             * exists (post-restart) is a dead-socket signal. Recover now (the
-             * backoff retry loop) rather than wait out the disconnect grace. */
             this._recover(reason);
         });
 
         sock.on('connection_error', (reason) => {
             this.emit('connectionError', reason);
-            /* A connection_error is a transport/handshake reject distinct from a
-             * dead-namespace reconnection failure (a non-owner / authz reject
-             * surfaces here). Mirror PublisherSession: route it to the one-shot
-             * dead-namespace re-register, NOT the connect_error retry loop, so a
-             * reject that will never clear does not storm a fresh controlSub on
-             * an endless backoff. */
-            this._maybeReregister(reason);
+            this._recover(reason);
         });
 
         sock.on(MESSAGE_EVENT, (payload) => this._handleControlFrame(payload));
@@ -457,11 +561,6 @@ class ControlSession extends EventEmitter {
      * router server-side; on the client the SAME socket delivers them, so we
      * listen for control `message` frames on the publisher's socket and emit
      * 'command' for pointWrite.
-     *
-     * The publisher owns its socket lifecycle and replaces the socket on a
-     * recovery / dead-namespace re-register (emitting socketSwap). We subscribe
-     * to that event and rebind the command handler to the publisher's NEW socket
-     * so a shared listener does not go deaf after the publisher recovers.
      * @private
      */
     _wireSharedTransport() {
@@ -471,44 +570,197 @@ class ControlSession extends EventEmitter {
                 'shared control transport requires a connected publisher socket; '
                 + 'connect the publisher first.');
         }
+        /* Dedupe (-lpa.2): each connect() used to ADD a handler without
+         * removing the previous one, so a re-registration over the same
+         * socket delivered every command twice. Unbind the previous handler
+         * (from whichever socket OBJECT it was bound to) before binding. */
+        this._unbindSharedHandler();
         this._sharedHandler = (payload) => this._handleControlFrame(payload);
+        this._sharedSocket = pubSocket;
         pubSocket.on(MESSAGE_EVENT, this._sharedHandler);
-
-        /* Rebind onto the publisher's new socket whenever it swaps (recovery /
-         * re-register). The old socket was torn down by the publisher
-         * (removeAllListeners), so we only need to (re)attach to the new one.
-         * The publisher is an EventEmitter in normal use; guard the subscription
-         * so a publisher-like object without an event surface still delivers
-         * commands (it simply will not auto-rebind across a swap). */
-        if (!this._sharedSwapHandler
-                && typeof this._publisher.on === 'function') {
-            this._sharedSwapHandler = (newSocket) =>
-                this._rebindSharedTransport(newSocket);
-            this._publisher.on('socketSwap', this._sharedSwapHandler);
-        }
     }
 
     /**
-     * Rebind the shared command handler from a torn-down publisher socket onto
-     * the publisher's new socket after a socketSwap. Idempotent and tolerant of
-     * a missing new socket.
-     *
-     * @param {Object} newSocket The publisher's replacement socket.
+     * Remove the shared-transport command handler from the socket it was bound
+     * to (which may be a dead socket the publisher has already swapped out).
      * @private
      */
-    _rebindSharedTransport(newSocket) {
-        if (this._closed) {
+    _unbindSharedHandler() {
+        if (this._sharedHandler && this._sharedSocket
+                && typeof this._sharedSocket.removeListener === 'function') {
+            try {
+                this._sharedSocket.removeListener(
+                    MESSAGE_EVENT, this._sharedHandler);
+            }
+            catch (err) {
+                /* best-effort */
+            }
+        }
+        this._sharedHandler = null;
+        this._sharedSocket = null;
+    }
+
+    /**
+     * Re-register a SHARED registration after the owning publisher recovered
+     * onto a fresh watch + socket (-lpa.2). The old registration died with the
+     * superseded watch server-side and the old command handler is bound to a
+     * dead socket object client-side, so both legs are rebuilt: a fresh
+     * controlSub (attachTo re-derived from the publisher's CURRENT watchId,
+     * never the retained stale one) and a rebind onto the publisher's current
+     * socket. Retries with the same backoff policy as _recover.
+     *
+     * Overlapping swaps (-lpa.3): a publisher socket-loss storm can swap the
+     * watch AGAIN while a resub is still in flight. The in-flight resub derived
+     * its attachTo from the watchId that was live when it STARTED, so if it
+     * completes against that now-superseded watch the registration is stranded
+     * on a dead watch (the server routes pointWrites to a namespace nobody
+     * holds) with no further event to shake it loose. This is the exact field
+     * wedge widesky-edge-go's belt-and-braces service leg exists to refute; see
+     * that repo's telemetry/lib/service.js _bindControlResub comment block.
+     * Rather than coalesce-and-drop a swap that lands mid-resub, this method
+     * records it (_resubPending) and, after each successful bind, re-checks
+     * whether the publisher's watch moved (or another swap was requested)
+     * during the recovery; if so it resubs again against the live watch, looping
+     * until the bound watch matches the live watch (bounded by
+     * RESUB_STABILISE_MAX so a non-stop swap cannot spin here forever).
+     *
+     * @param {*} cause The publisher's reregistered payload (for logging).
+     * @private
+     */
+    async _resubShared(cause) {
+        if (this._closed || !this.shared || !this._connected) {
             return;
         }
-        const target = newSocket || (this._publisher && this._publisher.socket);
-        if (!target || !this._sharedHandler) {
+        if (!this._lastSubBody || !this._autoRecover) {
             return;
         }
-        /* The previous socket was removeAllListeners()'d by the publisher's
-         * teardown, so there is nothing to detach there; just (re)bind on the
-         * new socket, guarding against a duplicate if this fires twice. */
-        target.removeListener(MESSAGE_EVENT, this._sharedHandler);
-        target.on(MESSAGE_EVENT, this._sharedHandler);
+        if (this._recovering) {
+            /* A swap that arrives while a resub is already in flight is
+             * RECORDED, not dropped: the re-check at the bottom of the loop
+             * below sees this flag and resubs against the live watch so the
+             * registration never strands on the superseded one (-lpa.3). */
+            this._resubPending = true;
+            return;
+        }
+
+        this._recovering = true;
+
+        /* The handler is bound to the publisher's DEAD socket; drop it now so
+         * a failed resub never leaves a stale binding behind. */
+        this._unbindSharedHandler();
+
+        let stabiliseGuard = 0;
+        try {
+            /* Emit INSIDE the guarded try/finally (kai-1, CORE-8790): see
+             * publisher.js _recover for the full rationale. A throwing
+             * 'recovering' listener must not leave this shared-resub guard
+             * stuck true forever; catch it locally, log it loudly, and let
+             * the stabilisation loop proceed regardless. */
+            try {
+                this.emit('recovering', cause || 'publisher reregistered');
+            }
+            catch (emitErr) {
+                this.logger.error(emitErr, 'recovering listener threw');
+            }
+
+            /* Outer stabilisation loop: after each successful bind, re-check
+             * whether the target watch moved during the recovery and, if so,
+             * resub again against the live watch. */
+            for (;;) {
+                this._resubPending = false;
+                /* The watch this pass targets: controlSub (below) derives its
+                 * attachTo from this SAME publisher.watchId with no await in
+                 * between, so this is exactly the watch this pass will bind. */
+                const targetWatchId =
+                    this._publisher ? this._publisher.watchId : null;
+
+                let backoff = RECOVER_BACKOFF_MS;
+                let bound = false;
+                for (;;) {
+                    if (this._closed) {
+                        return;
+                    }
+
+                    try {
+                        /* Drop the STALE attachTo (the superseded watchId):
+                         * controlSub re-derives it from the attached publisher's
+                         * current watch. */
+                        const body = Object.assign({}, this._lastSubBody);
+                        delete body.attachTo;
+
+                        const res = await this.controlSub(
+                            body, { timeout: RECOVERY_REQUEST_TIMEOUT_MS });
+                        if (this._closed) {
+                            return;
+                        }
+
+                        await this.connect(res.registrationId, {
+                            autoReregister: this._autoReregister,
+                            autoRecover: this._autoRecover
+                        });
+
+                        this.emit('reregister', res);
+                        this.emit('reregistered', res);
+                        bound = true;
+                        break;
+                    }
+                    catch (err) {
+                        if (this._closed) {
+                            return;
+                        }
+                        let delay;
+                        if (isAuthRejection(err)) {
+                            delay = jitteredMs(AUTH_PARK_MS);
+                            this.logger.error(err,
+                                'Shared control re-registration DENIED (auth); '
+                                + `parked, next attempt in ${delay} ms`);
+                            this.emit('authParked',
+                                { reason: err, retryInMs: delay });
+                            backoff = AUTH_PARK_MS;
+                        }
+                        else {
+                            delay = jitteredMs(backoff);
+                            this.logger.warn(err,
+                                'Shared control re-registration not yet '
+                                + `accepted; retrying in ${delay} ms`);
+                            backoff = Math.min(
+                                backoff * 2, RECOVER_MAX_BACKOFF_MS);
+                        }
+                        this.emit('reregisterError', err);
+                        await sleep(delay);
+                    }
+                }
+
+                if (!bound) {
+                    return;
+                }
+
+                /* Re-check against the LIVE watch. A swap that landed while the
+                 * bind above was in flight either set _resubPending (its
+                 * _resubShared call coalesced here) or moved publisher.watchId
+                 * off targetWatchId; either way the bind we just made is on a
+                 * now-dead watch, so go round again against the live one. */
+                const liveWatchId =
+                    this._publisher ? this._publisher.watchId : null;
+                const swappedUnderneath =
+                    this._resubPending || (liveWatchId !== targetWatchId);
+                if (!swappedUnderneath) {
+                    return;
+                }
+                if (++stabiliseGuard >= RESUB_STABILISE_MAX) {
+                    this.logger.error(
+                        { targetWatchId, liveWatchId },
+                        'Shared control re-registration did not stabilise after '
+                        + `${RESUB_STABILISE_MAX} passes; leaving it for the `
+                        + 'next publisher reregistered event');
+                    return;
+                }
+            }
+        }
+        finally {
+            this._recovering = false;
+            this._resubPending = false;
+        }
     }
 
     /**
@@ -578,9 +830,8 @@ class ControlSession extends EventEmitter {
 
     /* ================================================================
      * Socket-loss recovery (standalone transport only). A shared registration
-     * follows the owning publisher's recovery (it rebinds on the publisher's
-     * socketSwap event); this session does not run its own recovery for the
-     * shared transport.
+     * follows the owning publisher's recovery; this session does not duplicate
+     * it.
      * ============================================================== */
 
     /**
@@ -620,63 +871,6 @@ class ControlSession extends EventEmitter {
     }
 
     /**
-     * One-shot fresh re-registration for the dead-namespace signal (a
-     * connection_error: a non-owner / authz reject, or a namespace that went
-     * away). Mirrors PublisherSession._maybeReregister: tears the dead socket
-     * down, re-registers ONCE with a fresh controlSub + connect, and on failure
-     * emits reregisterError and STOPS (no retry loop). This is the deliberate
-     * counterpart to _recover's backoff loop: a connection_error that will never
-     * clear must not storm a fresh controlSub forever.
-     *
-     * @param {*} reason The triggering reason.
-     * @private
-     */
-    async _maybeReregister(reason) {
-        if (this._closed || !this._autoRecover || !this._connected) {
-            return;
-        }
-        if (this.shared || this._recovering || this._reregistering) {
-            return;
-        }
-        if (!this._lastSubBody || !this._autoReregister) {
-            return;
-        }
-
-        this._cancelPendingRecovery();
-        this._reregistering = true;
-        this.emit('recovering', reason);
-
-        /* Tear the dead socket down before re-registering so its automatic
-         * reconnection loop does not keep hammering the gone namespace. */
-        this._detachSocket();
-
-        try {
-            const res = await this.controlSub(
-                Object.assign({}, this._lastSubBody));
-            if (this._closed) {
-                return;
-            }
-
-            await this.connect(res.registrationId, {
-                autoReregister: this._autoReregister,
-                autoRecover: this._autoRecover
-            });
-
-            this.emit('reregister', res);
-            this.emit('reregistered', res);
-        }
-        catch (err) {
-            this.logger.warn(
-                err,
-                'Control listener re-register after dead namespace failed');
-            this.emit('reregisterError', err);
-        }
-        finally {
-            this._reregistering = false;
-        }
-    }
-
-    /**
      * Force a fresh re-registration after a socket loss the dead-namespace path
      * will not catch (a clean restart presents as a plain disconnect /
      * connect_error). Tears the dead socket down, drops the stale registration
@@ -690,7 +884,7 @@ class ControlSession extends EventEmitter {
         if (this._closed || !this._autoRecover || !this._connected) {
             return;
         }
-        if (this.shared || this._recovering || this._reregistering) {
+        if (this.shared || this._recovering) {
             return;
         }
         if (!this._lastSubBody || !this._autoReregister) {
@@ -699,12 +893,23 @@ class ControlSession extends EventEmitter {
 
         this._cancelPendingRecovery();
         this._recovering = true;
-        this.emit('recovering', reason);
 
         this._detachSocket();
 
         let backoff = RECOVER_BACKOFF_MS;
         try {
+            /* Emit INSIDE the guarded try/finally (kai-1, CORE-8790): see
+             * publisher.js _recover for the full rationale. A throwing
+             * 'recovering' listener must not leave _recovering stuck true
+             * forever; catch it locally, log it loudly, and let the ladder
+             * proceed regardless. */
+            try {
+                this.emit('recovering', reason);
+            }
+            catch (emitErr) {
+                this.logger.error(emitErr, 'recovering listener threw');
+            }
+
             for (;;) {
                 if (this._closed) {
                     return;
@@ -712,7 +917,9 @@ class ControlSession extends EventEmitter {
 
                 try {
                     const res = await this.controlSub(
-                        Object.assign({}, this._lastSubBody));
+                        Object.assign({}, this._lastSubBody),
+                        { timeout: RECOVERY_REQUEST_TIMEOUT_MS }
+                    );
                     if (this._closed) {
                         return;
                     }
@@ -730,40 +937,36 @@ class ControlSession extends EventEmitter {
                     if (this._closed) {
                         return;
                     }
-                    this.logger.warn(
-                        err,
-                        'Control listener socket-loss recovery not yet accepted; '
-                        + `retrying in ${backoff} ms`
-                    );
+                    let delay;
+                    if (isAuthRejection(err)) {
+                        /* Auth denial does not ride the transient ladder
+                         * (-lpa.2): park at the capped cadence; each parked
+                         * attempt re-reads the token. */
+                        delay = jitteredMs(AUTH_PARK_MS);
+                        this.logger.error(
+                            err,
+                            'Control listener recovery DENIED (auth); parked, '
+                            + `next attempt in ${delay} ms`
+                        );
+                        this.emit('authParked', { reason: err, retryInMs: delay });
+                        backoff = AUTH_PARK_MS;
+                    }
+                    else {
+                        delay = jitteredMs(backoff);
+                        this.logger.warn(
+                            err,
+                            'Control listener socket-loss recovery not yet '
+                            + `accepted; retrying in ${delay} ms`
+                        );
+                        backoff = Math.min(backoff * 2, RECOVER_MAX_BACKOFF_MS);
+                    }
                     this.emit('reregisterError', err);
-                    await sleep(backoff);
-                    backoff = Math.min(backoff * 2, RECOVER_MAX_BACKOFF_MS);
+                    await sleep(delay);
                 }
             }
         }
         finally {
             this._recovering = false;
-        }
-    }
-
-    /**
-     * Tear down a specific socket: remove its listeners, stop its reconnection
-     * loop, and close the transport. Safe on an already-closed socket.
-     *
-     * @param {Object} sock The socket to tear down.
-     * @private
-     */
-    _teardownSocket(sock) {
-        if (!sock) {
-            return;
-        }
-        try {
-            sock.removeAllListeners();
-            sock.disconnect();
-            sock.close();
-        }
-        catch (err) {
-            /* best-effort */
         }
     }
 
@@ -778,7 +981,14 @@ class ControlSession extends EventEmitter {
             return;
         }
         this.socket = null;
-        this._teardownSocket(sock);
+        try {
+            sock.removeAllListeners();
+            sock.disconnect();
+            sock.close();
+        }
+        catch (err) {
+            /* best-effort */
+        }
     }
 
     /* ================================================================
@@ -799,31 +1009,12 @@ class ControlSession extends EventEmitter {
         this._autoRecover = false;
         this._cancelPendingRecovery();
 
-        /* Shared transport: detach our handler from the publisher's socket and
-         * stop tracking its socket swaps, but leave that socket alone (the
-         * publisher owns its lifecycle). */
-        if (this._sharedSwapHandler && this._publisher
-                && typeof this._publisher.removeListener === 'function') {
-            try {
-                this._publisher.removeListener(
-                    'socketSwap', this._sharedSwapHandler);
-            }
-            catch (err) {
-                /* best-effort */
-            }
-        }
-        this._sharedSwapHandler = null;
-
-        if (this._sharedHandler && this._publisher && this._publisher.socket) {
-            try {
-                this._publisher.socket.removeListener(
-                    MESSAGE_EVENT, this._sharedHandler);
-            }
-            catch (err) {
-                /* best-effort */
-            }
-        }
-        this._sharedHandler = null;
+        /* Shared transport: detach our handler from the socket it was bound
+         * to (which may be a socket the publisher has already swapped out)
+         * but leave that socket alone (the publisher owns its lifecycle), and
+         * drop the publisher 'reregistered' hook (-lpa.2). */
+        this._unbindSharedHandler();
+        this._detachPublisherHooks();
 
         const sock = this.socket;
         this.socket = null;
@@ -853,3 +1044,11 @@ class ControlSession extends EventEmitter {
 }
 
 module.exports = ControlSession;
+// Reconnect / auth-park behaviour surface (-lpa.2), exported so consumers'
+// vendor-contract tests can pin it against the installed tarball.
+module.exports.isAuthRejection = isAuthRejection;
+module.exports.AUTH_PARK_MS = AUTH_PARK_MS;
+module.exports.RECONNECTION_DELAY_MS = RECONNECTION_DELAY_MS;
+module.exports.RECONNECTION_DELAY_MAX_MS = RECONNECTION_DELAY_MAX_MS;
+module.exports.RECOVER_MAX_BACKOFF_MS = RECOVER_MAX_BACKOFF_MS;
+module.exports.RECOVERY_REQUEST_TIMEOUT_MS = RECOVERY_REQUEST_TIMEOUT_MS;
