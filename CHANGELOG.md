@@ -4,6 +4,30 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-07-20
+
+### Fixed
+- [CORE-8790](https://widesky.atlassian.net/browse/CORE-8790): Realtime
+  publisher/control recovery hardening. Paced socket.io reconnection and raised
+  the recovery backoff ceiling, park 401/403 auth denials instead of flapping the
+  transport, rebind the shared `ControlSession` across publisher socket-loss
+  recovery, forward `perMessageDeflate` to the socket transport, and re-check the
+  live watch after a shared-control resub. Prevents hot reconnect loops, wedged
+  recovery, and needless cellular-data burn on the edge publisher.
+- [CORE-9107](https://widesky.atlassian.net/browse/CORE-9107): Invalid
+  `options.client` values now throw a catchable `ValidationError` from
+  `new WideSkyClient(...)` instead of crashing the process with an
+  unhandled promise rejection and leaving the client half-initialised.
+
+### CHANGED
+- [CORE-9107](https://widesky.atlassian.net/browse/CORE-9107): Stricter
+  `options.client` validation at construction; all failures throw catchably
+  from `new WideSkyClient(...)`.
+  - Unknown/typo'd option keys are now rejected instead of silently ignored
+    (per-call `client.batch.*` options are unaffected).
+  - `batch.hisRead.batchSize` is now capped at 1000, matching
+    `batch.hisReadByFilter`.
+
 ## [3.4.0] - 2026-07-13
 
 ### Breaking
@@ -426,7 +450,8 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.4.0
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.4.1
+[3.4.1]: https://github.com/widesky/jswidesky-client/compare/3.4.1...3.4.0
 [3.4.0]: https://github.com/widesky/jswidesky-client/compare/3.4.0...3.3.1
 [3.3.1]: https://github.com/widesky/jswidesky-client/compare/3.3.1...3.3.0
 [3.3.0]: https://github.com/widesky/jswidesky-client/compare/3.3.0...3.2.1

@@ -7481,5 +7481,294 @@ describe("client", () => {
                 expect(ws1._requestQueue).to.not.equal(ws2._requestQueue);
             });
         });
+
+        describe("constructor option validation (CORE-9107)", () => {
+            /**
+             * Build a client with the given options.client, expecting the
+             * constructor itself to throw (never an unhandled rejection).
+             */
+            function constructWith(clientOptions) {
+                const http = new stubs.StubHTTPClient();
+                const log = new stubs.StubLogger();
+                return () => stubs.getInstance(http, log, { clientOptions });
+            }
+
+            it("throws a catchable error from the constructor when an option is out of range", () => {
+                expect(constructWith({
+                    batch: {
+                        hisWrite: {
+                            batchSize: 999999
+                        }
+                    }
+                })).to.throw("batch.hisWrite.batchSize must be less than or equal to 20000");
+            });
+
+            it("throws a catchable error from the constructor when an option has the wrong type", () => {
+                expect(constructWith({
+                    acceptGzip: 12
+                })).to.throw("acceptGzip must be a `boolean` type, but the final value was: `12`.");
+            });
+
+            describe("batch batchSize above schema maximum", () => {
+                const BATCH_SIZE_MAXES = {
+                    hisRead: 1000,
+                    hisWrite: 20000,
+                    hisDelete: 3000,
+                    create: 10000,
+                    update: 10000,
+                    deleteById: 100,
+                    deleteByFilter: 100,
+                    hisReadByFilter: 1000,
+                    addChildrenByFilter: 10000,
+                    updateByFilter: 10000,
+                    migrateHistory: 20000,
+                    hisDeleteByFilter: 3000,
+                    updateOrCreate: 10000,
+                    multiFind: 200
+                };
+
+                for (const [op, max] of Object.entries(BATCH_SIZE_MAXES)) {
+                    it(`throws from the constructor for batch.${op}.batchSize > ${max}`, () => {
+                        expect(constructWith({
+                            batch: {
+                                [op]: {
+                                    batchSize: max + 1
+                                }
+                            }
+                        })).to.throw(
+                            `batch.${op}.batchSize must be less than or equal to ${max}`);
+                    });
+                }
+            });
+
+            describe("batch batchSizeEntity above schema maximum", () => {
+                for (const op of ["hisWrite", "hisDelete", "hisDeleteByFilter"]) {
+                    it(`throws from the constructor for batch.${op}.batchSizeEntity > 1000`, () => {
+                        expect(constructWith({
+                            batch: {
+                                [op]: {
+                                    batchSizeEntity: 1001
+                                }
+                            }
+                        })).to.throw(
+                            `batch.${op}.batchSizeEntity must be less than or equal to 1000`);
+                    });
+                }
+            });
+
+            describe("shared batch properties", () => {
+                it("throws from the constructor for parallel > 100", () => {
+                    expect(constructWith({
+                        batch: {
+                            hisRead: {
+                                parallel: 101
+                            }
+                        }
+                    })).to.throw("batch.hisRead.parallel must be less than or equal to 100");
+                });
+
+                it("throws from the constructor for a negative batchDelay", () => {
+                    expect(constructWith({
+                        batch: {
+                            hisRead: {
+                                batchDelay: -1
+                            }
+                        }
+                    })).to.throw("batch.hisRead.batchDelay must be greater than or equal to 0");
+                });
+
+                it("throws from the constructor for a negative limit", () => {
+                    expect(constructWith({
+                        batch: {
+                            hisReadByFilter: {
+                                limit: -1
+                            }
+                        }
+                    })).to.throw("batch.hisReadByFilter.limit must be greater than or equal to 0");
+                });
+
+                it("throws from the constructor for a non-boolean returnResult", () => {
+                    expect(constructWith({
+                        batch: {
+                            hisWrite: {
+                                returnResult: "yes"
+                            }
+                        }
+                    })).to.throw(
+                        "batch.hisWrite.returnResult must be a `boolean` type, " +
+                        "but the final value was: `\"yes\"`.");
+                });
+            });
+
+            describe("performOpInBatch", () => {
+                it("throws from the constructor for batchSize above maximum", () => {
+                    expect(constructWith({
+                        performOpInBatch: {
+                            batchSize: 10 ** 9 + 1
+                        }
+                    })).to.throw(
+                        "performOpInBatch.batchSize must be less than or equal to 1000000000");
+                });
+
+                it("throws from the constructor for parallel > 100", () => {
+                    expect(constructWith({
+                        performOpInBatch: {
+                            parallel: 101
+                        }
+                    })).to.throw(
+                        "performOpInBatch.parallel must be less than or equal to 100");
+                });
+            });
+
+            describe("progress", () => {
+                it("throws from the constructor for a non-boolean enable", () => {
+                    expect(constructWith({
+                        progress: {
+                            enable: 12
+                        }
+                    })).to.throw(
+                        "progress.enable must be a `boolean` type, but the final value was: `12`.");
+                });
+
+                it("throws from the constructor for a non-string increment", () => {
+                    expect(constructWith({
+                        progress: {
+                            increment: 12
+                        }
+                    })).to.throw(
+                        "progress.increment must be a `string` type, but the final value was: `12`.");
+                });
+            });
+
+            describe("queue", () => {
+                it("throws from the constructor for maxConcurrent < 1", () => {
+                    expect(constructWith({
+                        queue: {
+                            maxConcurrent: 0
+                        }
+                    })).to.throw("queue.maxConcurrent must be greater than or equal to 1");
+                });
+
+                it("throws from the constructor for a negative minDelayMs", () => {
+                    expect(constructWith({
+                        queue: {
+                            minDelayMs: -1
+                        }
+                    })).to.throw("queue.minDelayMs must be greater than or equal to 0");
+                });
+
+                it("throws from the constructor for highWaterPct > 1", () => {
+                    expect(constructWith({
+                        queue: {
+                            highWaterPct: 2
+                        }
+                    })).to.throw("queue.highWaterPct must be less than or equal to 1");
+                });
+
+                it("throws from the constructor for a non-integer maxQueueDepth", () => {
+                    expect(constructWith({
+                        queue: {
+                            maxQueueDepth: 1.5
+                        }
+                    })).to.throw("queue.maxQueueDepth must be an integer");
+                });
+            });
+
+            describe("top-level options", () => {
+                it("throws from the constructor for a non-string impersonateAs", () => {
+                    expect(constructWith({
+                        impersonateAs: 12
+                    })).to.throw(
+                        "impersonateAs must be a `string` type, but the final value was: `12`.");
+                });
+
+                it("throws from the constructor when batch is not an object", () => {
+                    expect(constructWith({
+                        batch: "not-an-object"
+                    })).to.throw();
+                });
+            });
+
+            describe("unknown option keys", () => {
+                it("throws from the constructor for an unknown top-level key", () => {
+                    expect(constructWith({
+                        bacth: {}
+                    })).to.throw(/unspecified keys: bacth/);
+                });
+
+                it("throws from the constructor for an unknown batch op name", () => {
+                    expect(constructWith({
+                        batch: {
+                            hisRaed: {}
+                        }
+                    })).to.throw(/unspecified keys: hisRaed/);
+                });
+
+                it("throws from the constructor for an unknown batch op property", () => {
+                    expect(constructWith({
+                        batch: {
+                            hisRead: {
+                                batchSze: 5
+                            }
+                        }
+                    })).to.throw(/unspecified keys: batchSze/);
+                });
+
+                it("throws from the constructor for an unknown progress key", () => {
+                    expect(constructWith({
+                        progress: {
+                            enabel: true
+                        }
+                    })).to.throw(/unspecified keys: enabel/);
+                });
+
+                it("throws from the constructor for an unknown queue key", () => {
+                    expect(constructWith({
+                        queue: {
+                            maxConcurrnt: 1
+                        }
+                    })).to.throw(/unspecified keys: maxConcurrnt/);
+                });
+
+                it("throws from the constructor for an unknown performOpInBatch key", () => {
+                    expect(constructWith({
+                        performOpInBatch: {
+                            btachDelay: 0
+                        }
+                    })).to.throw(/unspecified keys: btachDelay/);
+                });
+
+                it("still type-coerces values on non-strict fields", () => {
+                    // queue sub-options carry no field-level .strict(), so yup's
+                    // historical coercion (e.g. numeric strings) must keep working
+                    // alongside unknown-key rejection.
+                    const http = new stubs.StubHTTPClient();
+                    const log = new stubs.StubLogger();
+                    const ws = stubs.getInstance(http, log, {
+                        clientOptions: {
+                            queue: {
+                                maxConcurrent: "5"
+                            }
+                        }
+                    });
+                    expect(ws.clientOptions.queue.maxConcurrent).to.equal(5);
+                });
+
+                it("still accepts the documented progress.instance option", () => {
+                    const fakeInstance = { create: () => {}, update: () => {}, increment: () => {} };
+                    const http = new stubs.StubHTTPClient();
+                    const log = new stubs.StubLogger();
+                    const ws = stubs.getInstance(http, log, {
+                        clientOptions: {
+                            progress: {
+                                enable: true,
+                                instance: fakeInstance
+                            }
+                        }
+                    });
+                    expect(ws.clientOptions.progress.instance).to.equal(fakeInstance);
+                });
+            });
+        });
     });
 });
