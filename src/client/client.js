@@ -382,19 +382,28 @@ class WideSkyClient {
 
     /**
      * Initialise the WideSkyClient with the user configurations.
+     * @throws {ValidationError} if `options.client` fails schema validation.
      * @returns {void}
      */
-    async initClientOptions() {
-        CLIENT_SCHEMA.validateSync(this.options.client);
+    initClientOptions() {
+        // stripUnknown: false — with noUnknown() schemas, yup's default
+        // validation casts with stripUnknown enabled, which silently drops
+        // unknown keys before the noUnknown test can report them. Keeping
+        // unknown keys through the cast makes typo'd options throw here,
+        // while non-strict validation preserves yup's usual type coercion
+        // (e.g. numeric strings on queue sub-options).
+        CLIENT_SCHEMA.validateSync(this.options.client, { stripUnknown: false });
         this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
 
-        // The queue setup below MUST stay synchronous. The constructor at
-        // line 251 calls initClientOptions() without await and relies on
-        // _requestQueue being populated before any subsequent method call.
-        // Do NOT insert an `await` anywhere above this block, or early
-        // requests will see _requestQueue === null with no test failure
-        // surfacing it (existing tests do `await ws.initClientOptions()` and
-        // would still pass).
+        // This method MUST stay fully synchronous — do NOT mark it `async`
+        // or insert an `await`. The constructor calls it directly and relies
+        // on (a) validation errors throwing from `new WideSkyClient(...)`
+        // where callers can catch them (CORE-9107), and (b) _requestQueue
+        // being populated before any subsequent method call. An `async`
+        // body turns the ValidationError into an unhandled promise
+        // rejection and leaves the client half-initialised, with no test
+        // failure surfacing it (existing tests do
+        // `await ws.initClientOptions()` and would still pass).
         const qOpts = this.clientOptions.queue;
         this._requestQueue = qOpts !== undefined
             ? new RequestQueue(qOpts, this.logger)
@@ -2135,6 +2144,16 @@ class WideSkyClient {
             query: { Authorization: accessToken },
             'force new connection': true,
             autoConnect: false,
+            /* Reconnection pacing (-lpa.2, hot-loop audit H2): socket.io's
+             * defaults (1 s delay, 5 s ceiling) turn a server-side rejection
+             * or outage into a fast reconnect flap (measured ~6 MB/h per
+             * denied device: every attempt is a full TLS + engine.io
+             * handshake carrying the token). Base 5 s, ceiling 5 min, with
+             * the default 0.5 randomization so a fleet does not retry in
+             * lockstep. Values shared with PublisherSession / ControlSession. */
+            reconnectionDelay: PublisherSession.RECONNECTION_DELAY_MS,
+            reconnectionDelayMax: PublisherSession.RECONNECTION_DELAY_MAX_MS,
+            randomizationFactor: 0.5,
             path: `${subPath}/socket.io`
         });
     }
@@ -2150,7 +2169,11 @@ class WideSkyClient {
      *
      * @param {Object} [options]  Session options forwarded to PublisherSession,
      *                            e.g. { autoRecover: false } to opt out of the
-     *                            built-in socket-loss recovery.
+     *                            built-in socket-loss recovery, or
+     *                            { perMessageDeflate: { threshold: 100 } } to
+     *                            tune outbound frame compression (engine.io's
+     *                            default 1024-byte threshold leaves small frames
+     *                            uncompressed).
      * @returns {PublisherSession} A new, unregistered publisher session bound to
      *                             this client.
      */

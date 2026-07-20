@@ -35,6 +35,18 @@
  *   // ... consume pointData over the socket ...
  *   renewer.stop();
  */
+
+/**
+ * Request timeout (ms, kai-2 CORE-8790) applied to the watchExtend renewal
+ * REST call. See src/client/publisher.js for the half-open-TCP-flow
+ * rationale (a dead cellular flow otherwise hangs the await forever). Capped
+ * per-instance below a safe fraction of the lease (see the constructor): a
+ * renewal that could still be in flight after its own watch has already
+ * expired is pointless, since the watch dies first regardless of whether the
+ * renewal eventually lands.
+ */
+const RECOVERY_REQUEST_TIMEOUT_MS = 45000;
+
 class ConsumerWatchRenewer {
     /**
      * @param {WideSkyClient} client  The owning WideSky client.
@@ -73,6 +85,17 @@ class ConsumerWatchRenewer {
         const fraction = (opts.renewFraction !== undefined)
             ? opts.renewFraction : 0.5;
         this._renewEveryMs = Math.max(1, Math.floor(leaseMs * fraction));
+
+        /* Recovery-request timeout for the watchExtend call itself (kai-2,
+         * CORE-8790): a half-open TCP flow otherwise hangs the await
+         * forever, and a stuck renewal never retries (the timer's next tick
+         * is still renewEveryMs away). CRITICALLY this must stay below the
+         * lease it renews: a renewal that could still be in flight after the
+         * watch it renews has already expired is pointless, so cap it to
+         * 40% of the lease alongside the module ceiling, whichever is
+         * smaller. */
+        this._renewTimeoutMs = Math.min(
+            RECOVERY_REQUEST_TIMEOUT_MS, Math.floor(leaseMs * 0.4));
 
         this._onError = (typeof opts.onError === 'function')
             ? opts.onError : null;
@@ -123,7 +146,8 @@ class ConsumerWatchRenewer {
         this._renewing = true;
         try {
             await this._client.watchExtend(
-                this.watchId, this.pointIds, this.lease);
+                this.watchId, this.pointIds, this.lease,
+                { timeout: this._renewTimeoutMs });
         }
         catch (err) {
             this.logger.warn(err, 'Consumer watch lease renewal failed');
@@ -196,3 +220,4 @@ function parseLeaseMs(lease) {
 
 module.exports = ConsumerWatchRenewer;
 module.exports.parseLeaseMs = parseLeaseMs;
+module.exports.RECOVERY_REQUEST_TIMEOUT_MS = RECOVERY_REQUEST_TIMEOUT_MS;
