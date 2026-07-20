@@ -560,19 +560,14 @@ describe('client', () => {
             expect(submit.calledOnce).to.equal(true);
         });
 
-        it('rejects an empty string at construction (M2: TypeError)', async () => {
-            ws = constructWithOptions(log, { impersonateAs: '' });
-            let err;
-            try { await ws.initClientOptions(); } catch (e) { err = e; }
-            expect(err).to.be.instanceOf(TypeError);
-            expect(err.message).to.match(/non-empty/);
+        it('rejects an empty string at construction (M2: TypeError)', () => {
+            expect(() => constructWithOptions(log, { impersonateAs: '' }))
+                .to.throw(TypeError, /non-empty/);
         });
 
-        it('rejects whitespace-only at construction (M2: TypeError)', async () => {
-            ws = constructWithOptions(log, { impersonateAs: '   ' });
-            let err;
-            try { await ws.initClientOptions(); } catch (e) { err = e; }
-            expect(err).to.be.instanceOf(TypeError);
+        it('rejects whitespace-only at construction (M2: TypeError)', () => {
+            expect(() => constructWithOptions(log, { impersonateAs: '   ' }))
+                .to.throw(TypeError);
         });
 
         it('does not re-resolve on subsequent requests', async () => {

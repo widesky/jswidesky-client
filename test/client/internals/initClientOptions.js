@@ -7481,5 +7481,31 @@ describe("client", () => {
                 expect(ws1._requestQueue).to.not.equal(ws2._requestQueue);
             });
         });
+
+        describe("constructor option validation (CORE-9107)", () => {
+            it("throws a catchable error from the constructor when an option is out of range", () => {
+                const http = new stubs.StubHTTPClient();
+                const log = new stubs.StubLogger();
+                expect(() => stubs.getInstance(http, log, {
+                    clientOptions: {
+                        batch: {
+                            hisWrite: {
+                                batchSize: 999999
+                            }
+                        }
+                    }
+                })).to.throw("batch.hisWrite.batchSize must be less than or equal to 20000");
+            });
+
+            it("throws a catchable error from the constructor when an option has the wrong type", () => {
+                const http = new stubs.StubHTTPClient();
+                const log = new stubs.StubLogger();
+                expect(() => stubs.getInstance(http, log, {
+                    clientOptions: {
+                        acceptGzip: 12
+                    }
+                })).to.throw("acceptGzip must be a `boolean` type, but the final value was: `12`.");
+            });
+        });
     });
 });

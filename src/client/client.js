@@ -382,19 +382,22 @@ class WideSkyClient {
 
     /**
      * Initialise the WideSkyClient with the user configurations.
+     * @throws {ValidationError} if `options.client` fails schema validation.
      * @returns {void}
      */
-    async initClientOptions() {
+    initClientOptions() {
         CLIENT_SCHEMA.validateSync(this.options.client);
         this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
 
-        // The queue setup below MUST stay synchronous. The constructor at
-        // line 251 calls initClientOptions() without await and relies on
-        // _requestQueue being populated before any subsequent method call.
-        // Do NOT insert an `await` anywhere above this block, or early
-        // requests will see _requestQueue === null with no test failure
-        // surfacing it (existing tests do `await ws.initClientOptions()` and
-        // would still pass).
+        // This method MUST stay fully synchronous — do NOT mark it `async`
+        // or insert an `await`. The constructor calls it directly and relies
+        // on (a) validation errors throwing from `new WideSkyClient(...)`
+        // where callers can catch them (CORE-9107), and (b) _requestQueue
+        // being populated before any subsequent method call. An `async`
+        // body turns the ValidationError into an unhandled promise
+        // rejection and leaves the client half-initialised, with no test
+        // failure surfacing it (existing tests do
+        // `await ws.initClientOptions()` and would still pass).
         const qOpts = this.clientOptions.queue;
         this._requestQueue = qOpts !== undefined
             ? new RequestQueue(qOpts, this.logger)

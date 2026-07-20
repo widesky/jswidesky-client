@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### FIXED
+- [CORE-9107](https://widesky.atlassian.net/browse/CORE-9107): Invalid
+  `options.client` values now throw a catchable `ValidationError` from
+  `new WideSkyClient(...)` instead of crashing the process with an
+  unhandled promise rejection and leaving the client half-initialised.
+
 ## [3.4.0] - 2026-07-13
 
 ### Breaking
