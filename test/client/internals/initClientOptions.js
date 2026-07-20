@@ -7738,6 +7738,22 @@ describe("client", () => {
                     })).to.throw(/unspecified keys: btachDelay/);
                 });
 
+                it("still type-coerces values on non-strict fields", () => {
+                    // queue sub-options carry no field-level .strict(), so yup's
+                    // historical coercion (e.g. numeric strings) must keep working
+                    // alongside unknown-key rejection.
+                    const http = new stubs.StubHTTPClient();
+                    const log = new stubs.StubLogger();
+                    const ws = stubs.getInstance(http, log, {
+                        clientOptions: {
+                            queue: {
+                                maxConcurrent: "5"
+                            }
+                        }
+                    });
+                    expect(ws.clientOptions.queue.maxConcurrent).to.equal(5);
+                });
+
                 it("still accepts the documented progress.instance option", () => {
                     const fakeInstance = { create: () => {}, update: () => {}, increment: () => {} };
                     const http = new stubs.StubHTTPClient();

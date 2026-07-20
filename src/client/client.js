@@ -386,10 +386,13 @@ class WideSkyClient {
      * @returns {void}
      */
     initClientOptions() {
-        // strict: unknown-key rejection (noUnknown) is only enforced by yup
-        // in strict validation; non-strict validation casts first, which
-        // silently strips unknown keys instead of reporting them.
-        CLIENT_SCHEMA.validateSync(this.options.client, { strict: true });
+        // stripUnknown: false — with noUnknown() schemas, yup's default
+        // validation casts with stripUnknown enabled, which silently drops
+        // unknown keys before the noUnknown test can report them. Keeping
+        // unknown keys through the cast makes typo'd options throw here,
+        // while non-strict validation preserves yup's usual type coercion
+        // (e.g. numeric strings on queue sub-options).
+        CLIENT_SCHEMA.validateSync(this.options.client, { stripUnknown: false });
         this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
 
         // This method MUST stay fully synchronous — do NOT mark it `async`

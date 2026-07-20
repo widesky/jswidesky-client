@@ -25,9 +25,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
     (per-call `client.batch.*` options are unaffected).
   - `batch.hisRead.batchSize` is now capped at 1000, matching
     `batch.hisReadByFilter`.
-  - Option values are no longer type-coerced during validation (e.g. a
-    string `"5"` for `queue.maxConcurrent` now throws instead of being
-    silently converted).
 
 ## [3.4.0] - 2026-07-13
 
