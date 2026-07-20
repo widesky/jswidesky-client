@@ -386,7 +386,10 @@ class WideSkyClient {
      * @returns {void}
      */
     initClientOptions() {
-        CLIENT_SCHEMA.validateSync(this.options.client);
+        // strict: unknown-key rejection (noUnknown) is only enforced by yup
+        // in strict validation; non-strict validation casts first, which
+        // silently strips unknown keys instead of reporting them.
+        CLIENT_SCHEMA.validateSync(this.options.client, { strict: true });
         this.clientOptions = CLIENT_SCHEMA.cast(this.options.client);
 
         // This method MUST stay fully synchronous — do NOT mark it `async`

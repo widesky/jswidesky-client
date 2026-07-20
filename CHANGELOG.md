@@ -17,6 +17,18 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `new WideSkyClient(...)` instead of crashing the process with an
   unhandled promise rejection and leaving the client half-initialised.
 
+### CHANGED
+- [CORE-9107](https://widesky.atlassian.net/browse/CORE-9107): Stricter
+  `options.client` validation at construction; all failures throw catchably
+  from `new WideSkyClient(...)`.
+  - Unknown/typo'd option keys are now rejected instead of silently ignored
+    (per-call `client.batch.*` options are unaffected).
+  - `batch.hisRead.batchSize` is now capped at 1000, matching
+    `batch.hisReadByFilter`.
+  - Option values are no longer type-coerced during validation (e.g. a
+    string `"5"` for `queue.maxConcurrent` now throws instead of being
+    silently converted).
+
 ## [3.4.0] - 2026-07-13
 
 ### Breaking

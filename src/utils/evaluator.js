@@ -89,6 +89,7 @@ const PERFORM_OP_IN_BATCH_OBJ = {
 // Client function schema for options arguments
 const BATCH_HIS_READ_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
+    ...getBatchProp(HIS_READ_BATCH_SIZE, HIS_READ_BATCH_SIZE_MAX),
 });
 const BATCH_HIS_WRITE_SCHEMA = yup.object({
     ...PERFORM_OP_IN_BATCH_OBJ,
@@ -177,6 +178,12 @@ const PROGRESS_OBJ = {
         .notRequired()
         .strict()
         .default(false),
+    // A caller-supplied progress reporter (e.g. a cli-progress MultiBar).
+    // Left as mixed() so noUnknown() on the construction path does not
+    // reject this documented option.
+    instance: yup.mixed()
+        .nullable()
+        .notRequired(),
     increment: yup.string()
         .nullable()
         .notRequired()
@@ -194,6 +201,11 @@ const PROGRESS_OBJ = {
         .default("update")
 };
 
+// The construction path (options.client) rejects unknown keys so typo'd
+// option names throw from `new WideSkyClient(...)` instead of being
+// silently ignored (CORE-9107). noUnknown() is applied via clones here so
+// the per-call batch option schemas above keep their historical
+// pass-through behaviour for unknown keys.
 const CLIENT_SCHEMA = yup.object({
     impersonateAs: yup.string()
         .nullable()
@@ -205,26 +217,26 @@ const CLIENT_SCHEMA = yup.object({
         .notRequired()
         .strict()
         .default(true),
-    progress: yup.object(PROGRESS_OBJ),
+    progress: yup.object(PROGRESS_OBJ).noUnknown(),
     batch: yup.object({
-        hisRead: BATCH_HIS_READ_SCHEMA,
-        hisWrite: BATCH_HIS_WRITE_SCHEMA,
-        hisDelete: BATCH_HIS_DELETE_SCHEMA,
-        create: BATCH_CREATE_SCHEMA,
-        update: BATCH_UPDATE_SCHEMA,
-        deleteById: BATCH_DELETE_BY_ID_SCHEMA,
-        deleteByFilter: BATCH_DELETE_BY_FILTER_SCHEMA,
-        hisReadByFilter: BATCH_HIS_READ_BY_FILTER_SCHEMA,
-        addChildrenByFilter: BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA,
-        updateByFilter: BATCH_UPDATE_BY_FILTER_SCHEMA,
-        migrateHistory: BATCH_MIGRATE_HISTORY_SCHEMA,
-        hisDeleteByFilter: BATCH_HIS_DELETE_BY_FILTER_SCHEMA,
-        updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA,
-        multiFind: BATCH_MULTI_FIND_SCHEMA
-    }),
-    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA,
-    queue: QUEUE_SCHEMA
-});
+        hisRead: BATCH_HIS_READ_SCHEMA.noUnknown(),
+        hisWrite: BATCH_HIS_WRITE_SCHEMA.noUnknown(),
+        hisDelete: BATCH_HIS_DELETE_SCHEMA.noUnknown(),
+        create: BATCH_CREATE_SCHEMA.noUnknown(),
+        update: BATCH_UPDATE_SCHEMA.noUnknown(),
+        deleteById: BATCH_DELETE_BY_ID_SCHEMA.noUnknown(),
+        deleteByFilter: BATCH_DELETE_BY_FILTER_SCHEMA.noUnknown(),
+        hisReadByFilter: BATCH_HIS_READ_BY_FILTER_SCHEMA.noUnknown(),
+        addChildrenByFilter: BATCH_ADD_CHILDREN_BY_FILTER_SCHEMA.noUnknown(),
+        updateByFilter: BATCH_UPDATE_BY_FILTER_SCHEMA.noUnknown(),
+        migrateHistory: BATCH_MIGRATE_HISTORY_SCHEMA.noUnknown(),
+        hisDeleteByFilter: BATCH_HIS_DELETE_BY_FILTER_SCHEMA.noUnknown(),
+        updateOrCreate: BATCH_UPDATE_OR_CREATE_SCHEMA.noUnknown(),
+        multiFind: BATCH_MULTI_FIND_SCHEMA.noUnknown()
+    }).noUnknown(),
+    performOpInBatch: PERFORM_OP_IN_BATCH_SCHEMA.noUnknown(),
+    queue: QUEUE_SCHEMA.noUnknown()
+}).noUnknown();
 
 module.exports = {
     CLIENT_SCHEMA,

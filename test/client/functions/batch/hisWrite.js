@@ -347,6 +347,15 @@ describe("client.batch.hisWrite", () => {
                     expect(ws.hisWrite.called).to.be.false;
                 });
             }
+
+            it("should tolerate unknown per-call option keys", async () => {
+                // Unknown keys are only rejected on the options.client
+                // construction path (CORE-9107); per-call options keep the
+                // historical pass-through behaviour.
+                const payload = buildPayload(5, 1);
+                await ws.batch.hisWrite(payload, { someUnknownKey: 1 });
+                expect(ws.hisWrite.called).to.be.true;
+            });
         });
     });
 });

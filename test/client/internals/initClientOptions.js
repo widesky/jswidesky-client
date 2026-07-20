@@ -7511,11 +7511,7 @@ describe("client", () => {
 
             describe("batch batchSize above schema maximum", () => {
                 const BATCH_SIZE_MAXES = {
-                    // hisRead has no op-specific cap: BATCH_HIS_READ_SCHEMA does not
-                    // apply HIS_READ_BATCH_SIZE_MAX (1000), so batchSize falls through
-                    // to the shared performOpInBatch bound of 10^9. Tightening it to
-                    // 1000 would be a breaking change — tracked outside CORE-9107.
-                    hisRead: 10 ** 9,
+                    hisRead: 1000,
                     hisWrite: 20000,
                     hisDelete: 3000,
                     create: 10000,
@@ -7690,6 +7686,71 @@ describe("client", () => {
                     expect(constructWith({
                         batch: "not-an-object"
                     })).to.throw();
+                });
+            });
+
+            describe("unknown option keys", () => {
+                it("throws from the constructor for an unknown top-level key", () => {
+                    expect(constructWith({
+                        bacth: {}
+                    })).to.throw(/unspecified keys: bacth/);
+                });
+
+                it("throws from the constructor for an unknown batch op name", () => {
+                    expect(constructWith({
+                        batch: {
+                            hisRaed: {}
+                        }
+                    })).to.throw(/unspecified keys: hisRaed/);
+                });
+
+                it("throws from the constructor for an unknown batch op property", () => {
+                    expect(constructWith({
+                        batch: {
+                            hisRead: {
+                                batchSze: 5
+                            }
+                        }
+                    })).to.throw(/unspecified keys: batchSze/);
+                });
+
+                it("throws from the constructor for an unknown progress key", () => {
+                    expect(constructWith({
+                        progress: {
+                            enabel: true
+                        }
+                    })).to.throw(/unspecified keys: enabel/);
+                });
+
+                it("throws from the constructor for an unknown queue key", () => {
+                    expect(constructWith({
+                        queue: {
+                            maxConcurrnt: 1
+                        }
+                    })).to.throw(/unspecified keys: maxConcurrnt/);
+                });
+
+                it("throws from the constructor for an unknown performOpInBatch key", () => {
+                    expect(constructWith({
+                        performOpInBatch: {
+                            btachDelay: 0
+                        }
+                    })).to.throw(/unspecified keys: btachDelay/);
+                });
+
+                it("still accepts the documented progress.instance option", () => {
+                    const fakeInstance = { create: () => {}, update: () => {}, increment: () => {} };
+                    const http = new stubs.StubHTTPClient();
+                    const log = new stubs.StubLogger();
+                    const ws = stubs.getInstance(http, log, {
+                        clientOptions: {
+                            progress: {
+                                enable: true,
+                                instance: fakeInstance
+                            }
+                        }
+                    });
+                    expect(ws.clientOptions.progress.instance).to.equal(fakeInstance);
                 });
             });
         });
