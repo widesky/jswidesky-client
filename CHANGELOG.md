@@ -12,6 +12,19 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   recovery, forward `perMessageDeflate` to the socket transport, and re-check the
   live watch after a shared-control resub. Prevents hot reconnect loops, wedged
   recovery, and needless cellular-data burn on the edge publisher.
+- [CORE-9107](https://widesky.atlassian.net/browse/CORE-9107): Invalid
+  `options.client` values now throw a catchable `ValidationError` from
+  `new WideSkyClient(...)` instead of crashing the process with an
+  unhandled promise rejection and leaving the client half-initialised.
+
+### CHANGED
+- [CORE-9107](https://widesky.atlassian.net/browse/CORE-9107): Stricter
+  `options.client` validation at construction; all failures throw catchably
+  from `new WideSkyClient(...)`.
+  - Unknown/typo'd option keys are now rejected instead of silently ignored
+    (per-call `client.batch.*` options are unaffected).
+  - `batch.hisRead.batchSize` is now capped at 1000, matching
+    `batch.hisReadByFilter`.
 
 ## [3.4.0] - 2026-07-13
 
