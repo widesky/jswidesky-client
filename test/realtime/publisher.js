@@ -46,15 +46,29 @@ class FakeSocket extends EventEmitter {
     }
 
     /* socket.io-client emit toward the server. */
-    emit(event, payload) {
+    emit(event, payload, ack) {
         /* 'message'/pointUpdate is outbound; local lifecycle events still need
          * EventEmitter semantics for our own listeners, but the publisher only
          * ever sends 'message' frames via emit(), so record those. */
         if (event === "message") {
-            this.sent.push({ event, payload });
+            /* The acknowledgement callback is recorded, never auto-invoked
+             * (CORE-9226 #159). A test decides when, whether and with what the
+             * server answers -- including deciding that it never answers at
+             * all, which is the pre-#159 server every deployment is running
+             * today and the case the client's timeout exists for. */
+            this.sent.push({ event, payload, ack });
             return true;
         }
         return super.emit(event, payload);
+    }
+
+    /** Answer the Nth recorded frame the way a server would. */
+    serverAck(payload, index = this.sent.length - 1) {
+        const frame = this.sent[index];
+        if (!frame || typeof frame.ack !== "function") {
+            throw new Error("frame " + index + " was emitted without an ack");
+        }
+        frame.ack(payload);
     }
 
     open() {
@@ -600,6 +614,144 @@ describe("Realtime", function () {
 
                 expect(received).to.have.length(1);
                 expect(received[0].data).to.deep.equal([{ id: "1", mode: "slow" }]);
+            });
+        });
+
+        /* ------------------------------------------------------------
+         * pointUpdate acknowledgement (CORE-9226 #159)
+         *
+         * Opt-in by design. Every existing consumer of this method calls it
+         * with two arguments and treats it as void, so the default path must
+         * stay byte-identical: same emit, same arity, same undefined return.
+         * ---------------------------------------------------------- */
+
+        describe("pointUpdate acknowledgement (CORE-9226 #159)", function () {
+            async function connectedPub() {
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+                const fake = new FakeSocket();
+                sinon.stub(socket, "connect").returns(fake);
+                sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
+                const pub = ws.createPublisher();
+                await pub.connect(TEST_WATCH_ID);
+                return { pub, fake };
+            }
+
+            it("emits with NO ack argument and returns undefined by default", async function () {
+                /* The compatibility guarantee, stated as arity: a server that
+                 * DOES support acks must not start acking frames for a caller
+                 * that never asked, because socket.io only allocates an ack id
+                 * when the client passes a callback. */
+                const { pub, fake } = await connectedPub();
+
+                const returned = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }]);
+
+                expect(returned).to.equal(undefined);
+                expect(fake.sent).to.have.length(1);
+                expect(fake.sent[0].ack).to.equal(undefined);
+            });
+
+            it("resolves 'ack' with the applied count when the server acks", async function () {
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                });
+                fake.serverAck({ ok: true, applied: 1 });
+
+                expect(await pending).to.deep.equal({ status: "ack", applied: 1 });
+            });
+
+            it("resolves 'nack' carrying the failed points verbatim", async function () {
+                /* failed[] is what the caller quarantines on, so it is passed
+                 * through untouched rather than reshaped. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate(
+                    [
+                        { id: TEST_POINTS[0], curVal: 1 },
+                        { id: TEST_POINTS[1], curVal: 2 },
+                    ],
+                    { ack: true }
+                );
+                fake.serverAck({
+                    ok: false,
+                    applied: 1,
+                    failed: [{ id: TEST_POINTS[0], reason: "history-persist-failed" }],
+                });
+
+                expect(await pending).to.deep.equal({
+                    status: "nack",
+                    applied: 1,
+                    failed: [{ id: TEST_POINTS[0], reason: "history-persist-failed" }],
+                });
+            });
+
+            it("resolves 'unacked' rather than hanging when the server never answers", async function () {
+                /* The rollout case, and the reason the promise carries a
+                 * deadline at all: every server deployed today ignores the
+                 * callback, so an awaiting caller would otherwise wait for
+                 * ever on the very first frame. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                    ackTimeoutMs: 5,
+                });
+
+                expect(fake.sent[0].ack).to.be.a("function");
+                expect(await pending).to.deep.equal({ status: "unacked" });
+            });
+
+            it("ignores an ack that arrives AFTER the timeout already settled it", async function () {
+                /* A late ack must not re-settle the promise. The caller has
+                 * already treated the frame as unacknowledged and re-queued
+                 * it; a second verdict on the same frame is how it would end
+                 * up both retained and deleted. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                    ackTimeoutMs: 5,
+                });
+                const settled = await pending;
+                fake.serverAck({ ok: true, applied: 1 });
+
+                expect(settled).to.deep.equal({ status: "unacked" });
+                expect(await pending).to.deep.equal({ status: "unacked" });
+            });
+
+            it("treats an unreadable ack payload as a nack, never as success", async function () {
+                /* On a doubtful answer the one unsafe move is to drop the
+                 * frame, so anything that is not a recognisable positive ack
+                 * is reported as a nack. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                });
+                fake.serverAck("not an object");
+
+                expect(await pending).to.deep.equal({
+                    status: "nack",
+                    applied: 0,
+                    failed: [],
+                });
+            });
+
+            it("still throws synchronously when called before connect()", async function () {
+                /* The pre-existing contract, re-pinned on the ack path: a
+                 * precondition failure is a throw, not a resolved promise, so
+                 * a caller cannot mistake it for a server verdict. */
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+                const pub = ws.createPublisher();
+
+                expect(() =>
+                    pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], { ack: true })
+                ).to.throw(/before connect/);
             });
         });
 

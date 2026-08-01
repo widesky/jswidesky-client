@@ -112,6 +112,22 @@ const RECOVER_DISCONNECT_GRACE_MS = 1000;
 /** Promise-based sleep. */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * How long to wait for a server acknowledgement of a pointUpdate frame before
+ * calling it unacknowledged (CORE-9226 #159).
+ *
+ * This is a ROLLOUT deadline as much as a failure deadline. A server built
+ * before the ack existed never invokes the callback at all, so a caller that
+ * simply awaited it would wait forever; the timeout is what turns "this server
+ * does not speak acks" into an answer the caller can act on.
+ */
+const ACK_TIMEOUT_MS = 30000;
+
+/** Resolutions of an acknowledged pointUpdate (CORE-9226 #159). */
+const ACK_STATUS_ACK = 'ack';
+const ACK_STATUS_NACK = 'nack';
+const ACK_STATUS_UNACKED = 'unacked';
+
 /** Commands carried in the `command` field of a `message` envelope. */
 const CMD_POINT_UPDATE = 'pointUpdate';
 const CMD_POINT_CADENCE = 'pointCadence';
@@ -595,8 +611,25 @@ class PublisherSession extends EventEmitter {
      * is applied to entries that omit their own per-point `ts` (precedence:
      * per-point ts > message ts > server receipt time).
      *
+     * ACKNOWLEDGEMENT (CORE-9226 #159). By default this method is exactly what
+     * it always was: it emits and returns undefined, and "it did not throw"
+     * means only that the frame reached the socket's write buffer. Pass
+     * `opts.ack: true` and it instead returns a PROMISE that settles when the
+     * server has finished persisting the frame:
+     *
+     *   {status: 'ack',     applied}          every entry committed
+     *   {status: 'nack',    applied, failed}  some entry did not; failed[] names
+     *                                         each as {id, reason}
+     *   {status: 'unacked'}                   no answer within opts.ackTimeoutMs
+     *
+     * The promise NEVER rejects and never waits indefinitely. A server built
+     * before #159 ignores the callback entirely, so without the timeout an
+     * awaiting caller would hang forever against every currently deployed
+     * server; 'unacked' is how that server is recognised rather than waited on.
+     *
      * @param {Array}  entries   Per-point entries.
-     * @param {Object} [opts]    { ts } optional message-level timestamp.
+     * @param {Object} [opts]    { ts, his, ack, ackTimeoutMs }.
+     * @returns {undefined|Promise<Object>} undefined unless opts.ack is set.
      */
     pointUpdate(entries, opts = {}) {
         if (!this.socket) {
@@ -617,7 +650,80 @@ class PublisherSession extends EventEmitter {
             frame.his = opts.his;
         }
 
-        this.socket.emit(MESSAGE_EVENT, frame);
+        if (!opts.ack) {
+            /* The untouched path. Emitted with exactly two arguments, so a
+             * caller that never asked for an ack cannot be given one, and the
+             * many existing consumers of this method see no change at all. */
+            this.socket.emit(MESSAGE_EVENT, frame);
+            return undefined;
+        }
+
+        return this._emitAcked(frame, opts);
+    }
+
+    /**
+     * Emit a frame with socket.io's native per-message acknowledgement and
+     * settle on whichever of the server's answer or the timeout arrives first
+     * (CORE-9226 #159).
+     *
+     * @param {Object} frame the pointUpdate envelope.
+     * @param {Object} opts  { ackTimeoutMs }.
+     * @returns {Promise<Object>} always resolves, never rejects.
+     */
+    _emitAcked(frame, opts) {
+        const timeoutMs = (opts.ackTimeoutMs === undefined)
+            ? ACK_TIMEOUT_MS : opts.ackTimeoutMs;
+
+        return new Promise((resolve) => {
+            /* Whichever arrives first wins and the other becomes a no-op. A
+             * late ack landing after the timeout must not re-settle the promise
+             * -- the caller has already decided the frame was unacknowledged
+             * and re-queued it, and resolving twice would let it act on the
+             * same frame under two different verdicts. */
+            let settled = false;
+            const settle = (value) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearTimeout(timer);
+                resolve(value);
+            };
+
+            const timer = setTimeout(() => {
+                settle({status: ACK_STATUS_UNACKED});
+            }, timeoutMs);
+            /* Never hold the process open for an ack. */
+            if (typeof timer.unref === 'function') {
+                timer.unref();
+            }
+
+            this.socket.emit(MESSAGE_EVENT, frame, (payload) => {
+                /* A server that acks but whose payload is unreadable is treated
+                 * as a nack, not as a success: the one thing the caller must
+                 * never do on a doubtful answer is drop the frame. */
+                if (payload === null || typeof payload !== 'object') {
+                    settle({
+                        status: ACK_STATUS_NACK,
+                        applied: 0,
+                        failed: []
+                    });
+                    return;
+                }
+                if (payload.ok === true) {
+                    settle({
+                        status: ACK_STATUS_ACK,
+                        applied: payload.applied || 0
+                    });
+                    return;
+                }
+                settle({
+                    status: ACK_STATUS_NACK,
+                    applied: payload.applied || 0,
+                    failed: Array.isArray(payload.failed) ? payload.failed : []
+                });
+            });
+        });
     }
 
     /* ================================================================
@@ -920,3 +1026,10 @@ module.exports.RECONNECTION_DELAY_MS = RECONNECTION_DELAY_MS;
 module.exports.RECONNECTION_DELAY_MAX_MS = RECONNECTION_DELAY_MAX_MS;
 module.exports.RECOVER_MAX_BACKOFF_MS = RECOVER_MAX_BACKOFF_MS;
 module.exports.RECOVERY_REQUEST_TIMEOUT_MS = RECOVERY_REQUEST_TIMEOUT_MS;
+/* pointUpdate acknowledgement surface (CORE-9226 #159), exported for the same
+ * reason: a consumer branches on these and must pin them against the installed
+ * tarball rather than restating the string literals. */
+module.exports.ACK_TIMEOUT_MS = ACK_TIMEOUT_MS;
+module.exports.ACK_STATUS_ACK = ACK_STATUS_ACK;
+module.exports.ACK_STATUS_NACK = ACK_STATUS_NACK;
+module.exports.ACK_STATUS_UNACKED = ACK_STATUS_UNACKED;
