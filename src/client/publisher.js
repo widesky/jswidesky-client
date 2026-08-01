@@ -114,18 +114,30 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * How long to wait for a server acknowledgement of a pointUpdate frame before
- * calling it unacknowledged (CORE-9226 #159).
+ * reporting it UNCONFIRMED (CORE-9226 #159).
  *
- * This is a ROLLOUT deadline as much as a failure deadline. A server built
- * before the ack existed never invokes the callback at all, so a caller that
- * simply awaited it would wait forever; the timeout is what turns "this server
- * does not speak acks" into an answer the caller can act on.
+ * It is a liveness deadline and nothing else: it exists so an awaiting caller
+ * cannot be parked for ever on an answer that is not coming, and it says
+ * absolutely nothing about why the answer did not come.
+ *
+ * It is deliberately NOT a rollout deadline. An earlier version of this comment
+ * called it one, on the reasoning that a server predating the ack never invokes
+ * the callback -- and a consumer duly read 'unacked' as "this server is old",
+ * stopped asking for acks, and deleted its buffered frames. There is no old
+ * server population: nothing ships history over this socket today. A server
+ * that does not answer is a BROKEN DEPLOYMENT, and the only safe reading of a
+ * missing answer is that the frame is unconfirmed. Keep it.
  */
 const ACK_TIMEOUT_MS = 30000;
 
 /** Resolutions of an acknowledged pointUpdate (CORE-9226 #159). */
 const ACK_STATUS_ACK = 'ack';
 const ACK_STATUS_NACK = 'nack';
+/**
+ * No answer arrived in time. The frame is UNCONFIRMED -- it may have been
+ * stored, it may have died in flight, and this client cannot tell which. It is
+ * never a licence to drop the frame.
+ */
 const ACK_STATUS_UNACKED = 'unacked';
 
 /** Commands carried in the `command` field of a `message` envelope. */
@@ -611,21 +623,28 @@ class PublisherSession extends EventEmitter {
      * is applied to entries that omit their own per-point `ts` (precedence:
      * per-point ts > message ts > server receipt time).
      *
-     * ACKNOWLEDGEMENT (CORE-9226 #159). By default this method is exactly what
-     * it always was: it emits and returns undefined, and "it did not throw"
-     * means only that the frame reached the socket's write buffer. Pass
-     * `opts.ack: true` and it instead returns a PROMISE that settles when the
-     * server has finished persisting the frame:
+     * ACKNOWLEDGEMENT (CORE-9226 #159). Pass `opts.ack: true` and this returns
+     * a PROMISE that settles when the server has finished persisting the frame:
      *
-     *   {status: 'ack',     applied}          every entry committed
-     *   {status: 'nack',    applied, failed}  some entry did not; failed[] names
-     *                                         each as {id, reason}
-     *   {status: 'unacked'}                   no answer within opts.ackTimeoutMs
+     *   {status: 'ack',     applied}          the frame is RESOLVED and may be
+     *                                         dropped; `applied` counts the
+     *                                         entries the server committed, and
+     *                                         0 is legitimate (it declined them
+     *                                         all, on purpose)
+     *   {status: 'nack',    applied, failed}  something went WRONG; failed[]
+     *                                         names each bad entry as
+     *                                         {id, reason}
+     *   {status: 'unacked'}                   no answer within opts.ackTimeoutMs:
+     *                                         UNCONFIRMED, never "fine"
      *
-     * The promise NEVER rejects and never waits indefinitely. A server built
-     * before #159 ignores the callback entirely, so without the timeout an
-     * awaiting caller would hang forever against every currently deployed
-     * server; 'unacked' is how that server is recognised rather than waited on.
+     * Without `opts.ack` it emits with exactly two arguments and returns
+     * undefined, which is how a CUR frame stays unacknowledged: the next tick
+     * supersedes it, so confirming one buys nothing and re-sending a stale one
+     * is wrong. That is a statement about cur, not a compatibility switch --
+     * a caller publishing HISTORY asks for the ack, always.
+     *
+     * The promise NEVER rejects and never waits indefinitely; see
+     * ACK_TIMEOUT_MS for what 'unacked' does and does not mean.
      *
      * @param {Array}  entries   Per-point entries.
      * @param {Object} [opts]    { ts, his, ack, ackTimeoutMs }.
@@ -651,9 +670,9 @@ class PublisherSession extends EventEmitter {
         }
 
         if (!opts.ack) {
-            /* The untouched path. Emitted with exactly two arguments, so a
-             * caller that never asked for an ack cannot be given one, and the
-             * many existing consumers of this method see no change at all. */
+            /* The unacknowledged path, which is what a CUR frame takes. Emitted
+             * with exactly two arguments, so socket.io allocates no ack id and
+             * the server has nothing to answer. */
             this.socket.emit(MESSAGE_EVENT, frame);
             return undefined;
         }

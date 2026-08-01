@@ -620,9 +620,11 @@ describe("Realtime", function () {
         /* ------------------------------------------------------------
          * pointUpdate acknowledgement (CORE-9226 #159)
          *
-         * Opt-in by design. Every existing consumer of this method calls it
-         * with two arguments and treats it as void, so the default path must
-         * stay byte-identical: same emit, same arity, same undefined return.
+         * Per-call by design, and NOT a compatibility switch. A caller
+         * publishing HISTORY always asks for the acknowledgement; a CUR frame
+         * never does, because the next tick supersedes it. So the two-argument
+         * path must stay byte-identical -- same emit, same arity, same
+         * undefined return -- for cur's sake, not for an old server's.
          * ---------------------------------------------------------- */
 
         describe("pointUpdate acknowledgement (CORE-9226 #159)", function () {
@@ -639,10 +641,10 @@ describe("Realtime", function () {
             }
 
             it("emits with NO ack argument and returns undefined by default", async function () {
-                /* The compatibility guarantee, stated as arity: a server that
-                 * DOES support acks must not start acking frames for a caller
-                 * that never asked, because socket.io only allocates an ack id
-                 * when the client passes a callback. */
+                /* Stated as arity, because that is where it is decided: the
+                 * server can only answer a frame socket.io allocated an ack id
+                 * for, and it allocates one only when the client passes a
+                 * callback. This is what keeps a cur frame unanswered. */
                 const { pub, fake } = await connectedPub();
 
                 const returned = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }]);
@@ -661,6 +663,23 @@ describe("Realtime", function () {
                 fake.serverAck({ ok: true, applied: 1 });
 
                 expect(await pending).to.deep.equal({ status: "ack", applied: 1 });
+            });
+
+            it("resolves 'ack' when the server stored NOTHING but declined on purpose", async function () {
+                /* {ok: true, applied: 0} is a real answer, not a degenerate
+                 * one. `ok` means the frame is RESOLVED and may be dropped,
+                 * which is true both when everything stored and when the
+                 * server's freshness guard correctly refused an older sample.
+                 * A caller that read applied 0 as failure would re-send for
+                 * ever a frame the server is right to refuse. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                });
+                fake.serverAck({ ok: true, applied: 0 });
+
+                expect(await pending).to.deep.equal({ status: "ack", applied: 0 });
             });
 
             it("resolves 'nack' carrying the failed points verbatim", async function () {
@@ -689,10 +708,12 @@ describe("Realtime", function () {
             });
 
             it("resolves 'unacked' rather than hanging when the server never answers", async function () {
-                /* The rollout case, and the reason the promise carries a
-                 * deadline at all: every server deployed today ignores the
-                 * callback, so an awaiting caller would otherwise wait for
-                 * ever on the very first frame. */
+                /* The reason the promise carries a deadline at all: a caller
+                 * awaiting an answer that is not coming would be parked for
+                 * ever, and a parked publisher stops publishing. 'unacked'
+                 * means UNCONFIRMED and nothing else -- what the caller does
+                 * with it is the caller's rule, and the only correct one is to
+                 * keep the frame. */
                 const { pub, fake } = await connectedPub();
 
                 const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
