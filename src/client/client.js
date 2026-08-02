@@ -322,6 +322,18 @@ class WideSkyClient {
          * add themselves here. If `null`, then no refresh is in progress.
          */
         this._ws_token_wait = null;
+        /*
+         * CORE-9226 (#178): the instant, ON THE LOCAL CLOCK, at or after which
+         * the held token must be refreshed. See _computeTokenDeadline for why
+         * this is not simply `_ws_token.expires_in`.
+         */
+        this._ws_token_deadline = null;
+        /*
+         * The server's own clock, in epoch ms, as of the most recent
+         * /oauth2/token response, taken from that response's `Date` header by
+         * the interceptor installed in initAxios(). `null` until one is seen.
+         */
+        this._ws_server_time_ms = null;
 
         if (this.#accessToken) {
             for (const tokenProp of ['refresh_token', 'expires_in', 'token_type', 'access_token']) {
@@ -330,7 +342,81 @@ class WideSkyClient {
                 }
             }
             this._ws_token = this.#accessToken;
+            /* An injected token carries no server context, so its deadline is
+             * the raw expiry: the pre-CORE-9226 behaviour, unchanged. */
+            this._ws_token_deadline = this.#accessToken.expires_in;
         }
+    }
+
+    /**
+     * Record the server's clock from a response `Date` header.
+     *
+     * CORE-9226 (#178). Kept separate from the interceptor so the parse rule
+     * has one home and can be driven directly by a test.
+     *
+     * @param {string} headerValue the raw `Date` header, or undefined.
+     * @returns {void}
+     */
+    _noteServerTime(headerValue) {
+        if (typeof headerValue !== 'string') {
+            return;
+        }
+        const parsed = Date.parse(headerValue);
+        /* An unparseable header yields NaN. Ignore it rather than let it
+         * propagate: a NaN deadline compares false against everything, which
+         * would silently pin the token as never-expiring. */
+        if (Number.isFinite(parsed)) {
+            this._ws_server_time_ms = parsed;
+        }
+    }
+
+    /**
+     * Work out when, ON THIS DEVICE'S CLOCK, the token must be refreshed.
+     *
+     * CORE-9226 (#178). This apiserver answers `expires_in` as an ABSOLUTE
+     * epoch-millisecond instant rather than the RFC 6749 seconds-until-expiry
+     * (measured 2026-08-02: 1786290734743, seven days out). Comparing that
+     * against `Date.now()` mixes the server's clock with ours, so on a device
+     * whose clock is wrong the refresh decision is wrong by exactly the skew.
+     *
+     * A TRB145 has no battery-backed RTC and ordinarily boots BEHIND (the
+     * firmware build date on a first boot, or a stale watermark after a spell
+     * in a warehouse), with ntpclient correcting it only after our services
+     * have started. Behind means the absolute expiry is never reached, so the
+     * client never refreshes proactively and keeps presenting a token the
+     * server has already retired. REST survives that -- dispatchWithRetry
+     * catches the 401 and retries once -- but a socket handshake does not: the
+     * publisher's AUTH_REJECTION_RE reads the rejection as an auth denial, so
+     * a clock fault is reported, and parked on, as a credential fault.
+     *
+     * The token's LIFETIME is the one quantity both endpoints of which are the
+     * server's own: its absolute expiry minus the `Date` of the response that
+     * delivered it. Anchoring that lifetime to the local clock at receipt gives
+     * a deadline immune to any constant local offset.
+     *
+     * Falls back to the raw `expires_in` whenever that subtraction is not
+     * available or not sensible (no/unparseable `Date` header, or an expiry at
+     * or before the server's own clock -- which is what a server answering the
+     * RFC's seconds-until-expiry looks like here). The fallback is exactly the
+     * behaviour that shipped before this change.
+     *
+     * @param {Object} token the token response.
+     * @param {number|null} serverTimeMs the server's clock at token receipt.
+     * @returns {number} the local-clock instant at which to refresh.
+     */
+    _computeTokenDeadline(token, serverTimeMs) {
+        const expiry = token && token.expires_in;
+
+        if (!Number.isFinite(expiry) || !Number.isFinite(serverTimeMs)) {
+            return expiry;
+        }
+
+        const lifetime = expiry - serverTimeMs;
+        if (lifetime <= 0) {
+            return expiry;
+        }
+
+        return Date.now() + lifetime;
     }
 
     /**
@@ -378,6 +464,21 @@ class WideSkyClient {
         };
 
         this.axios = axios.create(axiosOptions);
+
+        /* CORE-9226 (#178): capture the server's clock off the token response
+         * so _computeTokenDeadline can derive the token's true lifetime
+         * without trusting the local clock. Scoped to /oauth2/token because
+         * that is the only response whose `Date` we consume, and the handler
+         * must never be able to fail a request it is only observing. */
+        this.axios.interceptors.response.use((res) => {
+            try {
+                const url = (res && res.config && res.config.url) || '';
+                if (url.includes('/oauth2/token')) {
+                    this._noteServerTime(res.headers && res.headers.date);
+                }
+            } catch (e) { /* observation only, never break the response */ }
+            return res;
+        });
     }
 
     /**
@@ -975,6 +1076,9 @@ class WideSkyClient {
             this.logger.info('Logged in to API server');
         }
         this._ws_token = token;
+        /* CORE-9226 (#178): pin the refresh instant to THIS device's clock. */
+        this._ws_token_deadline = this._computeTokenDeadline(
+            token, this._ws_server_time_ms);
 
         const waiters = this._ws_token_wait;
 
@@ -1035,7 +1139,10 @@ class WideSkyClient {
 
             firstStep = this._doLogin();
         }
-        else if (this._ws_token.expires_in < Date.now()) {
+        /* CORE-9226 (#178): compare against the LOCAL-clock deadline derived at
+         * token receipt, not the server's absolute expiry. `?? expires_in`
+         * covers a token installed by something other than _getTokenSuccess. */
+        else if ((this._ws_token_deadline ?? this._ws_token.expires_in) < Date.now()) {
             /* Token is expired, so do a refresh */
             /* istanbul ignore next */
             if (this.logger) {
