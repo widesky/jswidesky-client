@@ -391,11 +391,11 @@ class ControlSession extends EventEmitter {
      * @returns {Promise<Object|null>} The connected socket (standalone), or null
      *                                 when the shared transport is used.
      */
-    connect(registrationId, opts = {}) {
+    async connect(registrationId, opts = {}) {
         const id = registrationId || this.registrationId;
         if (!id) {
-            return Promise.reject(new Error(
-                'connect() requires a registrationId; call controlSub() first.'));
+            throw new Error(
+                'connect() requires a registrationId; call controlSub() first.');
         }
 
         this._autoReregister = (opts.autoReregister !== false);
@@ -413,17 +413,28 @@ class ControlSession extends EventEmitter {
          * the publisher namespace, which would never complete its handshake. */
         if (this.shared) {
             if (!this._publisher) {
-                return Promise.reject(new Error(
+                throw new Error(
                     'shared control transport requires an attached publisher; ' +
-                    'call attachTo(publisher) before controlSub().'));
+                    'call attachTo(publisher) before controlSub().');
             }
             this._wireSharedTransport();
             this._connected = true;
             this.emit('connect');
-            return Promise.resolve(null);
+            return null;
         }
 
         const timeoutMs = (opts.timeoutMs !== undefined) ? opts.timeoutMs : 10000;
+
+        /* CORE-9226 (review N1): getToken() may answer with a PROMISE (any
+         * acquisition in flight); reading `.access_token` off it sent the
+         * handshake out as `Authorization: undefined`, and the auth-shaped
+         * denial parked the listener as a credential fault. Await the
+         * credential before touching the existing socket; publisher.js
+         * connect() carries the full reasoning -- the two socket entry
+         * points share the defect and the fix. The shared-transport path
+         * above deliberately stays token-free: it rides the owning
+         * publisher's already-authenticated socket. */
+        const token = await this._client.getToken();
 
         /* Detach any previous listener socket BEFORE opening a new one
          * (-lpa.2): a failed recovery attempt used to overwrite this.socket
@@ -431,7 +442,7 @@ class ControlSession extends EventEmitter {
          * flapping socket per attempt. */
         this._detachSocket();
 
-        const sock = this._openSocket(id);
+        const sock = this._openSocket(id, token.access_token);
         this.socket = sock;
         this._wireSocket(sock);
 
@@ -479,13 +490,13 @@ class ControlSession extends EventEmitter {
      * listener handshake is byte-for-byte the consumer handshake.
      *
      * @param {string} registrationId The namespace.
+     * @param {string} accessToken The bearer token for the handshake query,
+     *        already RESOLVED by connect() (review N1; see publisher.js
+     *        _openSocket for why this builder stays synchronous).
      * @returns {Object} An unopened socket.io socket.
      * @private
      */
-    _openSocket(registrationId) {
-        const token = this._client.getToken();
-        const accessToken = token.access_token;
-
+    _openSocket(registrationId, accessToken) {
         const parsedUrl = new Url(this._client.baseUri);
         const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
         const url = `${baseUrl}/${registrationId}`;
