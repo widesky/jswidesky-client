@@ -59,9 +59,9 @@ const RECOVERY_REQUEST_TIMEOUT_MS = 45000;
  * producing a measured ~6 MB/h reconnect flap per denied device. Recovery
  * attempts that fail auth now jump STRAIGHT to this parked cadence instead of
  * riding the transient ladder. Each parked attempt still re-reads the client
- * token (_openSocket calls getToken()), so a credential fixed or refreshed
- * while parked re-authenticates on the next attempt: parking slows the loop,
- * it never strands a recovered credential.
+ * token (connect() AWAITS getToken(); review N1), so a credential fixed or
+ * refreshed while parked re-authenticates on the next attempt: parking slows
+ * the loop, it never strands a recovered credential.
  */
 const AUTH_PARK_MS = 5 * 60 * 1000;
 
@@ -391,11 +391,11 @@ class PublisherSession extends EventEmitter {
      *                                plain disconnect / connect_error.
      * @returns {Promise<Object>} The connected socket.io socket.
      */
-    connect(watchId, opts = {}) {
+    async connect(watchId, opts = {}) {
         const id = watchId || this.watchId;
         if (!id) {
-            return Promise.reject(new Error(
-                'connect() requires a watchId; call watchPub() first.'));
+            throw new Error(
+                'connect() requires a watchId; call watchPub() first.');
         }
 
         const timeoutMs = (opts.timeoutMs !== undefined) ? opts.timeoutMs : 10000;
@@ -406,6 +406,24 @@ class PublisherSession extends EventEmitter {
 
         this.watchId = id;
 
+        /* CORE-9226 (review N1): getToken() is POLYMORPHIC -- the raw token
+         * object when one is held and live, but a PROMISE whenever
+         * acquisition is in flight (login, proactive refresh, or a join of
+         * either; see client.js getToken()). The old synchronous read in
+         * _openSocket took `.access_token` off whatever came back, and off
+         * a Promise that is `undefined`: the handshake then left as
+         * `Authorization: undefined`, the server denied it 401/403-shaped,
+         * and the denial parked the session for AUTH_PARK_MS -- a
+         * self-inflicted credential fault whenever a connect raced a token
+         * acquisition, made ROUTINE by #178's now-working proactive refresh.
+         * Awaiting here is what the auth-park design already assumed ("each
+         * parked attempt re-reads the client token"): an attempt cannot
+         * re-read a credential it never waits for. Awaited BEFORE
+         * _detachSocket so a slow or failed acquisition never leaves the
+         * session socketless; on rejection, connect() rejects with the
+         * acquisition error itself and no handshake is attempted at all. */
+        const token = await this._client.getToken();
+
         /* Detach any previous socket BEFORE opening a new one (-lpa.2). A
          * failed recovery attempt used to overwrite this.socket while the old
          * socket's reconnection loop kept running: every failed attempt
@@ -413,7 +431,7 @@ class PublisherSession extends EventEmitter {
          * amplifier behind the measured ~6 MB/h denial loop. */
         this._detachSocket();
 
-        const sock = this._openSocket(id);
+        const sock = this._openSocket(id, token.access_token);
         this.socket = sock;
         this._wireSocket(sock);
 
@@ -467,13 +485,15 @@ class PublisherSession extends EventEmitter {
      * a plain socket rejoin (design §7.4: reconnect-within-grace needs no REST).
      *
      * @param {string} watchId The namespace.
+     * @param {string} accessToken The bearer token for the handshake query,
+     *        already RESOLVED by connect() (review N1: getToken() may answer
+     *        with a Promise, which only an awaiting caller can consume; this
+     *        builder stays synchronous so the detach-to-open window has no
+     *        interleaving point).
      * @returns {Object} An unopened socket.io socket.
      * @private
      */
-    _openSocket(watchId) {
-        const token = this._client.getToken();
-        const accessToken = token.access_token;
-
+    _openSocket(watchId, accessToken) {
         const parsedUrl = new Url(this._client.baseUri);
         const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
         const url = `${baseUrl}/${watchId}`;

@@ -448,6 +448,68 @@ describe("Realtime", function () {
         });
 
         /* ------------------------------------------------------------
+         * connect() token acquisition (CORE-9226 review N1)
+         *
+         * getToken() is POLYMORPHIC: the raw token object when one is held
+         * and live, but a PROMISE whenever acquisition is in flight (login,
+         * proactive refresh, or a join of either). The handshake builder
+         * used to read `.access_token` synchronously off whatever came
+         * back -- off a Promise that is `undefined` -- and the handshake
+         * then left as `Authorization: undefined`: an auth-shaped denial
+         * that parks the session at the AUTH_PARK_MS cadence. The deadline
+         * fix (#178) makes in-flight refreshes ROUTINE, so the race is no
+         * longer exotic; the credential must be awaited.
+         * ---------------------------------------------------------- */
+
+        describe("connect token acquisition (CORE-9226 review N1)", function () {
+            it("carries an asynchronously-acquired token into the handshake", async function () {
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const fake = new FakeSocket();
+                sinon.stub(socket, "connect").returns(fake);
+                /* A refresh in flight: getToken() yields a PROMISE of the
+                 * token, exactly what the join-queue path returns. */
+                sinon.stub(ws, "getToken").resolves({ access_token: WS_ACCESS_TOKEN });
+
+                const pub = ws.createPublisher();
+                await pub.connect(TEST_WATCH_ID);
+
+                expect(
+                    socket.connect.getCall(0).args[1].query.Authorization,
+                    "a handshake must never leave with Authorization: undefined"
+                ).to.equal(WS_ACCESS_TOKEN);
+            });
+
+            it("rejects connect() when acquisition fails, before any socket exists", async function () {
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const fake = new FakeSocket();
+                sinon.stub(socket, "connect").returns(fake);
+                const denial = new Error("login failed: bad credentials");
+                sinon.stub(ws, "getToken").rejects(denial);
+
+                const pub = ws.createPublisher();
+                let err = null;
+                try {
+                    await pub.connect(TEST_WATCH_ID);
+                } catch (e) {
+                    err = e;
+                }
+
+                expect(err, "connect() must surface the acquisition error")
+                    .to.equal(denial);
+                expect(
+                    socket.connect.callCount,
+                    "no handshake may be attempted without a credential"
+                ).to.equal(0);
+            });
+        });
+
+        /* ------------------------------------------------------------
          * pointUpdate emission shapes
          * ---------------------------------------------------------- */
 

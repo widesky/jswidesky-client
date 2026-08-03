@@ -558,7 +558,10 @@ dead-namespace recovery.
 ### PublisherSession.connect(watchId, opts)
 **Description:** Open a socket.io connection to the watch namespace and resolve
 once connected. The handshake carries the access token in the connection query
-exactly as `getWatchSocket` does. `watchPub()` must have completed first.  
+exactly as `getWatchSocket` does; the token is awaited from the client first,
+so a refresh in flight is consumed rather than raced, and if no credential can
+be acquired the returned promise rejects with the acquisition error before any
+handshake is attempted. `watchPub()` must have completed first.  
 **Parameters:**
 
 | Param   | Description                                                                                                                       |  Type  |    Default     |
@@ -679,7 +682,9 @@ namespace.
 (owning publisher set) no socket of our own is opened — the command handler binds
 to the publisher's socket. For a standalone registration a socket.io connection
 is opened to the registration namespace (resolves on the `WideSkyConnected` open
-handshake).  
+handshake). The access token is awaited from the client before the socket is
+built; if no credential can be acquired the returned promise rejects with the
+acquisition error and no handshake is attempted.  
 **Parameters:**
 
 | Param            | Description                                                                          |  Type  |        Default        |
