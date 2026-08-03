@@ -249,5 +249,127 @@ describe('client', () => {
             expect(tokenCalls, 'a junk Date header must not shorten the token')
                 .to.eql(['password']);
         });
+
+        it('derives a refreshed deadline from the REFRESH response, never a stale sample', async () => {
+            /* Review N2. The login delivers a good `Date`; the refresh seven
+             * days later delivers a garbled one. The garbled header must
+             * RESET the server-time sample so the new deadline degrades to
+             * the raw `expires_in` -- the documented fallback. Keeping the
+             * login-era sample instead pairs the NEW token's expiry with the
+             * OLD response's clock, inflating the derived lifetime by the
+             * sample's age: the deadline overshoots by ~one token life and
+             * the device presents a dead token for the whole overshoot,
+             * which is the parking failure this feature exists to remove. */
+            clock = sinon.useFakeTimers({
+                now: SERVER_NOW,
+                shouldAdvanceTime: false
+            });
+
+            const http = new stubs.StubHTTPClient();
+            const ws = getInstance(http);
+            const tokenCalls = [];
+
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body) => {
+                if (uri !== '/oauth2/token') {
+                    return Promise.resolve('default response');
+                }
+                tokenCalls.push(body.grant_type);
+                if (body.grant_type === 'password') {
+                    /* Login: a healthy response, server clock = SERVER_NOW. */
+                    ws._noteServerTime(new Date(SERVER_NOW).toUTCString());
+                    return Promise.resolve({
+                        access_token: WS_ACCESS_TOKEN,
+                        refresh_token: WS_REFRESH_TOKEN,
+                        expires_in: SERVER_NOW + SEVEN_DAYS
+                    });
+                }
+                /* Refresh: the server has moved on seven days, but its
+                 * `Date` header arrives garbled. */
+                ws._noteServerTime('garbled by a middlebox');
+                return Promise.resolve({
+                    access_token: WS_ACCESS_TOKEN,
+                    refresh_token: WS_REFRESH_TOKEN,
+                    expires_in: SERVER_NOW + (2 * SEVEN_DAYS) + 1000
+                });
+            });
+
+            await ws.getToken();
+            /* Day 7: the first deadline lapses; the refresh runs. */
+            clock.tick(SEVEN_DAYS + 1000);
+            await ws.getToken();
+            expect(tokenCalls).to.eql(['password', 'refresh_token']);
+
+            expect(
+                ws._ws_server_time_ms,
+                'a garbled Date on a refresh must RESET the sample, not '
+                + 'leave the login-era one to be paired with a later token'
+            ).to.equal(null);
+
+            /* Day 14: the second token's true life has run out. Under the
+             * raw fallback (the clock is correct here) its deadline is its
+             * absolute expiry, so this getToken must refresh. Under a
+             * stale-sample pairing the deadline would sit ~7 days further
+             * out and this call would do nothing. */
+            clock.tick(SEVEN_DAYS + 2000);
+            await ws.getToken();
+
+            expect(
+                tokenCalls,
+                'the second refresh must fire at the fallback deadline'
+            ).to.eql(['password', 'refresh_token', 'refresh_token']);
+        });
+
+        it('does NOT inherit a stale sample on a BEHIND clock', async () => {
+            /* Review N2, skewed variant. On a behind clock the raw fallback
+             * means NO proactive refresh (the pre-#178 degraded mode; REST
+             * heals per-401), while a stale-sample pairing would fire one at
+             * an undocumented instant ~14 days after the garbled refresh.
+             * Pin the documented degradation: no third grant inside 20 days. */
+            clock = sinon.useFakeTimers({
+                now: SERVER_NOW - SKEW_BEHIND,
+                shouldAdvanceTime: false
+            });
+
+            const http = new stubs.StubHTTPClient();
+            const ws = getInstance(http);
+            const tokenCalls = [];
+
+            ws._wsRawSubmit = sinon.stub().callsFake((method, uri, body) => {
+                if (uri !== '/oauth2/token') {
+                    return Promise.resolve('default response');
+                }
+                tokenCalls.push(body.grant_type);
+                if (body.grant_type === 'password') {
+                    ws._noteServerTime(new Date(SERVER_NOW).toUTCString());
+                    return Promise.resolve({
+                        access_token: WS_ACCESS_TOKEN,
+                        refresh_token: WS_REFRESH_TOKEN,
+                        expires_in: SERVER_NOW + SEVEN_DAYS
+                    });
+                }
+                ws._noteServerTime('garbled by a middlebox');
+                return Promise.resolve({
+                    access_token: WS_ACCESS_TOKEN,
+                    refresh_token: WS_REFRESH_TOKEN,
+                    expires_in: SERVER_NOW + (2 * SEVEN_DAYS) + 1000
+                });
+            });
+
+            await ws.getToken();
+            clock.tick(SEVEN_DAYS + 1000);
+            await ws.getToken();
+            expect(tokenCalls).to.eql(['password', 'refresh_token']);
+
+            clock.tick(20 * 24 * 60 * 60 * 1000);
+            await ws.getToken();
+
+            expect(
+                tokenCalls,
+                'a garbled refresh Date on a behind clock must degrade to '
+                + 'the documented raw fallback (no proactive refresh), never '
+                + 'to a stale-sample deadline firing at an undocumented '
+                + 'instant'
+            ).to.eql(['password', 'refresh_token']);
+        });
     });
 });
