@@ -1591,6 +1591,11 @@ class WideSkyClient {
      *                                  broken up into 50-point groups.
      *                                  The size can be tuned here.
      *
+     * The request is always sent as an HTTP POST with the query encoded as a grid
+     * in the request body, so the point ids never appear in the URL. This avoids
+     * HTTP 414 "URI Too Long" for large multi-point reads. The server returns the
+     * same grid it would for the GET form.
+     *
      * @returns Promise that resolves to the raw grid.
      */
     hisRead(ids, from, to, batchSize=50) {
@@ -1616,10 +1621,9 @@ class WideSkyClient {
             ids = [ids];
         }
 
-        /* Format the range */
-        range = range.toHSZINC();
-
-        /* Normalise the IDs into standard form */
+        /* Normalise the IDs into standard form. `range` is deliberately left
+         * un-encoded here: `_hisRead` encodes it per transport (an HSZINC query
+         * parameter for GET, or an HSJSON grid value for POST). */
         ids = ids.map(function (id) {
             return (new data.Ref(id)).toHSJSON();
         });
@@ -1774,26 +1778,30 @@ class WideSkyClient {
     };
 
     _hisRead(ids, range) {
-        const config = {
-            params: {
-                range
-            }
-        };
-
+        /* Encode the query as a single-row grid in the request body (POST), so the
+         * point ids never appear in the URL. This avoids HTTP 414 "URI Too Long"
+         * for large multi-point reads. The server returns the same grid shape as
+         * the legacy GET form (ts + v0..vN columns), so response merging and callers
+         * are unchanged. `ids` are already HSJSON refs (`r:<id>`); `range` is a Str,
+         * encoded here as `s:<range>`. */
+        const row = { range: range.toHSJSON() };
         if (ids.length === 1) {
-            config.params.id = (new data.Ref(ids[0])).toHSZINC();
+            row.id = ids[0];
         }
         else {
             ids.forEach((id, idx) => {
-                config.params['id' + idx] = (new data.Ref(id)).toHSZINC();
+                row['id' + idx] = id;
             });
         }
 
         return this.submitRequest(
-            'GET',
+            'POST',
             '/api/hisRead',
-            {},
-            config
+            {
+                meta: {ver: '2.0'},
+                cols: Object.keys(row).map((name) => ({name})),
+                rows: [row]
+            }
         );
     };
 
