@@ -15,7 +15,7 @@ const { verifyTokenCall, verifyRequestCall } = require("./../utils");
 
 describe('client', () => {
     describe('hisRead', () => {
-        it('should generate GET hisRead with range as-is if given string', async () => {
+        it('should generate POST hisRead with range as-is if given string', async () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
@@ -25,14 +25,19 @@ describe('client', () => {
             verifyTokenCall(ws._wsRawSubmit.firstCall.args);
             verifyRequestCall(
                 ws._wsRawSubmit.secondCall.args,
-                "GET",
+                "POST",
                 "/api/hisRead",
-                {},
                 {
-                    params: {
-                        range: "\"today\"",
-                        id: "@my.id"
-                    },
+                    meta: {ver: "2.0"},
+                    cols: [
+                        {name: "range"},
+                        {name: "id"}
+                    ],
+                    rows: [
+                        {range: "s:today", id: "r:my.id"}
+                    ]
+                },
+                {
                     headers: {
                         Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
                         Accept: "application/json"
@@ -42,7 +47,7 @@ describe('client', () => {
             );
         });
 
-        it('should generate GET hisRead with range defined by times', async () => {
+        it('should generate POST hisRead with range defined by times', async () => {
             let http = new stubs.StubHTTPClient(),
                 log = new stubs.StubLogger(),
                 ws = getInstance(http, log);
@@ -56,14 +61,22 @@ describe('client', () => {
             verifyTokenCall(ws._wsRawSubmit.firstCall.args);
             verifyRequestCall(
                 ws._wsRawSubmit.secondCall.args,
-                "GET",
+                "POST",
                 "/api/hisRead",
-                {},
                 {
-                    params: {
-                        range: "\"2014-01-01T00:00:00.000Z UTC,2018-01-01T00:00:00.000Z UTC\"",
-                        id: "@my.id"
-                    },
+                    meta: {ver: "2.0"},
+                    cols: [
+                        {name: "range"},
+                        {name: "id"}
+                    ],
+                    rows: [
+                        {
+                            range: "s:2014-01-01T00:00:00.000Z UTC,2018-01-01T00:00:00.000Z UTC",
+                            id: "r:my.id"
+                        }
+                    ]
+                },
+                {
                     headers: {
                         Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
                         Accept: "application/json"
@@ -125,16 +138,26 @@ describe('client', () => {
             verifyTokenCall(ws._wsRawSubmit.firstCall.args);
             verifyRequestCall(
                 ws._wsRawSubmit.secondCall.args,
-                "GET",
+                "POST",
                 "/api/hisRead",
-                {},
                 {
-                    params: {
-                        range: "\"2014-01-01T00:00:00.000Z UTC,2018-01-01T00:00:00.000Z UTC\"",
-                        id0: "@my.pt.a",
-                        id1: "@my.pt.b",
-                        id2: "@my.pt.c"
-                    },
+                    meta: {ver: "2.0"},
+                    cols: [
+                        {name: "range"},
+                        {name: "id0"},
+                        {name: "id1"},
+                        {name: "id2"}
+                    ],
+                    rows: [
+                        {
+                            range: "s:2014-01-01T00:00:00.000Z UTC,2018-01-01T00:00:00.000Z UTC",
+                            id0: "r:my.pt.a",
+                            id1: "r:my.pt.b",
+                            id2: "r:my.pt.c"
+                        }
+                    ]
+                },
+                {
                     headers: {
                         Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
                         Accept: "application/json"
@@ -157,7 +180,7 @@ describe('client', () => {
                         access_token: WS_ACCESS_TOKEN
                     };
                 } else if (uri === "/api/hisRead") {
-                    if (config.params.id0 === "@my.pt.a") {
+                    if (body.rows[0].id0 === "r:my.pt.a") {
                         returnItem = {
                             meta: {
                                 ver: '2.0'
@@ -179,7 +202,7 @@ describe('client', () => {
                             ],
                             rows: []
                         };
-                    } else if (config.params.id0 === "@my.pt.d") {
+                    } else if (body.rows[0].id0 === "r:my.pt.d") {
                         returnItem = {
                             meta: {
                                 ver: '2.0'
@@ -201,7 +224,7 @@ describe('client', () => {
                             ],
                             rows: []
                         };
-                    } else if (config.params.id0 === "@my.pt.g") {
+                    } else if (body.rows[0].id0 === "r:my.pt.g") {
                         returnItem = {
                             meta: {
                                 ver: '2.0'
@@ -292,69 +315,29 @@ describe('client', () => {
             expect(ws._wsRawSubmit.callCount).to.equal(4);
             verifyTokenCall(ws._wsRawSubmit.firstCall.args);
 
-            const expectedArgs = [
-                {},     // first one skipped as its verified earlier
-                {
-                    method: "GET",
-                    uri: "/api/hisRead",
-                    body: {},
-                    config: {
-                        params: {
-                            "range": "\"2014-01-01T00:00:00.000Z UTC,2018-01-01T00:00:00.000Z UTC\"",
-                            "id0": "@my.pt.a",
-                            "id1": "@my.pt.b",
-                            "id2": "@my.pt.c"
-                        },
-                        headers: {
-                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
-                            Accept: "application/json"
-                        },
-                        decompress: true
-                    }
+            const rangeStr = "s:2014-01-01T00:00:00.000Z UTC,"
+                + "2018-01-01T00:00:00.000Z UTC";
+            const cols = [
+                {name: "range"}, {name: "id0"}, {name: "id1"}, {name: "id2"}
+            ];
+            const cfg = {
+                headers: {
+                    Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                    Accept: "application/json"
                 },
-                {
-                    method: "GET",
-                    uri: "/api/hisRead",
-                    body: {},
-                    config: {
-                        params: {
-                            'id0': '@my.pt.d',
-                            'id1': '@my.pt.e',
-                            'id2': '@my.pt.f',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                + '2018-01-01T00:00:00.000Z UTC"'
-                        },
-                        headers: {
-                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
-                            Accept: "application/json"
-                        },
-                        decompress: true
-                    }
-                },
-                {
-                    method: "GET",
-                    uri: "/api/hisRead",
-                    body: {},
-                    config: {
-                        params: {
-                            'id0': '@my.pt.g',
-                            'id1': '@my.pt.h',
-                            'id2': '@my.pt.i',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                + '2018-01-01T00:00:00.000Z UTC"'
-                        },
-                        headers: {
-                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
-                            Accept: "application/json"
-                        },
-                        decompress: true
-                    }
-                }
+                decompress: true
+            };
+            const expectedBodies = [
+                {meta: {ver: "2.0"}, cols, rows: [{range: rangeStr, id0: "r:my.pt.a", id1: "r:my.pt.b", id2: "r:my.pt.c"}]},
+                {meta: {ver: "2.0"}, cols, rows: [{range: rangeStr, id0: "r:my.pt.d", id1: "r:my.pt.e", id2: "r:my.pt.f"}]},
+                {meta: {ver: "2.0"}, cols, rows: [{range: rangeStr, id0: "r:my.pt.g", id1: "r:my.pt.h", id2: "r:my.pt.i"}]}
             ];
 
             for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
-                const {method, uri, body, config} = expectedArgs[i];
-                verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
+                verifyRequestCall(
+                    ws._wsRawSubmit.getCall(i).args,
+                    "POST", "/api/hisRead", expectedBodies[i - 1], cfg
+                );
             }
         });
 
@@ -371,7 +354,7 @@ describe('client', () => {
                         access_token: WS_ACCESS_TOKEN
                     };
                 } else if (uri === "/api/hisRead") {
-                    if (config.params.id0 === "@my.pt.a") {
+                    if (body.rows[0].id0 === "r:my.pt.a") {
                         returnItem = {
                             meta: {
                                 ver: '2.0'
@@ -412,7 +395,7 @@ describe('client', () => {
                                 }
                             ]
                         };
-                    } else if (config.params.id0 === "@my.pt.d") {
+                    } else if (body.rows[0].id0 === "r:my.pt.d") {
                         returnItem = {
                             meta: {
                                 ver: '2.0'
@@ -453,7 +436,7 @@ describe('client', () => {
                                 }
                             ]
                         };
-                    } else if (config.params.id0 === "@my.pt.g") {
+                    } else if (body.rows[0].id0 === "r:my.pt.g") {
                         returnItem = {
                             meta: {
                                 ver: '2.0'
@@ -600,70 +583,29 @@ describe('client', () => {
             expect(ws._wsRawSubmit.callCount).to.equal(4);
             verifyTokenCall(ws._wsRawSubmit.firstCall.args);
 
-            const expectedArgs = [
-                {},     // first one skipped as its verified earlier
-                {
-                    method: "GET",
-                    uri: "/api/hisRead",
-                    body: {},
-                    config: {
-                        params: {
-                            'id0': '@my.pt.a',
-                            'id1': '@my.pt.b',
-                            'id2': '@my.pt.c',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                + '2018-01-01T00:00:00.000Z UTC"'
-                        },
-                        headers: {
-                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
-                            Accept: "application/json"
-                        },
-                        decompress: true
-                    }
+            const rangeStr = "s:2014-01-01T00:00:00.000Z UTC,"
+                + "2018-01-01T00:00:00.000Z UTC";
+            const cols = [
+                {name: "range"}, {name: "id0"}, {name: "id1"}, {name: "id2"}
+            ];
+            const cfg = {
+                headers: {
+                    Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
+                    Accept: "application/json"
                 },
-                {
-                    method: "GET",
-                    uri: "/api/hisRead",
-                    body: {},
-                    config: {
-                        params: {
-                            'id0': '@my.pt.d',
-                            'id1': '@my.pt.e',
-                            'id2': '@my.pt.f',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                + '2018-01-01T00:00:00.000Z UTC"'
-                        },
-                        headers: {
-                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
-                            Accept: "application/json"
-                        },
-                        decompress: true
-                    }
-                },
-                {
-                    method: "GET",
-                    uri: "/api/hisRead",
-                    body: {},
-                    config: {
-                        params: {
-                            'id0': '@my.pt.g',
-                            'id1': '@my.pt.h',
-                            'id2': '@my.pt.i',
-                            'range': '"2014-01-01T00:00:00.000Z UTC,'
-                                + '2018-01-01T00:00:00.000Z UTC"'
-                        },
-                        headers: {
-                            Authorization: `Bearer ${WS_ACCESS_TOKEN}`,
-                            Accept: "application/json"
-                        },
-                        decompress: true
-                    }
-                }
+                decompress: true
+            };
+            const expectedBodies = [
+                {meta: {ver: "2.0"}, cols, rows: [{range: rangeStr, id0: "r:my.pt.a", id1: "r:my.pt.b", id2: "r:my.pt.c"}]},
+                {meta: {ver: "2.0"}, cols, rows: [{range: rangeStr, id0: "r:my.pt.d", id1: "r:my.pt.e", id2: "r:my.pt.f"}]},
+                {meta: {ver: "2.0"}, cols, rows: [{range: rangeStr, id0: "r:my.pt.g", id1: "r:my.pt.h", id2: "r:my.pt.i"}]}
             ];
 
             for (let i = 1; i < ws._wsRawSubmit.callCount - 1; i++) {
-                const {method, uri, body, config} = expectedArgs[i];
-                verifyRequestCall(ws._wsRawSubmit.getCall(i).args, method, uri, body, config);
+                verifyRequestCall(
+                    ws._wsRawSubmit.getCall(i).args,
+                    "POST", "/api/hisRead", expectedBodies[i - 1], cfg
+                );
             }
         });
 

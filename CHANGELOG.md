@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- [CORE-9300](https://widesky.atlassian.net/browse/CORE-9300): `hisRead` now uses an HTTP POST instead of a GET.
+
+### Fixed
+- [CORE-9300](https://widesky.atlassian.net/browse/CORE-9300): Large multi-point reads no longer fail with an HTTP 414 "URI Too Long" error.
+
 ## [3.4.1] - 2026-07-20
 
 ### Fixed
