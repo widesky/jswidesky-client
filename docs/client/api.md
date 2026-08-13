@@ -558,7 +558,10 @@ dead-namespace recovery.
 ### PublisherSession.connect(watchId, opts)
 **Description:** Open a socket.io connection to the watch namespace and resolve
 once connected. The handshake carries the access token in the connection query
-exactly as `getWatchSocket` does. `watchPub()` must have completed first.  
+exactly as `getWatchSocket` does; the token is awaited from the client first,
+so a refresh in flight is consumed rather than raced, and if no credential can
+be acquired the returned promise rejects with the acquisition error before any
+handshake is attempted. `watchPub()` must have completed first.  
 **Parameters:**
 
 | Param   | Description                                                                                                                       |  Type  |    Default     |
@@ -579,9 +582,22 @@ server-side.
 | Param     | Description                                                       |  Type  | Default |
 |-----------|------------------------------------------------------------------|:------:|:-------:|
 | `entries` | Array of `{ id, curVal?, curStatus?, curErr?, ts? }` (or a single such object). | Array  |         |
-| `opts`    | `{ ts?, his? }`. `ts` is a message-level timestamp applied to entries that omit their own `ts`. `his: true` asks the server to ALSO persist each entry's value to history at its effective ts (a frame-level, per-call opt-in, independent of the point's own `his` marker tag); omitted/false is a cur-only update (the default: `pointUpdate` never historises unless you opt in). | Object |  `{}`   |
+| `opts`    | `{ ts?, his?, ack?, ackTimeoutMs? }`. `ts` is a message-level timestamp applied to entries that omit their own `ts`. `his: true` asks the server to ALSO persist each entry's value to history at its effective ts (a frame-level, per-call opt-in, independent of the point's own `his` marker tag); omitted/false is a cur-only update (the default: `pointUpdate` never historises unless you opt in). `ack: true` asks for delivery confirmation and changes the return type (below). `ackTimeoutMs` bounds that wait; it defaults to 30000. | Object |  `{}`   |
 
-**Returns:** `void`
+**Returns:** `undefined` when `opts.ack` is not set, otherwise a
+`Promise<Object>` that settles when the server has finished persisting the
+frame. The promise NEVER rejects and never waits indefinitely:
+
+| `status` | Meaning |
+|---|---|
+| `ack` | the frame is RESOLVED and may be dropped. `applied` counts the entries the server committed, and `0` is legitimate — it declined them all, on purpose. |
+| `nack` | something went WRONG. `failed[]` names each bad entry as `{id, reason}`. |
+| `unacked` | no answer inside `ackTimeoutMs`. UNCONFIRMED, which is never the same as "fine". |
+
+Not asking for the ack is the right default for a CUR frame: the next tick
+supersedes it, so confirming one buys nothing and re-sending a stale one is
+wrong. That is a statement about cur, not a compatibility switch — **a caller
+publishing HISTORY asks for the ack, always.**
 
 ### PublisherSession.close(opts)
 **Description:** Cleanly close the session: stop the socket (no reconnect), drop
@@ -666,7 +682,9 @@ namespace.
 (owning publisher set) no socket of our own is opened — the command handler binds
 to the publisher's socket. For a standalone registration a socket.io connection
 is opened to the registration namespace (resolves on the `WideSkyConnected` open
-handshake).  
+handshake). The access token is awaited from the client before the socket is
+built; if no credential can be acquired the returned promise rejects with the
+acquisition error and no handshake is attempted.  
 **Parameters:**
 
 | Param            | Description                                                                          |  Type  |        Default        |

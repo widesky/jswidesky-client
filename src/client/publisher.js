@@ -59,9 +59,9 @@ const RECOVERY_REQUEST_TIMEOUT_MS = 45000;
  * producing a measured ~6 MB/h reconnect flap per denied device. Recovery
  * attempts that fail auth now jump STRAIGHT to this parked cadence instead of
  * riding the transient ladder. Each parked attempt still re-reads the client
- * token (_openSocket calls getToken()), so a credential fixed or refreshed
- * while parked re-authenticates on the next attempt: parking slows the loop,
- * it never strands a recovered credential.
+ * token (connect() AWAITS getToken(); review N1), so a credential fixed or
+ * refreshed while parked re-authenticates on the next attempt: parking slows
+ * the loop, it never strands a recovered credential.
  */
 const AUTH_PARK_MS = 5 * 60 * 1000;
 
@@ -111,6 +111,34 @@ const RECOVER_DISCONNECT_GRACE_MS = 1000;
 
 /** Promise-based sleep. */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * How long to wait for a server acknowledgement of a pointUpdate frame before
+ * reporting it UNCONFIRMED (CORE-9226 #159).
+ *
+ * It is a liveness deadline and nothing else: it exists so an awaiting caller
+ * cannot be parked for ever on an answer that is not coming, and it says
+ * absolutely nothing about why the answer did not come.
+ *
+ * It is deliberately NOT a rollout deadline. An earlier version of this comment
+ * called it one, on the reasoning that a server predating the ack never invokes
+ * the callback -- and a consumer duly read 'unacked' as "this server is old",
+ * stopped asking for acks, and deleted its buffered frames. There is no old
+ * server population: nothing ships history over this socket today. A server
+ * that does not answer is a BROKEN DEPLOYMENT, and the only safe reading of a
+ * missing answer is that the frame is unconfirmed. Keep it.
+ */
+const ACK_TIMEOUT_MS = 30000;
+
+/** Resolutions of an acknowledged pointUpdate (CORE-9226 #159). */
+const ACK_STATUS_ACK = 'ack';
+const ACK_STATUS_NACK = 'nack';
+/**
+ * No answer arrived in time. The frame is UNCONFIRMED -- it may have been
+ * stored, it may have died in flight, and this client cannot tell which. It is
+ * never a licence to drop the frame.
+ */
+const ACK_STATUS_UNACKED = 'unacked';
 
 /** Commands carried in the `command` field of a `message` envelope. */
 const CMD_POINT_UPDATE = 'pointUpdate';
@@ -363,11 +391,11 @@ class PublisherSession extends EventEmitter {
      *                                plain disconnect / connect_error.
      * @returns {Promise<Object>} The connected socket.io socket.
      */
-    connect(watchId, opts = {}) {
+    async connect(watchId, opts = {}) {
         const id = watchId || this.watchId;
         if (!id) {
-            return Promise.reject(new Error(
-                'connect() requires a watchId; call watchPub() first.'));
+            throw new Error(
+                'connect() requires a watchId; call watchPub() first.');
         }
 
         const timeoutMs = (opts.timeoutMs !== undefined) ? opts.timeoutMs : 10000;
@@ -378,6 +406,24 @@ class PublisherSession extends EventEmitter {
 
         this.watchId = id;
 
+        /* CORE-9226 (review N1): getToken() is POLYMORPHIC -- the raw token
+         * object when one is held and live, but a PROMISE whenever
+         * acquisition is in flight (login, proactive refresh, or a join of
+         * either; see client.js getToken()). The old synchronous read in
+         * _openSocket took `.access_token` off whatever came back, and off
+         * a Promise that is `undefined`: the handshake then left as
+         * `Authorization: undefined`, the server denied it 401/403-shaped,
+         * and the denial parked the session for AUTH_PARK_MS -- a
+         * self-inflicted credential fault whenever a connect raced a token
+         * acquisition, made ROUTINE by #178's now-working proactive refresh.
+         * Awaiting here is what the auth-park design already assumed ("each
+         * parked attempt re-reads the client token"): an attempt cannot
+         * re-read a credential it never waits for. Awaited BEFORE
+         * _detachSocket so a slow or failed acquisition never leaves the
+         * session socketless; on rejection, connect() rejects with the
+         * acquisition error itself and no handshake is attempted at all. */
+        const token = await this._client.getToken();
+
         /* Detach any previous socket BEFORE opening a new one (-lpa.2). A
          * failed recovery attempt used to overwrite this.socket while the old
          * socket's reconnection loop kept running: every failed attempt
@@ -385,7 +431,7 @@ class PublisherSession extends EventEmitter {
          * amplifier behind the measured ~6 MB/h denial loop. */
         this._detachSocket();
 
-        const sock = this._openSocket(id);
+        const sock = this._openSocket(id, token.access_token);
         this.socket = sock;
         this._wireSocket(sock);
 
@@ -439,13 +485,15 @@ class PublisherSession extends EventEmitter {
      * a plain socket rejoin (design §7.4: reconnect-within-grace needs no REST).
      *
      * @param {string} watchId The namespace.
+     * @param {string} accessToken The bearer token for the handshake query,
+     *        already RESOLVED by connect() (review N1: getToken() may answer
+     *        with a Promise, which only an awaiting caller can consume; this
+     *        builder stays synchronous so the detach-to-open window has no
+     *        interleaving point).
      * @returns {Object} An unopened socket.io socket.
      * @private
      */
-    _openSocket(watchId) {
-        const token = this._client.getToken();
-        const accessToken = token.access_token;
-
+    _openSocket(watchId, accessToken) {
         const parsedUrl = new Url(this._client.baseUri);
         const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
         const url = `${baseUrl}/${watchId}`;
@@ -595,8 +643,32 @@ class PublisherSession extends EventEmitter {
      * is applied to entries that omit their own per-point `ts` (precedence:
      * per-point ts > message ts > server receipt time).
      *
+     * ACKNOWLEDGEMENT (CORE-9226 #159). Pass `opts.ack: true` and this returns
+     * a PROMISE that settles when the server has finished persisting the frame:
+     *
+     *   {status: 'ack',     applied}          the frame is RESOLVED and may be
+     *                                         dropped; `applied` counts the
+     *                                         entries the server committed, and
+     *                                         0 is legitimate (it declined them
+     *                                         all, on purpose)
+     *   {status: 'nack',    applied, failed}  something went WRONG; failed[]
+     *                                         names each bad entry as
+     *                                         {id, reason}
+     *   {status: 'unacked'}                   no answer within opts.ackTimeoutMs:
+     *                                         UNCONFIRMED, never "fine"
+     *
+     * Without `opts.ack` it emits with exactly two arguments and returns
+     * undefined, which is how a CUR frame stays unacknowledged: the next tick
+     * supersedes it, so confirming one buys nothing and re-sending a stale one
+     * is wrong. That is a statement about cur, not a compatibility switch --
+     * a caller publishing HISTORY asks for the ack, always.
+     *
+     * The promise NEVER rejects and never waits indefinitely; see
+     * ACK_TIMEOUT_MS for what 'unacked' does and does not mean.
+     *
      * @param {Array}  entries   Per-point entries.
-     * @param {Object} [opts]    { ts } optional message-level timestamp.
+     * @param {Object} [opts]    { ts, his, ack, ackTimeoutMs }.
+     * @returns {undefined|Promise<Object>} undefined unless opts.ack is set.
      */
     pointUpdate(entries, opts = {}) {
         if (!this.socket) {
@@ -617,7 +689,80 @@ class PublisherSession extends EventEmitter {
             frame.his = opts.his;
         }
 
-        this.socket.emit(MESSAGE_EVENT, frame);
+        if (!opts.ack) {
+            /* The unacknowledged path, which is what a CUR frame takes. Emitted
+             * with exactly two arguments, so socket.io allocates no ack id and
+             * the server has nothing to answer. */
+            this.socket.emit(MESSAGE_EVENT, frame);
+            return undefined;
+        }
+
+        return this._emitAcked(frame, opts);
+    }
+
+    /**
+     * Emit a frame with socket.io's native per-message acknowledgement and
+     * settle on whichever of the server's answer or the timeout arrives first
+     * (CORE-9226 #159).
+     *
+     * @param {Object} frame the pointUpdate envelope.
+     * @param {Object} opts  { ackTimeoutMs }.
+     * @returns {Promise<Object>} always resolves, never rejects.
+     */
+    _emitAcked(frame, opts) {
+        const timeoutMs = (opts.ackTimeoutMs === undefined)
+            ? ACK_TIMEOUT_MS : opts.ackTimeoutMs;
+
+        return new Promise((resolve) => {
+            /* Whichever arrives first wins and the other becomes a no-op. A
+             * late ack landing after the timeout must not re-settle the promise
+             * -- the caller has already decided the frame was unacknowledged
+             * and re-queued it, and resolving twice would let it act on the
+             * same frame under two different verdicts. */
+            let settled = false;
+            const settle = (value) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearTimeout(timer);
+                resolve(value);
+            };
+
+            const timer = setTimeout(() => {
+                settle({status: ACK_STATUS_UNACKED});
+            }, timeoutMs);
+            /* Never hold the process open for an ack. */
+            if (typeof timer.unref === 'function') {
+                timer.unref();
+            }
+
+            this.socket.emit(MESSAGE_EVENT, frame, (payload) => {
+                /* A server that acks but whose payload is unreadable is treated
+                 * as a nack, not as a success: the one thing the caller must
+                 * never do on a doubtful answer is drop the frame. */
+                if (payload === null || typeof payload !== 'object') {
+                    settle({
+                        status: ACK_STATUS_NACK,
+                        applied: 0,
+                        failed: []
+                    });
+                    return;
+                }
+                if (payload.ok === true) {
+                    settle({
+                        status: ACK_STATUS_ACK,
+                        applied: payload.applied || 0
+                    });
+                    return;
+                }
+                settle({
+                    status: ACK_STATUS_NACK,
+                    applied: payload.applied || 0,
+                    failed: Array.isArray(payload.failed) ? payload.failed : []
+                });
+            });
+        });
     }
 
     /* ================================================================
@@ -920,3 +1065,10 @@ module.exports.RECONNECTION_DELAY_MS = RECONNECTION_DELAY_MS;
 module.exports.RECONNECTION_DELAY_MAX_MS = RECONNECTION_DELAY_MAX_MS;
 module.exports.RECOVER_MAX_BACKOFF_MS = RECOVER_MAX_BACKOFF_MS;
 module.exports.RECOVERY_REQUEST_TIMEOUT_MS = RECOVERY_REQUEST_TIMEOUT_MS;
+/* pointUpdate acknowledgement surface (CORE-9226 #159), exported for the same
+ * reason: a consumer branches on these and must pin them against the installed
+ * tarball rather than restating the string literals. */
+module.exports.ACK_TIMEOUT_MS = ACK_TIMEOUT_MS;
+module.exports.ACK_STATUS_ACK = ACK_STATUS_ACK;
+module.exports.ACK_STATUS_NACK = ACK_STATUS_NACK;
+module.exports.ACK_STATUS_UNACKED = ACK_STATUS_UNACKED;

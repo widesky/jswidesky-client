@@ -353,6 +353,55 @@ describe("Realtime", function () {
                 }
                 expect(reason).to.equal("Forbidden");
             });
+
+            it("carries an asynchronously-acquired token into the handshake (CORE-9226 review N1)", async function () {
+                /* getToken() is a PROMISE whenever acquisition is in flight;
+                 * reading `.access_token` off it synchronously sent the
+                 * handshake out as `Authorization: undefined`. Mirror of the
+                 * publisher-side test; both socket entry points share the
+                 * defect and the fix. */
+                let http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const fake = new FakeSocket();
+                sinon.stub(socket, "connect").returns(fake);
+                sinon.stub(ws, "getToken").resolves({ access_token: WS_ACCESS_TOKEN });
+
+                const ctl = ws.createControlListener();
+                await ctl.connect(TEST_REG_ID);
+
+                expect(
+                    socket.connect.getCall(0).args[1].query.Authorization,
+                    "a handshake must never leave with Authorization: undefined"
+                ).to.equal(WS_ACCESS_TOKEN);
+            });
+
+            it("rejects connect() when acquisition fails, before any socket exists (CORE-9226 review N1)", async function () {
+                let http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const fake = new FakeSocket();
+                sinon.stub(socket, "connect").returns(fake);
+                const denial = new Error("login failed: bad credentials");
+                sinon.stub(ws, "getToken").rejects(denial);
+
+                const ctl = ws.createControlListener({ autoRecover: false });
+                let err = null;
+                try {
+                    await ctl.connect(TEST_REG_ID);
+                } catch (e) {
+                    err = e;
+                }
+
+                expect(err, "connect() must surface the acquisition error")
+                    .to.equal(denial);
+                expect(
+                    socket.connect.callCount,
+                    "no handshake may be attempted without a credential"
+                ).to.equal(0);
+            });
         });
 
         /* ------------------------------------------------------------

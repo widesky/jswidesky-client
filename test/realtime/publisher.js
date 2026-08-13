@@ -46,15 +46,29 @@ class FakeSocket extends EventEmitter {
     }
 
     /* socket.io-client emit toward the server. */
-    emit(event, payload) {
+    emit(event, payload, ack) {
         /* 'message'/pointUpdate is outbound; local lifecycle events still need
          * EventEmitter semantics for our own listeners, but the publisher only
          * ever sends 'message' frames via emit(), so record those. */
         if (event === "message") {
-            this.sent.push({ event, payload });
+            /* The acknowledgement callback is recorded, never auto-invoked
+             * (CORE-9226 #159). A test decides when, whether and with what the
+             * server answers -- including deciding that it never answers at
+             * all, which is the pre-#159 server every deployment is running
+             * today and the case the client's timeout exists for. */
+            this.sent.push({ event, payload, ack });
             return true;
         }
         return super.emit(event, payload);
+    }
+
+    /** Answer the Nth recorded frame the way a server would. */
+    serverAck(payload, index = this.sent.length - 1) {
+        const frame = this.sent[index];
+        if (!frame || typeof frame.ack !== "function") {
+            throw new Error("frame " + index + " was emitted without an ack");
+        }
+        frame.ack(payload);
     }
 
     open() {
@@ -434,6 +448,68 @@ describe("Realtime", function () {
         });
 
         /* ------------------------------------------------------------
+         * connect() token acquisition (CORE-9226 review N1)
+         *
+         * getToken() is POLYMORPHIC: the raw token object when one is held
+         * and live, but a PROMISE whenever acquisition is in flight (login,
+         * proactive refresh, or a join of either). The handshake builder
+         * used to read `.access_token` synchronously off whatever came
+         * back -- off a Promise that is `undefined` -- and the handshake
+         * then left as `Authorization: undefined`: an auth-shaped denial
+         * that parks the session at the AUTH_PARK_MS cadence. The deadline
+         * fix (#178) makes in-flight refreshes ROUTINE, so the race is no
+         * longer exotic; the credential must be awaited.
+         * ---------------------------------------------------------- */
+
+        describe("connect token acquisition (CORE-9226 review N1)", function () {
+            it("carries an asynchronously-acquired token into the handshake", async function () {
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const fake = new FakeSocket();
+                sinon.stub(socket, "connect").returns(fake);
+                /* A refresh in flight: getToken() yields a PROMISE of the
+                 * token, exactly what the join-queue path returns. */
+                sinon.stub(ws, "getToken").resolves({ access_token: WS_ACCESS_TOKEN });
+
+                const pub = ws.createPublisher();
+                await pub.connect(TEST_WATCH_ID);
+
+                expect(
+                    socket.connect.getCall(0).args[1].query.Authorization,
+                    "a handshake must never leave with Authorization: undefined"
+                ).to.equal(WS_ACCESS_TOKEN);
+            });
+
+            it("rejects connect() when acquisition fails, before any socket exists", async function () {
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+
+                const fake = new FakeSocket();
+                sinon.stub(socket, "connect").returns(fake);
+                const denial = new Error("login failed: bad credentials");
+                sinon.stub(ws, "getToken").rejects(denial);
+
+                const pub = ws.createPublisher();
+                let err = null;
+                try {
+                    await pub.connect(TEST_WATCH_ID);
+                } catch (e) {
+                    err = e;
+                }
+
+                expect(err, "connect() must surface the acquisition error")
+                    .to.equal(denial);
+                expect(
+                    socket.connect.callCount,
+                    "no handshake may be attempted without a credential"
+                ).to.equal(0);
+            });
+        });
+
+        /* ------------------------------------------------------------
          * pointUpdate emission shapes
          * ---------------------------------------------------------- */
 
@@ -600,6 +676,165 @@ describe("Realtime", function () {
 
                 expect(received).to.have.length(1);
                 expect(received[0].data).to.deep.equal([{ id: "1", mode: "slow" }]);
+            });
+        });
+
+        /* ------------------------------------------------------------
+         * pointUpdate acknowledgement (CORE-9226 #159)
+         *
+         * Per-call by design, and NOT a compatibility switch. A caller
+         * publishing HISTORY always asks for the acknowledgement; a CUR frame
+         * never does, because the next tick supersedes it. So the two-argument
+         * path must stay byte-identical -- same emit, same arity, same
+         * undefined return -- for cur's sake, not for an old server's.
+         * ---------------------------------------------------------- */
+
+        describe("pointUpdate acknowledgement (CORE-9226 #159)", function () {
+            async function connectedPub() {
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+                const fake = new FakeSocket();
+                sinon.stub(socket, "connect").returns(fake);
+                sinon.stub(ws, "getToken").returns({ access_token: WS_ACCESS_TOKEN });
+                const pub = ws.createPublisher();
+                await pub.connect(TEST_WATCH_ID);
+                return { pub, fake };
+            }
+
+            it("emits with NO ack argument and returns undefined by default", async function () {
+                /* Stated as arity, because that is where it is decided: the
+                 * server can only answer a frame socket.io allocated an ack id
+                 * for, and it allocates one only when the client passes a
+                 * callback. This is what keeps a cur frame unanswered. */
+                const { pub, fake } = await connectedPub();
+
+                const returned = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }]);
+
+                expect(returned).to.equal(undefined);
+                expect(fake.sent).to.have.length(1);
+                expect(fake.sent[0].ack).to.equal(undefined);
+            });
+
+            it("resolves 'ack' with the applied count when the server acks", async function () {
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                });
+                fake.serverAck({ ok: true, applied: 1 });
+
+                expect(await pending).to.deep.equal({ status: "ack", applied: 1 });
+            });
+
+            it("resolves 'ack' when the server stored NOTHING but declined on purpose", async function () {
+                /* {ok: true, applied: 0} is a real answer, not a degenerate
+                 * one. `ok` means the frame is RESOLVED and may be dropped,
+                 * which is true both when everything stored and when the
+                 * server's freshness guard correctly refused an older sample.
+                 * A caller that read applied 0 as failure would re-send for
+                 * ever a frame the server is right to refuse. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                });
+                fake.serverAck({ ok: true, applied: 0 });
+
+                expect(await pending).to.deep.equal({ status: "ack", applied: 0 });
+            });
+
+            it("resolves 'nack' carrying the failed points verbatim", async function () {
+                /* failed[] is what the caller quarantines on, so it is passed
+                 * through untouched rather than reshaped. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate(
+                    [
+                        { id: TEST_POINTS[0], curVal: 1 },
+                        { id: TEST_POINTS[1], curVal: 2 },
+                    ],
+                    { ack: true }
+                );
+                fake.serverAck({
+                    ok: false,
+                    applied: 1,
+                    failed: [{ id: TEST_POINTS[0], reason: "history-persist-failed" }],
+                });
+
+                expect(await pending).to.deep.equal({
+                    status: "nack",
+                    applied: 1,
+                    failed: [{ id: TEST_POINTS[0], reason: "history-persist-failed" }],
+                });
+            });
+
+            it("resolves 'unacked' rather than hanging when the server never answers", async function () {
+                /* The reason the promise carries a deadline at all: a caller
+                 * awaiting an answer that is not coming would be parked for
+                 * ever, and a parked publisher stops publishing. 'unacked'
+                 * means UNCONFIRMED and nothing else -- what the caller does
+                 * with it is the caller's rule, and the only correct one is to
+                 * keep the frame. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                    ackTimeoutMs: 5,
+                });
+
+                expect(fake.sent[0].ack).to.be.a("function");
+                expect(await pending).to.deep.equal({ status: "unacked" });
+            });
+
+            it("ignores an ack that arrives AFTER the timeout already settled it", async function () {
+                /* A late ack must not re-settle the promise. The caller has
+                 * already treated the frame as unacknowledged and re-queued
+                 * it; a second verdict on the same frame is how it would end
+                 * up both retained and deleted. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                    ackTimeoutMs: 5,
+                });
+                const settled = await pending;
+                fake.serverAck({ ok: true, applied: 1 });
+
+                expect(settled).to.deep.equal({ status: "unacked" });
+                expect(await pending).to.deep.equal({ status: "unacked" });
+            });
+
+            it("treats an unreadable ack payload as a nack, never as success", async function () {
+                /* On a doubtful answer the one unsafe move is to drop the
+                 * frame, so anything that is not a recognisable positive ack
+                 * is reported as a nack. */
+                const { pub, fake } = await connectedPub();
+
+                const pending = pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], {
+                    ack: true,
+                });
+                fake.serverAck("not an object");
+
+                expect(await pending).to.deep.equal({
+                    status: "nack",
+                    applied: 0,
+                    failed: [],
+                });
+            });
+
+            it("still throws synchronously when called before connect()", async function () {
+                /* The pre-existing contract, re-pinned on the ack path: a
+                 * precondition failure is a throw, not a resolved promise, so
+                 * a caller cannot mistake it for a server verdict. */
+                const http = new stubs.StubHTTPClient(),
+                    log = new stubs.StubLogger(),
+                    ws = getInstance(http, log);
+                const pub = ws.createPublisher();
+
+                expect(() =>
+                    pub.pointUpdate([{ id: TEST_POINTS[0], curVal: 1 }], { ack: true })
+                ).to.throw(/before connect/);
             });
         });
 

@@ -11,6 +11,25 @@ const WideSkyClient = proxyquire(
         "axios": {
             create: (config) => {
                 passedAxiosOptions = config;
+                /* CORE-9226 (#178): initAxios now registers a response
+                 * interceptor to capture the server's clock off the
+                 * /oauth2/token response. Real axios -- node and browser both
+                 * -- always exposes `.interceptors`; this stub returned
+                 * nothing, so the registration threw inside the beforeEach and
+                 * took every test in this block with it.
+                 *
+                 * Returning the minimal shape here, rather than guarding the
+                 * client against a missing interceptor API, is deliberate: a
+                 * guard would let a real axios that cannot register the
+                 * interceptor skip the capture SILENTLY, which is precisely
+                 * the failure mode the deadline fix exists to remove. Every
+                 * assertion in this block reads `passedAxiosOptions` and is
+                 * untouched by this change. */
+                return {
+                    interceptors: {
+                        response: { use: () => {} }
+                    }
+                };
             }
         }
     }
