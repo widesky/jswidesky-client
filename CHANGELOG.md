@@ -4,11 +4,54 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-08-13
+
+### Added
+- [CORE-9226](https://widesky.atlassian.net/browse/CORE-9226): `PublisherSession#pointUpdate`
+  can now confirm persistence. Passing `opts.ack` returns a promise that settles once the
+  server has finished storing the frame, as `{status: 'ack', applied}`,
+  `{status: 'nack', applied, failed}`, or `{status: 'unacked'}` when no answer arrives
+  within `opts.ackTimeoutMs` (default 30000). It never rejects, a late acknowledgement
+  cannot re-settle it, and an unreadable ack payload resolves as a `nack` rather than a
+  success. A caller publishing history (`{his: true}`) should ask for the acknowledgement;
+  a `cur` frame is superseded by the next tick and does not need one. Additive by
+  construction: without `opts.ack` the socket is emitted with exactly two arguments, the
+  return stays `undefined`, and the pre-connect precondition still throws synchronously.
+
 ### Changed
 - [CORE-9300](https://widesky.atlassian.net/browse/CORE-9300): `hisRead` now uses an HTTP POST instead of a GET.
+- [CORE-9226](https://widesky.atlassian.net/browse/CORE-9226): `unacked` is now documented
+  as UNCONFIRMED rather than as a way to recognise a server predating the acknowledgement.
+  An unanswered frame may or may not have been stored, and the timeout is not licence to
+  discard a buffered frame. No behaviour change: `ACK_TIMEOUT_MS` keeps its value and
+  `unacked` keeps its shape. `docs/client/api.md` corrected, which had documented
+  `pointUpdate`'s options as `{ts?, his?}` and its return as `void` — both false since the
+  acknowledgement landed.
 
 ### Fixed
 - [CORE-9300](https://widesky.atlassian.net/browse/CORE-9300): Large multi-point reads no longer fail with an HTTP 414 "URI Too Long" error.
+- [CORE-9226](https://widesky.atlassian.net/browse/CORE-9226): Token refresh no longer
+  trusts the local clock. The server's `expires_in` is an absolute epoch-millisecond
+  instant, and it was compared against `Date.now()`; on a device whose clock boots behind —
+  an Edge unit with no battery-backed RTC is routinely months out — that expiry is never
+  reached, so the client never refreshed proactively and kept presenting a token the server
+  had already retired. REST absorbed this by retrying the 401, but the socket path
+  classified the rejected handshake as a credential fault and parked. The deadline is now
+  derived from the token's own lifetime (absolute expiry minus the `Date` header of the
+  response that carried it), anchored to the local clock at receipt, making it immune to a
+  constant local offset. Falls back to the previous comparison whenever that subtraction is
+  unavailable or nonsensical: no `Date` header, an unparseable one, or an expiry at or
+  before the server's own clock.
+- [CORE-9226](https://widesky.atlassian.net/browse/CORE-9226): The publisher and control
+  socket handshakes read `.access_token` off a pending promise. A `connect()` racing a token
+  acquisition sent `Authorization: undefined` and parked as a credential fault. Both entry
+  points now await the credential before touching the socket, and reject with the
+  acquisition error before any handshake is attempted.
+- [CORE-9226](https://widesky.atlassian.net/browse/CORE-9226): The captured server-time
+  sample is now one-shot — reset on every token response and consumed once — so a refresh
+  carrying no `Date` header degrades to the raw fallback instead of pairing the new expiry
+  with the login-era clock. The interceptor also reads the header case-insensitively, which
+  a wire-case `Date` previously defeated, leaving the fix silently inert.
 
 ## [3.4.1] - 2026-07-20
 
