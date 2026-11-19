@@ -57,7 +57,9 @@ describe("client", () => {
             ws.initAxios();
 
             console.log(passedAxiosOptions);
-            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            // +1 for the BAU-1694 request timeout default.
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
 
             expect(passedAxiosOptions.httpAgent instanceof http.Agent).to.be.true;
@@ -82,7 +84,9 @@ describe("client", () => {
                 }
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            // +1 for the BAU-1694 request timeout default.
+            expect(Object.keys(passedAxiosOptions).length).to.equal(5);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
             expect(passedAxiosOptions.test).to.equal(123);
 
@@ -105,7 +109,9 @@ describe("client", () => {
                 }
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            // +1 for the BAU-1694 request timeout default.
+            expect(Object.keys(passedAxiosOptions).length).to.equal(5);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
             expect(passedAxiosOptions.test).to.equal(123);
 
@@ -125,7 +131,9 @@ describe("client", () => {
                 },
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            // +1 for the BAU-1694 request timeout default.
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.adapter).to.be.undefined;
         });
 
@@ -134,7 +142,9 @@ describe("client", () => {
                 http2: {},
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            // +1 for the BAU-1694 request timeout default.
+            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.adapter).to.be.undefined;
         });
 
@@ -145,7 +155,9 @@ describe("client", () => {
                 },
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            // +1 for the BAU-1694 request timeout default.
+            expect(Object.keys(passedAxiosOptions).length).to.equal(5);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.adapter).to.not.equal(null);
         });
     });

@@ -221,6 +221,45 @@ function initLogger(logObj = {}) {
     return bunyan.createLogger(loggerDefaults);
 }
 
+/** Default request timeout (ms) when no option sets one. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 60000;
+
+/**
+ * Work out the effective request timeout from the client options (BAU-1694).
+ *
+ * Precedence: `options.requestTimeout`, then `options.http2.requestTimeout`
+ * (its pre-3.7 name, kept as an alias), then `options.axios.timeout`, then
+ * DEFAULT_REQUEST_TIMEOUT_MS; `undefined`/`null` count as unset. `0` disables
+ * the timeout. Numeric strings (e.g. '5000') are accepted, because axios
+ * accepts them for `timeout` (it parseInt()s the value), so existing configs
+ * passing a string keep working.
+ *
+ * @param {Object} options the client options.
+ * @returns {number} the timeout in ms.
+ * @throws {TypeError} if the chosen value is not a finite number >= 0.
+ */
+function resolveRequestTimeout(options = {}) {
+    const candidates = [
+        ['options.requestTimeout', options.requestTimeout],
+        ['options.http2.requestTimeout', options.http2?.requestTimeout],
+        ['options.axios.timeout', options.axios?.timeout],
+    ];
+    for (const [name, value] of candidates) {
+        if (value === undefined || value === null) continue;
+        const ms = (typeof value === 'string' && value.trim() !== '')
+            ? Number(value)
+            : value;
+        if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) {
+            throw new TypeError(
+                `${name} must be a finite number of milliseconds >= 0`
+                + ` (0 disables the request timeout), got ${String(value)}`
+            );
+        }
+        return ms;
+    }
+    return DEFAULT_REQUEST_TIMEOUT_MS;
+}
+
 class WideSkyClient {
     baseUri
     #username
@@ -258,7 +297,9 @@ class WideSkyClient {
      *                  - Bunyan logging instance.
      * @param accessToken A valid WideSky access token.
      * @param options An Object containing attributes "axios", "https" and "client" for configuring
-     *                the axios, httpsAgent and WideSky client respectively.
+     *                the axios, httpsAgent and WideSky client respectively, and
+     *                "requestTimeout": the timeout in ms applied to every request
+     *                (default 60000, 0 disables; see the `requestTimeout` getter).
      *
      *                Axios configurations are
      *                described at https://axios-http.com/docs/config_defaults.
@@ -508,16 +549,17 @@ class WideSkyClient {
             }
         }
 
-        // HTTP/2 request timeout (guards against session establishment hangs).
-        // Default 60s. Set to 0 to disable.
-        const DEFAULT_HTTP2_REQUEST_TIMEOUT_MS = 60000;
-        this._requestTimeoutMs = this.options.http2?.requestTimeout
-            ?? DEFAULT_HTTP2_REQUEST_TIMEOUT_MS;
+        this._requestTimeoutMs = resolveRequestTimeout(this.options);
 
-        // Merge user-provided axios options last to allow override
+        // Merge user-provided axios options last to allow override, except
+        // `timeout`: the instance default is always the effective request
+        // timeout (which already folds in `options.axios.timeout`, see
+        // resolveRequestTimeout), so the `requestTimeout` getter reports
+        // exactly what every request gets unless the call passes its own.
         const axiosOptions = {
             ...defaultAxiosOptions,
             ...(this.options.axios ?? {}),
+            timeout: this._requestTimeoutMs,
         };
 
         this.axios = axios.create(axiosOptions);
@@ -915,16 +957,26 @@ class WideSkyClient {
             }
         };
 
+        /* BAU-1694: every request is bounded, whatever the transport. A
+         * per-call `config.timeout` (e.g. the 45 s recovery calls in
+         * publisher/control/watchRenew) wins; otherwise the client's
+         * effective request timeout applies. 0 disables. */
+        const timeoutMs = (config && config.timeout !== undefined)
+            ? config.timeout : this._requestTimeoutMs;
+
         let res;
-        if (this._requestTimeoutMs > 0 && this.options.http2?.enabled) {
+        if (timeoutMs > 0 && this.options.http2?.enabled) {
+            /* axios's own `timeout` is not reliable through the HTTP/2
+             * adapter (it does not cover session establishment), so race
+             * the call against our own timer. */
             let timeoutId;
             const timeoutPromise = new Promise((_, reject) => {
                 timeoutId = setTimeout(() => {
                     reject(new Error(
                         `Request to ${uriPath} timed out after`
-                        + ` ${this._requestTimeoutMs}ms (HTTP/2 mode)`
+                        + ` ${timeoutMs}ms (HTTP/2 mode)`
                     ));
-                }, this._requestTimeoutMs);
+                }, timeoutMs);
             });
             try {
                 res = await Promise.race([axiosCall(), timeoutPromise]);
@@ -932,10 +984,42 @@ class WideSkyClient {
                 clearTimeout(timeoutId);
             }
         } else {
-            res = await axiosCall();
+            /* HTTP/1.1: axios applies the timeout itself (instance default
+             * set in initAxios, or the per-call override) and destroys the
+             * request on expiry, so a dead connection is released rather
+             * than left holding a socket. Its error is reworded to name the
+             * path, keeping the AxiosError and its code (ECONNABORTED, or
+             * ETIMEDOUT under transitional.clarifyTimeoutError) so callers
+             * that classify network errors still see a timeout. */
+            try {
+                res = await axiosCall();
+            } catch (err) {
+                if (isAxiosError(err) && !err.response
+                    && (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT')
+                    && /timeout/i.test(err.message || '')) {
+                    const ms = (err.config && err.config.timeout) || timeoutMs;
+                    err.message = `Request to ${uriPath} timed out after ${ms}ms`;
+                }
+                throw err;
+            }
         }
         return res.data;
     };
+
+    /**
+     * The request timeout, in milliseconds, applied to every request this
+     * client makes (over HTTP/1.1 and HTTP/2) unless a call passes its own
+     * `timeout`. `0` means requests are not timed out.
+     *
+     * Resolved once at construction from `options.requestTimeout`, then the
+     * `options.http2.requestTimeout` alias, then `options.axios.timeout`,
+     * then the 60000 ms default.
+     *
+     * @returns {number} the effective request timeout in ms, `0` if disabled.
+     */
+    get requestTimeout() {
+        return this._requestTimeoutMs;
+    }
 
     /**
      * Attach necessary headers to request config.

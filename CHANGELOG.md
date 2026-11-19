@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- [BAU-1694](https://widesky.atlassian.net/browse/BAU-1694): Requests now time out over HTTP/1.1 as well as HTTP/2 (new `requestTimeout` option, default 60 seconds).
+  - The OAuth token request is bounded too, so a stalled login or refresh no longer blocks every later request.
+  - `http2.requestTimeout` still works as an alias; `client.requestTimeout` reports the timeout in force (0 when disabled).
+
 ## [3.6.0] - 2026-10-14
 
 ### Added

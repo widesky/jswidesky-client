@@ -74,17 +74,20 @@ describe('client', () => {
             }
         );
 
-        it('should not apply timeout when HTTP/2 is disabled', async () => {
+        it('should leave the timeout to axios (no race) when HTTP/2 is disabled', async () => {
+            // BAU-1694: over HTTP/1.1 the timeout is applied by axios itself
+            // (instance default; see requestTimeout.js for the real-socket
+            // tests), not by the HTTP/2 Promise.race. With axios stubbed
+            // out, no race timer should reject the call.
             const clock = sinon.useFakeTimers();
 
             try {
                 const REQUEST_TIMEOUT_MS = 200;
                 const ws = createClient({
-                    http2: {enabled: false},
+                    http2: {enabled: false, requestTimeout: REQUEST_TIMEOUT_MS},
                 });
+                expect(ws.axios.defaults.timeout).to.equal(REQUEST_TIMEOUT_MS);
 
-                // Stub axios.get to never settle; if a timeout were active
-                // this would reject after REQUEST_TIMEOUT_MS.
                 ws.axios.get = sinon.stub().returns(new Promise(() => {}));
 
                 let settled = false;

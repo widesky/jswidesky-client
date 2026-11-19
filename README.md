@@ -93,6 +93,28 @@ let myClient = new WideSkyClient(
                         server.secret);
 ```
 
+### Request timeout
+
+Every request (HTTP/1.1 or HTTP/2, including the OAuth token request) fails
+after `options.requestTimeout` milliseconds, **60 seconds by default**, so a
+stalled connection cannot leave a request pending forever. Set it to `0` to
+disable; a `timeout` in a single request's config overrides it for that
+request. `options.http2.requestTimeout` is still accepted as an alias.
+
+```javascript
+let myClient = new WideSkyClient(
+    server.url, server.username, server.password, server.clientId, server.secret,
+    null,    // logger
+    null,    // accessToken
+    { requestTimeout: 30000 }
+);
+
+myClient.requestTimeout; // 30000 — the timeout in force (0 when disabled)
+```
+
+See [Request timeout](docs/client/options.md#request-timeout) for the full
+precedence rules.
+
 ### Outbound request pacing (opt-in)
 
 By default, `jswidesky-client` dispatches HTTP requests to the apiserver as
