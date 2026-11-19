@@ -67,6 +67,8 @@ describe('client', () => {
                     expect(error.message).to.include('timed out');
                     expect(error.message).to.include('/api/graphql');
                     expect(error.message).to.include('HTTP/2 mode');
+                    // BAU-1694 review: same code family as an HTTP/1.1 timeout.
+                    expect(error.code).to.equal('ETIMEDOUT');
                 }
                 finally {
                     clock.restore();

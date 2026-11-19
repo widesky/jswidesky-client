@@ -225,14 +225,41 @@ function initLogger(logObj = {}) {
 const DEFAULT_REQUEST_TIMEOUT_MS = 60000;
 
 /**
+ * Normalise one timeout value (BAU-1694).
+ *
+ * Numeric strings (e.g. '5000') are accepted, because axios accepts them for
+ * `timeout` (it parseInt()s the value), so existing configs passing a string
+ * keep working. `undefined`/`null` mean "unset" and come back as `undefined`.
+ *
+ * @param {string} name what the value is, for the error message.
+ * @param {*} value the raw value.
+ * @returns {number|undefined} the timeout in ms, or undefined when unset.
+ * @throws {TypeError} if the value is set but not a finite number >= 0.
+ */
+function normaliseTimeout(name, value) {
+    if (value === undefined || value === null) return undefined;
+    const ms = (typeof value === 'string' && value.trim() !== '')
+        ? Number(value)
+        : value;
+    if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) {
+        throw new TypeError(
+            `${name} must be a finite number of milliseconds >= 0`
+            + ` (0 disables the request timeout), got ${String(value)}`
+        );
+    }
+    return ms;
+}
+
+/**
  * Work out the effective request timeout from the client options (BAU-1694).
  *
- * Precedence: `options.requestTimeout`, then `options.http2.requestTimeout`
- * (its pre-3.7 name, kept as an alias), then `options.axios.timeout`, then
+ * Precedence: `options.requestTimeout`, then `options.axios.timeout`, then
+ * `options.http2.requestTimeout` (the pre-3.7 name, kept as an alias), then
  * DEFAULT_REQUEST_TIMEOUT_MS; `undefined`/`null` count as unset. `0` disables
- * the timeout. Numeric strings (e.g. '5000') are accepted, because axios
- * accepts them for `timeout` (it parseInt()s the value), so existing configs
- * passing a string keep working.
+ * the timeout. `axios.timeout` is read before the alias so a config that set
+ * both (e.g. `{http2: {requestTimeout: 0}, axios: {timeout: 30000}}`) keeps
+ * the axios timeout it had over HTTP/1.1. A per-call `timeout` in a
+ * request's config overrides the result for that request (_wsRawSubmit).
  *
  * @param {Object} options the client options.
  * @returns {number} the timeout in ms.
@@ -241,23 +268,25 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 60000;
 function resolveRequestTimeout(options = {}) {
     const candidates = [
         ['options.requestTimeout', options.requestTimeout],
-        ['options.http2.requestTimeout', options.http2?.requestTimeout],
         ['options.axios.timeout', options.axios?.timeout],
+        ['options.http2.requestTimeout', options.http2?.requestTimeout],
     ];
     for (const [name, value] of candidates) {
-        if (value === undefined || value === null) continue;
-        const ms = (typeof value === 'string' && value.trim() !== '')
-            ? Number(value)
-            : value;
-        if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) {
-            throw new TypeError(
-                `${name} must be a finite number of milliseconds >= 0`
-                + ` (0 disables the request timeout), got ${String(value)}`
-            );
-        }
-        return ms;
+        const ms = normaliseTimeout(name, value);
+        if (ms !== undefined) return ms;
     }
     return DEFAULT_REQUEST_TIMEOUT_MS;
+}
+
+/**
+ * Whether an error is axios's own timeout error (no response, timeout code).
+ * @param {*} err the thrown error.
+ * @returns {boolean}
+ */
+function isAxiosTimeoutError(err) {
+    return isAxiosError(err) && !err.response
+        && (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT')
+        && /timeout/i.test(err.message || '');
 }
 
 class WideSkyClient {
@@ -299,7 +328,9 @@ class WideSkyClient {
      * @param options An Object containing attributes "axios", "https" and "client" for configuring
      *                the axios, httpsAgent and WideSky client respectively, and
      *                "requestTimeout": the timeout in ms applied to every request
-     *                (default 60000, 0 disables; see the `requestTimeout` getter).
+     *                (default 60000, 0 disables; see the `requestTimeout` getter
+     *                for what it bounds on each transport). Throws a TypeError
+     *                if the effective timeout option is invalid.
      *
      *                Axios configurations are
      *                described at https://axios-http.com/docs/config_defaults.
@@ -960,26 +991,53 @@ class WideSkyClient {
         /* BAU-1694: every request is bounded, whatever the transport. A
          * per-call `config.timeout` (e.g. the 45 s recovery calls in
          * publisher/control/watchRenew) wins; otherwise the client's
-         * effective request timeout applies. 0 disables. */
-        const timeoutMs = (config && config.timeout !== undefined)
-            ? config.timeout : this._requestTimeoutMs;
+         * effective request timeout applies. 0 disables. The per-call value
+         * is validated like the option (this method is async, so an invalid
+         * one rejects the returned promise); `null` counts as unset. The
+         * normalised value is written back into a copy of the config so
+         * axios arms the same value the race uses (a `null` or numeric
+         * string would otherwise reach axios as-is). */
+        let timeoutMs = this._requestTimeoutMs;
+        if (config && config.timeout !== undefined) {
+            const callMs = normaliseTimeout(
+                `timeout for ${method.toUpperCase()} ${uriPath}`,
+                config.timeout
+            );
+            config = { ...config };
+            if (callMs === undefined) {
+                delete config.timeout;
+            } else {
+                timeoutMs = callMs;
+                config.timeout = callMs;
+            }
+        }
 
         let res;
         if (timeoutMs > 0 && this.options.http2?.enabled) {
             /* axios's own `timeout` is not reliable through the HTTP/2
              * adapter (it does not cover session establishment), so race
-             * the call against our own timer. */
+             * the call against our own timer. axios's socket timer is armed
+             * too (same value); whichever fires first, the caller gets the
+             * same message and code: ETIMEDOUT, so batch retries classify an
+             * HTTP/2 timeout like an HTTP/1.1 one. */
+            const timeoutMessage = `Request to ${uriPath} timed out after`
+                + ` ${timeoutMs}ms (HTTP/2 mode)`;
             let timeoutId;
             const timeoutPromise = new Promise((_, reject) => {
                 timeoutId = setTimeout(() => {
-                    reject(new Error(
-                        `Request to ${uriPath} timed out after`
-                        + ` ${timeoutMs}ms (HTTP/2 mode)`
-                    ));
+                    const err = new Error(timeoutMessage);
+                    err.code = 'ETIMEDOUT';
+                    reject(err);
                 }, timeoutMs);
             });
             try {
                 res = await Promise.race([axiosCall(), timeoutPromise]);
+            } catch (err) {
+                if (isAxiosTimeoutError(err)) {
+                    err.message = timeoutMessage;
+                    err.code = 'ETIMEDOUT';
+                }
+                throw err;
             } finally {
                 clearTimeout(timeoutId);
             }
@@ -987,16 +1045,17 @@ class WideSkyClient {
             /* HTTP/1.1: axios applies the timeout itself (instance default
              * set in initAxios, or the per-call override) and destroys the
              * request on expiry, so a dead connection is released rather
-             * than left holding a socket. Its error is reworded to name the
-             * path, keeping the AxiosError and its code (ECONNABORTED, or
-             * ETIMEDOUT under transitional.clarifyTimeoutError) so callers
-             * that classify network errors still see a timeout. */
+             * than left holding a socket. Under Node this is an idle timeout
+             * (req.setTimeout: it fires once the socket has been silent that
+             * long), in the browser XHR's total cap. Its error is reworded
+             * to name the path, keeping the AxiosError and its code
+             * (ECONNABORTED, or ETIMEDOUT under
+             * transitional.clarifyTimeoutError) so callers that classify
+             * network errors still see a timeout. */
             try {
                 res = await axiosCall();
             } catch (err) {
-                if (isAxiosError(err) && !err.response
-                    && (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT')
-                    && /timeout/i.test(err.message || '')) {
+                if (isAxiosTimeoutError(err)) {
                     const ms = (err.config && err.config.timeout) || timeoutMs;
                     err.message = `Request to ${uriPath} timed out after ${ms}ms`;
                 }
@@ -1011,8 +1070,17 @@ class WideSkyClient {
      * client makes (over HTTP/1.1 and HTTP/2) unless a call passes its own
      * `timeout`. `0` means requests are not timed out.
      *
-     * Resolved once at construction from `options.requestTimeout`, then the
-     * `options.http2.requestTimeout` alias, then `options.axios.timeout`,
+     * What it bounds depends on the transport:
+     * - Node, HTTP/1.1: an idle timeout. axios arms `req.setTimeout`, which
+     *   fires only once the connection has sent and received nothing for this
+     *   long, so a large response that keeps streaming is not cut off, but a
+     *   half-open connection (or a server slow to send its first byte) is.
+     * - HTTP/2 (`http2.enabled`): a total cap. The whole request, session
+     *   setup included, is raced against a timer of this length.
+     * - Browser (XHR): a total cap on the whole request.
+     *
+     * Resolved once at construction from `options.requestTimeout`, then
+     * `options.axios.timeout`, then the `options.http2.requestTimeout` alias,
      * then the 60000 ms default.
      *
      * @returns {number} the effective request timeout in ms, `0` if disabled.

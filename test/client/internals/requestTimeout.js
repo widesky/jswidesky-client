@@ -13,9 +13,11 @@ const net = require('net');
 const sinon = require('sinon');
 const {expect} = require('chai');
 const stubs = require('../../stubs');
+const {AxiosError} = require('axios');
 const WideSkyClient = require('../../../src/client/client');
+const {isRetryable} = require('../../../src/client/functions/batchRetry');
 
-function createClient(options, baseUri = stubs.WS_URI) {
+function createClient(options, baseUri = stubs.WS_URI, accessToken = null) {
     return new WideSkyClient(
         baseUri,
         stubs.WS_USER,
@@ -23,9 +25,33 @@ function createClient(options, baseUri = stubs.WS_URI) {
         stubs.WS_CLIENT_ID,
         stubs.WS_CLIENT_SECRET,
         new stubs.StubLogger(),
-        null,
+        accessToken,
         options
     );
+}
+
+/** A still-valid token, so public calls go straight to the request. */
+function validToken() {
+    return {
+        access_token: 'a', refresh_token: 'r',
+        expires_in: Date.now() + 3600000, token_type: 'Bearer',
+    };
+}
+
+/** A client already holding a valid token (no login round trip). */
+function createLoggedInClient(options, baseUri = stubs.WS_URI) {
+    return createClient(options, baseUri, validToken());
+}
+
+/** Await a promise expected to reject; return the error. */
+async function rejectionOf(promise) {
+    try {
+        await promise;
+    }
+    catch (e) {
+        return e;
+    }
+    throw new Error('expected the promise to reject');
 }
 
 /**
@@ -93,6 +119,33 @@ describe('client', () => {
                 }).requestTimeout).to.equal(1000);
             });
 
+            // Precedence: requestTimeout > axios.timeout > http2.requestTimeout > 60000.
+            it('prefers options.axios.timeout over the http2.requestTimeout alias', () => {
+                // Pre-BAU-1694 this config had a 30 s timeout over HTTP/1.1
+                // (from axios.timeout); the alias must not silently drop it.
+                expect(createClient({
+                    http2: {requestTimeout: 0}, axios: {timeout: 30000},
+                }).requestTimeout).to.equal(30000);
+                expect(createClient({
+                    http2: {requestTimeout: 120000}, axios: {timeout: 30000},
+                }).requestTimeout).to.equal(30000);
+                expect(createClient({
+                    requestTimeout: 0,
+                    http2: {requestTimeout: 120000}, axios: {timeout: 30000},
+                }).requestTimeout).to.equal(0);
+            });
+
+            it('rejects an invalid http2.requestTimeout alias, naming it', () => {
+                // -1 used to disable the HTTP/2 timer; it now fails fast.
+                expect(() => createClient({http2: {requestTimeout: -1}}))
+                    .to.throw(TypeError, /options\.http2\.requestTimeout/);
+            });
+
+            it('rejects an invalid axios.timeout, naming it', () => {
+                expect(() => createClient({axios: {timeout: 'soon'}}))
+                    .to.throw(TypeError, /options\.axios\.timeout/);
+            });
+
             it('treats a null requestTimeout as unset', () => {
                 expect(createClient({requestTimeout: null}).requestTimeout)
                     .to.equal(60000);
@@ -133,6 +186,17 @@ describe('client', () => {
                 expect(createClient({requestTimeout: 0}).axios.defaults.timeout)
                     .to.equal(0);
             });
+
+            it('arms axios with the resolved value, not a raw axios.timeout', () => {
+                expect(createClient({
+                    requestTimeout: 500, axios: {timeout: 30000},
+                }).axios.defaults.timeout).to.equal(500);
+                expect(createClient({
+                    http2: {requestTimeout: 0}, axios: {timeout: 30000},
+                }).axios.defaults.timeout).to.equal(30000);
+                expect(createClient({axios: {timeout: '5000'}})
+                    .axios.defaults.timeout).to.equal(5000);
+            });
         });
 
         describe('over HTTP/1.1 against a server that never responds', () => {
@@ -146,24 +210,19 @@ describe('client', () => {
                 await server.close();
             });
 
-            it('rejects after requestTimeout, naming the path and the ms',
+            it('rejects query() after requestTimeout, naming the path and the ms',
                 async () => {
-                    const ws = createClient({requestTimeout: 300}, server.uri);
+                    const ws = createLoggedInClient({requestTimeout: 300}, server.uri);
                     const started = Date.now();
-                    let error;
-                    try {
-                        await ws._wsRawSubmit('GET', '/api/read');
-                    }
-                    catch (e) {
-                        error = e;
-                    }
+                    const error = await rejectionOf(ws.query('{ haystack { search { id } } }'));
                     const elapsed = Date.now() - started;
 
                     expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.include('/api/read');
+                    expect(error.message).to.include('/graphql');
                     expect(error.message).to.include('timed out after 300ms');
                     // Still classified as a network timeout (retryable code).
                     expect(['ECONNABORTED', 'ETIMEDOUT']).to.include(error.code);
+                    expect(isRetryable(error)).to.equal(true);
                     expect(elapsed).to.be.at.least(250);
                     expect(elapsed).to.be.below(3000);
                 }
@@ -171,25 +230,28 @@ describe('client', () => {
 
             it('applies via the http2.requestTimeout alias with HTTP/2 off',
                 async () => {
-                    const ws = createClient(
+                    const ws = createLoggedInClient(
                         {http2: {enabled: false, requestTimeout: 300}},
                         server.uri
                     );
-                    let error;
-                    try {
-                        await ws._wsRawSubmit('POST', '/api/graphql', {});
-                    }
-                    catch (e) {
-                        error = e;
-                    }
+                    const error = await rejectionOf(ws.query('{ x }'));
                     expect(error).to.be.an.instanceOf(Error);
                     expect(error.message).to.include('timed out after 300ms');
                 }
             );
 
+            it('keeps axios.timeout when the alias is 0', async () => {
+                const ws = createLoggedInClient(
+                    {http2: {requestTimeout: 0}, axios: {timeout: 300}},
+                    server.uri
+                );
+                const error = await rejectionOf(ws.query('{ x }'));
+                expect(error.message).to.include('timed out after 300ms');
+            });
+
             it('releases the stalled connection on timeout', async () => {
                 const ws = createClient({requestTimeout: 200}, server.uri);
-                await ws._wsRawSubmit('GET', '/api/read').catch(() => {});
+                await ws.login().catch(() => {});
                 // Give the server side a moment to observe the close.
                 await new Promise((r) => setTimeout(r, 100));
                 expect(server.sockets.size).to.equal(0);
@@ -197,56 +259,50 @@ describe('client', () => {
 
             it('bounds the OAuth token request too', async () => {
                 const ws = createClient({requestTimeout: 300}, server.uri);
-                let error;
-                try {
-                    await ws.login();
-                }
-                catch (e) {
-                    error = e;
-                }
+                const error = await rejectionOf(ws.login());
                 expect(error).to.be.an.instanceOf(Error);
                 expect(error.message).to.include('/oauth2/token');
                 expect(error.message).to.include('timed out after 300ms');
             });
 
-            it('bounds a full submitRequest (token + request)', async () => {
+            it('bounds a full query() including the token request', async () => {
+                // No token held: query() logs in first, and that stalls.
                 const ws = createClient({requestTimeout: 300}, server.uri);
-                ws._ws_token = {
-                    access_token: 'a', refresh_token: 'r',
-                    expires_in: Date.now() + 3600000, token_type: 'Bearer',
-                };
-                ws._ws_token_deadline = ws._ws_token.expires_in;
-                let error;
-                try {
-                    await ws.submitRequest('GET', '/api/read');
-                }
-                catch (e) {
-                    error = e;
-                }
+                const error = await rejectionOf(ws.query('{ x }'));
                 expect(error).to.be.an.instanceOf(Error);
                 expect(error.message).to.include('timed out after 300ms');
             });
 
             it('lets a per-call timeout win over requestTimeout', async () => {
-                const ws = createClient({requestTimeout: 5000}, server.uri);
+                const ws = createLoggedInClient({requestTimeout: 5000}, server.uri);
                 const started = Date.now();
-                let error;
-                try {
-                    await ws._wsRawSubmit('GET', '/api/read', undefined,
-                        {timeout: 250});
-                }
-                catch (e) {
-                    error = e;
-                }
+                const error = await rejectionOf(
+                    ws.submitRequest('GET', '/api/read', {}, {timeout: 250}));
                 expect(error).to.be.an.instanceOf(Error);
                 expect(error.message).to.include('timed out after 250ms');
                 expect(Date.now() - started).to.be.below(2000);
             });
 
+            it('accepts a numeric-string per-call timeout', async () => {
+                const ws = createLoggedInClient({requestTimeout: 5000}, server.uri);
+                const error = await rejectionOf(
+                    ws.submitRequest('GET', '/api/read', {}, {timeout: '250'}));
+                expect(error.message).to.include('timed out after 250ms');
+            });
+
+            it('treats a null per-call timeout as unset (instance value applies)',
+                async () => {
+                    const ws = createLoggedInClient({requestTimeout: 300}, server.uri);
+                    const error = await rejectionOf(
+                        ws.submitRequest('GET', '/api/read', {}, {timeout: null}));
+                    expect(error.message).to.include('timed out after 300ms');
+                }
+            );
+
             it('does not time out when requestTimeout is 0', async () => {
-                const ws = createClient({requestTimeout: 0}, server.uri);
+                const ws = createLoggedInClient({requestTimeout: 0}, server.uri);
                 let settled = false;
-                const pending = ws._wsRawSubmit('GET', '/api/read')
+                const pending = ws.query('{ x }')
                     .then(() => { settled = true; }, () => { settled = true; });
                 await new Promise((r) => setTimeout(r, 400));
                 expect(settled).to.equal(false,
@@ -258,52 +314,159 @@ describe('client', () => {
             });
         });
 
+        describe('per-call timeout validation', () => {
+            for (const bad of [-1, NaN, Infinity, 'abc', '', {}]) {
+                const label = typeof bad === 'string' ? JSON.stringify(bad) : String(bad);
+                it(`rejects (not throws) an invalid per-call timeout (${label})`, async () => {
+                    const ws = createLoggedInClient({requestTimeout: 1000});
+                    const get = sinon.stub().resolves({data: {}});
+                    ws.axios.get = get;
+
+                    let promise;
+                    expect(() => {
+                        promise = ws.submitRequest('GET', '/api/read', {}, {timeout: bad});
+                    }).to.not.throw();
+                    const error = await rejectionOf(promise);
+
+                    expect(error).to.be.an.instanceOf(TypeError);
+                    expect(error.message).to.include('timeout for GET /api/read');
+                    expect(get.called).to.equal(false, 'no request should be sent');
+                });
+            }
+
+            it('also validates on HTTP/2', async () => {
+                const ws = createLoggedInClient({http2: {enabled: true}});
+                const post = sinon.stub().resolves({data: {}});
+                ws.axios.post = post;
+                const error = await rejectionOf(
+                    ws.submitRequest('POST', '/api/x', {}, {timeout: -1}));
+                expect(error).to.be.an.instanceOf(TypeError);
+                expect(error.message).to.include('timeout for POST /api/x');
+                expect(post.called).to.equal(false);
+            });
+
+            it('passes the normalised per-call timeout to axios', async () => {
+                const ws = createLoggedInClient({requestTimeout: 1000});
+                const get = sinon.stub().resolves({data: {ok: true}});
+                ws.axios.get = get;
+
+                await ws.submitRequest('GET', '/api/read', {}, {timeout: '250'});
+                expect(get.firstCall.args[1].timeout).to.equal(250);
+
+                await ws.submitRequest('GET', '/api/read', {}, {timeout: null});
+                expect(get.secondCall.args[1]).to.not.have.property('timeout');
+            });
+        });
+
         describe('HTTP/2 mode', () => {
+            let clock;
+
+            beforeEach(() => {
+                clock = sinon.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']});
+            });
+
+            afterEach(() => {
+                clock.restore();
+            });
+
             it('uses a per-call timeout for the race when given', async () => {
-                const clock = sinon.useFakeTimers();
-                try {
-                    const ws = createClient({
+                const ws = createLoggedInClient({
+                    http2: {enabled: true},
+                    requestTimeout: 60000,
+                });
+                ws.axios.post = sinon.stub().returns(new Promise(() => {}));
+
+                let error;
+                const pending = ws.submitRequest('POST', '/api/x', {},
+                    {timeout: 100}).catch((e) => { error = e; });
+                await clock.tickAsync(101);
+                await pending;
+
+                expect(error).to.be.an.instanceOf(Error);
+                expect(error.message).to.include('/api/x');
+                expect(error.message).to.include('timed out after 100ms');
+            });
+
+            it('races query() on options.requestTimeout', async () => {
+                const ws = createLoggedInClient({
+                    http2: {enabled: true},
+                    requestTimeout: 150,
+                });
+                ws.axios.post = sinon.stub().returns(new Promise(() => {}));
+
+                let error;
+                const pending = ws.query('{ x }').catch((e) => { error = e; });
+                await clock.tickAsync(151);
+                await pending;
+
+                expect(error).to.be.an.instanceOf(Error);
+                expect(error.message).to.equal(
+                    'Request to /graphql timed out after 150ms (HTTP/2 mode)');
+            });
+
+            it('races on axios.timeout ahead of the alias', async () => {
+                const ws = createLoggedInClient({
+                    http2: {enabled: true, requestTimeout: 120000},
+                    axios: {timeout: 150},
+                });
+                ws.axios.post = sinon.stub().returns(new Promise(() => {}));
+
+                let error;
+                const pending = ws.query('{ x }').catch((e) => { error = e; });
+                await clock.tickAsync(151);
+                await pending;
+
+                expect(error.message).to.include('timed out after 150ms');
+            });
+
+            it('gives its race timeout code ETIMEDOUT, so batch retries treat it as transient',
+                async () => {
+                    const ws = createLoggedInClient({
                         http2: {enabled: true},
-                        requestTimeout: 60000,
+                        requestTimeout: 150,
                     });
                     ws.axios.post = sinon.stub().returns(new Promise(() => {}));
 
                     let error;
-                    const pending = ws._wsRawSubmit('POST', '/api/x', {},
-                        {timeout: 100}).catch((e) => { error = e; });
-                    clock.tick(101);
+                    const pending = ws.query('{ x }').catch((e) => { error = e; });
+                    await clock.tickAsync(151);
                     await pending;
 
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.include('/api/x');
-                    expect(error.message).to.include('timed out after 100ms');
+                    expect(error.code).to.equal('ETIMEDOUT');
+                    expect(isRetryable(error)).to.equal(true);
                 }
-                finally {
-                    clock.restore();
-                }
+            );
+
+            it('rewords axios\'s own timeout error when it fires before the race', async () => {
+                const ws = createLoggedInClient({
+                    http2: {enabled: true},
+                    requestTimeout: 100,
+                });
+                // axios's socket timer (armed alongside the race) wins.
+                ws.axios.post = sinon.stub().rejects(new AxiosError(
+                    'timeout of 100ms exceeded', AxiosError.ECONNABORTED));
+
+                const error = await rejectionOf(ws.query('{ x }'));
+
+                expect(error).to.be.an.instanceOf(AxiosError);
+                expect(error.message).to.equal(
+                    'Request to /graphql timed out after 100ms (HTTP/2 mode)');
+                expect(error.code).to.equal('ETIMEDOUT');
+                expect(isRetryable(error)).to.equal(true);
             });
 
-            it('races on options.requestTimeout', async () => {
-                const clock = sinon.useFakeTimers();
-                try {
-                    const ws = createClient({
-                        http2: {enabled: true},
-                        requestTimeout: 150,
-                    });
-                    ws.axios.get = sinon.stub().returns(new Promise(() => {}));
+            it('leaves other HTTP/2 errors untouched', async () => {
+                const ws = createLoggedInClient({
+                    http2: {enabled: true},
+                    requestTimeout: 100,
+                });
+                ws.axios.post = sinon.stub().rejects(new AxiosError(
+                    'socket hang up', 'ECONNRESET'));
 
-                    let error;
-                    const pending = ws._wsRawSubmit('GET', '/api/y')
-                        .catch((e) => { error = e; });
-                    clock.tick(151);
-                    await pending;
+                const error = await rejectionOf(ws.query('{ x }'));
 
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.include('timed out after 150ms');
-                }
-                finally {
-                    clock.restore();
-                }
+                expect(error.message).to.equal('socket hang up');
+                expect(error.code).to.equal('ECONNRESET');
             });
         });
     });

@@ -95,11 +95,22 @@ let myClient = new WideSkyClient(
 
 ### Request timeout
 
-Every request (HTTP/1.1 or HTTP/2, including the OAuth token request) fails
-after `options.requestTimeout` milliseconds, **60 seconds by default**, so a
-stalled connection cannot leave a request pending forever. Set it to `0` to
-disable; a `timeout` in a single request's config overrides it for that
-request. `options.http2.requestTimeout` is still accepted as an alias.
+Every request (HTTP/1.1 or HTTP/2, including the OAuth token request) is
+bounded by `options.requestTimeout` milliseconds, **60 seconds by default**, so
+a stalled connection cannot leave a request pending forever. What it bounds
+depends on the transport:
+
+- **Node over HTTP/1.1** — an *idle* timeout: the request fails once the
+  connection has sent and received nothing for that long (a large response
+  that keeps streaming is not cut off; a request still waiting for its first
+  byte is).
+- **HTTP/2** (`http2.enabled`) and **the browser** — a *total* timeout on the
+  whole request.
+
+Set it to `0` to disable; a `timeout` in a single request's config overrides it
+for that request. The value used is the first set of: the per-call `timeout`,
+`requestTimeout`, `axios.timeout`, `http2.requestTimeout` (deprecated alias),
+then 60000. An invalid value throws a `TypeError`.
 
 ```javascript
 let myClient = new WideSkyClient(
@@ -113,7 +124,7 @@ myClient.requestTimeout; // 30000 — the timeout in force (0 when disabled)
 ```
 
 See [Request timeout](docs/client/options.md#request-timeout) for the full
-precedence rules.
+precedence rules, the timeout errors and notes on upgrading with HTTP/2.
 
 ### Outbound request pacing (opt-in)
 
