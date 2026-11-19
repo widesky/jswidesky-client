@@ -13,6 +13,7 @@ const data = require('./src/data');
 const replace = require('./src/graphql/replace');
 const exprParser = require('./src/graphql/exprParser');
 const find = require('./src/graphql/find');
+const interval = require('./src/graphql/interval');
 const HaystackTools = require('./src/utils/haystack');
 const HisWritePayload = require('./src/utils/hisWritePayload');
 const EntityCriteria = require("./src/utils/EntityCriteria");
@@ -50,7 +51,10 @@ const jsWideSky = {
     graphql: {
         replace,
         exprParser,
-        find
+        find,
+        interval,
+        chooseInterval: interval.chooseInterval,
+        bucketsIn: interval.bucketsIn
     },
     hsTools: HaystackTools,
     HisWritePayload,

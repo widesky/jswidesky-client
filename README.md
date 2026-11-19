@@ -16,6 +16,7 @@ documentation for the available functions.
 - [Realtime publisher](#realtime-publisher)
 - [WideSky query utilities](#widesky-query-utilities)
   - [Dynamic query](#dynamic-query)
+  - [History groupBy interval](#history-groupby-interval)
 - [Building the library](#building-the-library)
 - [Running tests](#running-tests)
   - [Without coverage](#without-coverage)
@@ -378,13 +379,14 @@ let templateQuery = `{
   }
 }`;
 
+// parseDt needs a timezone for `now…` expressions.
 let myFrom = lib.graphql
                 .exprParser
-                .parseDt('now-1h');
+                .parseDt('now-1h', 'UTC');
 
 let myTo = lib.graphql
               .exprParser
-              .parseDt('now');
+              .parseDt('now', 'UTC');
 
 let query = lib.graphql
                .replace
@@ -392,6 +394,68 @@ let query = lib.graphql
 
 let resp = await myClient.graphql(query);
 ```
+
+### History groupBy interval
+A `history` read with no `groupBy` returns every stored sample, which over a
+long range is megabytes of JSON for a chart that can draw a few hundred marks.
+`lib.graphql.chooseInterval(range, options)` picks a `groupBy` bucket for a
+time range, the same idea as Grafana's `$__interval`: it divides the range by a
+target point count (default 400) and takes the first round step that fits from
+1/5/15/30 min, 1/3/6/12 h, 1/2 d and 1/2/4 wk.
+
+```javascript
+const {chooseInterval, bucketsIn, replace, exprParser} = lib.graphql;
+
+// ISO strings, epoch ms, Dates or now-… expressions
+const range = {start: 'now-30d', end: 'now'};
+const interval = chooseInterval(range);  // {groupByUnits: 'HOUR', groupBySize: 3}
+console.log(`${bucketsIn(range, interval)} buckets`);  // about 240
+
+// $__intervalDuration / $__intervalNum are the WideSky Grafana datasource's
+// names, so the same template works in a Grafana panel and in an app.
+// ($__intervalUnits / $__intervalSize are accepted as aliases.)
+const template = `{
+  haystack {
+    search(filter: "point and his and kind==\\"Number\\"", limit: 10) {
+      entity {
+        id
+        history(rangeAbsolute: {start: "$from", end: "$to"}) {
+          aggregate(function: MEAN, allEntities: false, groupBy: {groupByUnits: $__intervalDuration, groupBySize: $__intervalNum, fill: NONE}) {
+            timeSeries {
+              dataPoints {
+                time
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+const from = exprParser.parseDt(range.start, 'UTC');
+const to = exprParser.parseDt(range.end, 'UTC');
+const query = replace.intervalVars(replace.timeVars(template, from, to), interval);
+const resp = await myClient.graphql(query);
+```
+
+Notes:
+
+- `options.minimum` (`'MINUTE'`, `'HOUR'`, `'DAY'`, `'WEEK'`, or an interval)
+  sets the finest bucket, for callers that roll buckets up further themselves.
+  For a monthly view, ask for `minimum: 'DAY'` and sum the days into months:
+  the server's `duration` enum stops at `WEEK`, so this never returns a month.
+- `options.targetPoints` changes the 400-point target.
+- An empty, reversed or unparseable range still returns a bucket (the finest
+  allowed), because the server rejects a `groupBy` without one. Past
+  4 weeks × the target (about 30 years at 400 points), the result stays at
+  4 weeks and the response has more points.
+- With `fill: NONE`, a bucket finer than the data costs nothing: empty buckets
+  are not returned.
+- **For a total over the whole range, drop `groupBy` instead.** Don't use a
+  single bucket the length of the range: buckets align to the epoch, not to the
+  range start, so such a bucket splits the range and under-reports.
 
 ## Building the library
 To build a release of the project, run;
