@@ -31,9 +31,14 @@ class ExprParser{
     //
     // It parses the expression and returns current epoch
     // in ISO8601 date time format.
+    //
+    // `now` (epoch ms, optional) is the instant a relative expression is
+    // resolved against; it defaults to the current time. Pass the same value
+    // when parsing both ends of a range so they share one clock read.
     static parseDt(
         datetimeExpr,
-        timezone) {
+        timezone,
+        now) {
         moment.suppressDeprecationWarnings = true;
         let epoch;
         let momentDate = moment(datetimeExpr);
@@ -46,7 +51,8 @@ class ExprParser{
         else {
             epoch = ExprParser.asWideskyDT(
                 datetimeExpr,
-                timezone);
+                timezone,
+                now);
         }
 
         return epoch;
@@ -78,7 +84,7 @@ class ExprParser{
     // /h - start of the hour 00 min 00 second
     // /m - start of minute 0 min
     // /M - start of month Day #1
-    static asWideskyDT(expr, timezone) {
+    static asWideskyDT(expr, timezone, now) {
         let charArr = expr.split('');
         let position = {
             current: 0
@@ -92,7 +98,7 @@ class ExprParser{
                 charArr,
                 position);
 
-            let momentDt = moment().tz(timezone);
+            let momentDt = (now === undefined ? moment() : moment(now)).tz(timezone);
 
             while (ExprParser.hasChar(charArr, position)) {
                 if (ExprParser.isKeywordAdd(

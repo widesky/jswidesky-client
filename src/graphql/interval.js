@@ -45,8 +45,11 @@ const ExprParser = require('./exprParser');
  */
 
 /**
- * A point in time: an ISO 8601 string, epoch milliseconds, a `Date`, or a
- * relative expression `exprParser` understands (`now`, `now-7d`, `now - 2h`).
+ * A point in time: an ISO 8601 string, epoch milliseconds (as a number or a
+ * string of digits), a `Date`, or a relative expression `exprParser`
+ * understands (`now`, `now-7d`, `now - 2h`). An ISO string without a zone
+ * offset is read in the host's local time zone, so pass a `Z` or an offset
+ * when the result must not depend on where the code runs.
  * @typedef {string | number | Date} TimeInput
  */
 
@@ -107,13 +110,17 @@ const LADDER = Object.freeze([
     ...step, ms: UNIT_MS[step.groupByUnits] * step.groupBySize,
 })));
 
+/** A string that is only digits (optionally signed): epoch milliseconds. */
+const EPOCH_MS_STRING = /^\s*-?\d+\s*$/;
+
 /**
  * Milliseconds since the epoch for a time input; NaN when it is missing or
  * cannot be parsed.
  * @param {TimeInput | undefined | null} value
+ * @param {number} now the instant a relative expression is resolved against.
  * @returns {number}
  */
-function toEpochMs(value) {
+function toEpochMs(value, now) {
     if (value === undefined || value === null || value === '') {
         return NaN;
     }
@@ -123,10 +130,15 @@ function toEpochMs(value) {
     if (value instanceof Date) {
         return value.getTime();
     }
+    const text = String(value);
+    if (EPOCH_MS_STRING.test(text)) {
+        return Number(text);
+    }
     try {
-        /* parseDt takes ISO strings and `now-7d` style expressions; the zone
-         * only affects the rendering of its result, not the instant. */
-        return ExprParser.toMsEpoch(ExprParser.parseDt(String(value), 'UTC'));
+        /* parseDt takes ISO strings and `now-7d` style expressions. Its zone
+         * argument only affects how the result is rendered; an ISO string
+         * with no offset is still read in the host's local zone. */
+        return ExprParser.toMsEpoch(ExprParser.parseDt(text, 'UTC', now));
     }
     catch (err) {
         return NaN;
@@ -134,13 +146,28 @@ function toEpochMs(value) {
 }
 
 /**
+ * Both ends of a range in epoch ms (NaN for an unusable end). Relative
+ * expressions on both ends are resolved against one clock read, so
+ * `{start: 'now-7d', end: 'now'}` is exactly 7 days however long parsing takes.
+ * @param {TimeRange | null} [range]
+ * @returns {{start: number, end: number}}
+ */
+function rangeMs(range) {
+    const r = range || {};
+    const now = Date.now();
+    return {
+        start: toEpochMs(r.start !== undefined ? r.start : r.from, now),
+        end: toEpochMs(r.end !== undefined ? r.end : r.to, now),
+    };
+}
+
+/**
  * The span of a range in ms, or NaN when either end is unusable.
- * @param {TimeRange} [range]
+ * @param {TimeRange | null} [range]
  * @returns {number}
  */
-function spanMs(range = {}) {
-    const start = toEpochMs(range.start !== undefined ? range.start : range.from);
-    const end = toEpochMs(range.end !== undefined ? range.end : range.to);
+function spanMs(range) {
+    const {start, end} = rangeMs(range);
     return Number.isFinite(start) && Number.isFinite(end) ? end - start : NaN;
 }
 
@@ -180,12 +207,23 @@ function floorMs(minimum) {
             + ' history duration enum stops at WEEK) or a {groupByUnits,'
             + ` groupBySize} interval, got ${JSON.stringify(minimum)}`);
     }
+    const top = LADDER[LADDER.length - 1];
+    if (ms > top.ms) {
+        throw new TypeError(
+            `minimum must be no coarser than the top step, ${top.groupBySize}`
+            + ` ${top.groupByUnits}; got ${JSON.stringify(minimum)}. Roll up`
+            + ' coarser buckets in the caller.');
+    }
     return ms;
 }
 
 /**
  * The finest round bucket that keeps a range within `targetPoints` buckets.
  *
+ * - Buckets align to the epoch, not the range start. A range that does not
+ *   start on a bucket boundary straddles one extra bucket, so the server can
+ *   return up to `targetPoints + 1` buckets (see {@link bucketsIn}). The step
+ *   choice is kept identical to the lighting app's, which this replaces.
  * - A bucket finer than the data costs nothing with `fill: NONE` (empty
  *   buckets are not returned), so the ladder never needs the poll rate.
  * - A zero-length, reversed or unparseable range still gets a bucket (the
@@ -204,9 +242,8 @@ function chooseInterval(range, {targetPoints = TARGET_POINTS, minimum} = {}) {
             `targetPoints must be a positive number, got ${String(targetPoints)}`);
     }
     const floor = floorMs(minimum);
-    const usable = LADDER.filter((step) => step.ms >= floor);
-    /* A floor coarser than the top step leaves only the top step. */
-    const steps = usable.length > 0 ? usable : [LADDER[LADDER.length - 1]];
+    /* floorMs rejects a floor coarser than the top step, so this is never empty. */
+    const steps = LADDER.filter((step) => step.ms >= floor);
 
     const span = spanMs(range);
     let chosen;
@@ -221,19 +258,25 @@ function chooseInterval(range, {targetPoints = TARGET_POINTS, minimum} = {}) {
 }
 
 /**
- * How many buckets an interval cuts a range into, for logging and tests.
- * 0 for an empty, reversed or unparseable range, or an unusable interval.
- * @param {TimeRange} range
- * @param {GroupByInterval} interval
+ * How many buckets the server cuts a range into for an interval, for logging
+ * and tests. Buckets align to the epoch, so this counts every bucket the range
+ * touches: a range off a bucket boundary can touch one more than
+ * `span / interval`. 0 for an empty, reversed or unparseable range, or an
+ * unusable interval.
+ * @param {TimeRange | null} range
+ * @param {GroupByInterval | {units: string, size: number}} interval
  * @returns {number}
  */
 function bucketsIn(range, interval) {
-    const span = spanMs(range);
+    const {start, end} = rangeMs(range);
     const ms = intervalMs(interval);
-    if (!(span > 0) || ms <= 0) {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || !(end > start)
+        || ms <= 0) {
         return 0;
     }
-    return Math.ceil(span / ms);
+    /* The bucket holding the first instant, through the one holding the last
+     * (the range end is exclusive). */
+    return Math.floor((end - 1) / ms) - Math.floor(start / ms) + 1;
 }
 
 module.exports = {
