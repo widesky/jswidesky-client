@@ -16,10 +16,12 @@ documentation for the available functions.
 - [Realtime publisher](#realtime-publisher)
 - [WideSky query utilities](#widesky-query-utilities)
   - [Dynamic query](#dynamic-query)
+  - [History groupBy interval](#history-groupby-interval)
 - [Building the library](#building-the-library)
 - [Running tests](#running-tests)
   - [Without coverage](#without-coverage)
   - [With coverage](#with-coverage)
+- [Releasing](#releasing)
 
 <!-- tocstop -->
 
@@ -92,6 +94,39 @@ let myClient = new WideSkyClient(
                         server.clientId,
                         server.secret);
 ```
+
+### Request timeout
+
+Every request (HTTP/1.1 or HTTP/2, including the OAuth token request) is
+bounded by `options.requestTimeout` milliseconds, **60 seconds by default**, so
+a stalled connection cannot leave a request pending forever. What it bounds
+depends on the transport:
+
+- **Node over HTTP/1.1** — an *idle* timeout: the request fails once the
+  connection has sent and received nothing for that long (a large response
+  that keeps streaming is not cut off; a request still waiting for its first
+  byte is).
+- **HTTP/2** (`http2.enabled`) and **the browser** — a *total* timeout on the
+  whole request.
+
+Set it to `0` to disable; a `timeout` in a single request's config overrides it
+for that request. The value used is the first set of: the per-call `timeout`,
+`requestTimeout`, `axios.timeout`, `http2.requestTimeout` (deprecated alias),
+then 60000. An invalid value throws a `TypeError`.
+
+```javascript
+let myClient = new WideSkyClient(
+    server.url, server.username, server.password, server.clientId, server.secret,
+    null,    // logger
+    null,    // accessToken
+    { requestTimeout: 30000 }
+);
+
+myClient.requestTimeout; // 30000 — the timeout in force (0 when disabled)
+```
+
+See [Request timeout](docs/client/options.md#request-timeout) for the full
+precedence rules, the timeout errors and notes on upgrading with HTTP/2.
 
 ### Outbound request pacing (opt-in)
 
@@ -378,13 +413,14 @@ let templateQuery = `{
   }
 }`;
 
+// parseDt needs a timezone for `now…` expressions.
 let myFrom = lib.graphql
                 .exprParser
-                .parseDt('now-1h');
+                .parseDt('now-1h', 'UTC');
 
 let myTo = lib.graphql
               .exprParser
-              .parseDt('now');
+              .parseDt('now', 'UTC');
 
 let query = lib.graphql
                .replace
@@ -392,6 +428,75 @@ let query = lib.graphql
 
 let resp = await myClient.graphql(query);
 ```
+
+### History groupBy interval
+A `history` read with no `groupBy` returns every stored sample, which over a
+long range is megabytes of JSON for a chart that can draw a few hundred marks.
+`lib.graphql.chooseInterval(range, options)` picks a `groupBy` bucket for a
+time range, the same idea as Grafana's `$__interval`: it divides the range by a
+target point count (default 400) and takes the first round step that fits from
+1/5/15/30 min, 1/3/6/12 h, 1/2 d and 1/2/4 wk.
+
+```javascript
+const {chooseInterval, bucketsIn, replace, exprParser} = lib.graphql;
+
+// ISO strings, epoch ms (number or digit string), Dates or now-… expressions.
+// An ISO string without a Z or an offset is read in the host's local zone.
+const range = {start: 'now-30d', end: 'now'};
+const interval = chooseInterval(range);  // {groupByUnits: 'HOUR', groupBySize: 3}
+console.log(`${bucketsIn(range, interval)} buckets`);  // about 240
+
+// $__intervalDuration / $__intervalNum are the WideSky Grafana datasource's
+// names, so the same template works in a Grafana panel and in an app.
+// ($__intervalUnits / $__intervalSize are accepted as aliases.)
+const template = `{
+  haystack {
+    search(filter: "point and his and kind==\\"Number\\"", limit: 10) {
+      entity {
+        id
+        history(rangeAbsolute: {start: "$from", end: "$to"}) {
+          aggregate(function: MEAN, allEntities: false, groupBy: {groupByUnits: $__intervalDuration, groupBySize: $__intervalNum, fill: NONE}) {
+            timeSeries {
+              dataPoints {
+                time
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+// Pass one `now` to both ends so they share a single clock read.
+const now = Date.now();
+const from = exprParser.parseDt(range.start, 'UTC', now);
+const to = exprParser.parseDt(range.end, 'UTC', now);
+const query = replace.intervalVars(replace.timeVars(template, from, to), interval);
+const resp = await myClient.graphql(query);
+```
+
+Notes:
+
+- `options.minimum` (`'MINUTE'`, `'HOUR'`, `'DAY'`, `'WEEK'`, or an interval)
+  sets the finest bucket, for callers that roll buckets up further themselves.
+  For a monthly view, ask for `minimum: 'DAY'` and sum the days into months:
+  the server's `duration` enum stops at `WEEK`, so this never returns a month.
+  A `minimum` coarser than 4 weeks throws a `TypeError`.
+- `options.targetPoints` changes the 400-point target. Buckets align to the
+  epoch, so a range that doesn't start on a bucket boundary can come back with
+  one bucket over the target. `bucketsIn` counts them the way the server cuts
+  them.
+- An empty, reversed, unparseable or `null` range still returns a bucket (the
+  finest allowed), because the server rejects a `groupBy` without one. Past
+  4 weeks × the target (about 30 years at 400 points), the result stays at
+  4 weeks and the response has more points.
+- With `fill: NONE`, a bucket finer than the data costs nothing: empty buckets
+  are not returned.
+- **For a total over the whole range, drop `groupBy` instead.** Don't use a
+  single bucket the length of the range: buckets align to the epoch, not to the
+  range start, so such a bucket splits the range and under-reports.
 
 ## Building the library
 To build a release of the project, run;
@@ -413,3 +518,22 @@ $ npm run test
 ```shell
 $ npm run coverage
 ```
+
+## Releasing
+
+Releases are cut with the shared `release.sh` from the `widesky-scripts` repository, configured by this repository's
+`.release.json`. From a clean `develop` checkout:
+
+```shell
+$ /path/to/widesky-scripts/scripts/grafana/release.sh --dry-run   # preview every step
+$ /path/to/widesky-scripts/scripts/grafana/release.sh
+```
+
+One run proposes the version from `CHANGELOG.md`, finishes the Git Flow release, and pushes it. It then mirrors
+`develop`, `master` and the new tag to the `github` remote. It builds the package in a clean clone of the tag,
+publishes `dist/` to npmjs.org (npm asks for a one-time password), and creates the GitHub release from the
+version's CHANGELOG section.
+
+Prerequisites: `git-flow`, a `github` remote (`git remote add github git@github.com:widesky/jswidesky-client.git`),
+`gh auth login`, `npm login`, and publish rights in the `@widesky` npm and GitHub organisations. See the `widesky-scripts`
+README for every option and for how to finish a release that stops partway.

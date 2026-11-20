@@ -8,6 +8,7 @@
     - [Path `client.performOpInBatch`](#path-clientperformopinbatch)
     - [Path `http`](#path-http)
     - [Path `http2`](#path-http2)
+    - [Request timeout](#request-timeout)
 
 <!-- tocstop -->
 
@@ -16,7 +17,8 @@ The argument `options` is expected to have the following structure:
 
 | Path     | Description                                                                                                                                                                                          |  Type  |              Default              |
 |----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------:|:---------------------------------:|
-| `axios`  | Axios client configurations as per [Axios documentation](https://axios-http.com/docs/config_defaults).                                                                                               | Object | As defined by the `axios` library |
+| `requestTimeout` | Request timeout in milliseconds for every request (HTTP/1.1 or HTTP/2, including the OAuth token request); the request then fails with a `Request to <path> timed out after <ms>ms` error. On Node over HTTP/1.1 it is an **idle** timeout (no data sent or received for that long); over HTTP/2 and in the browser it caps the **whole** request. Set to `0` to disable. A `timeout` passed in a single request's config overrides it for that request. See [Request timeout](#request-timeout). | Number | `60000` |
+| `axios`  | Axios client configurations as per [Axios documentation](https://axios-http.com/docs/config_defaults). `axios.timeout` is used as the request timeout when `requestTimeout` is not set (it takes precedence over `http2.requestTimeout`). | Object | As defined by the `axios` library |
 | `http`   | Node HTTP agent configurations as per [Node.js 16.x documentation](https://nodejs.org/docs/latest-v16.x/api/http.html#new-agentoptions). This is used for HTTP(S) agents passed to the Axios client. | Object |               `{}`                |
 | `http2`  | HTTP 2 configurations as documented below.                                                                                                                                                           | Object |                                   |
 | `client` | Object for defining `WideSkyClient` configurations.                                                                                                                                                  | Object |                                   |
@@ -73,5 +75,44 @@ The Object defined in `http2` is expected to have the following structure:
 | Path from `http2`  | Description                                                                                                                                                                                                                                          |  Type   | Default |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-----: | :-----: |
 | `enabled`          | Enables `http2` as a transport protocol. The server must support HTTP/2; otherwise, it will fall back to HTTP/1.1.                                                                                                                                   | Boolean | `false` |
-| `requestTimeout`   | Maximum time in milliseconds to wait for an HTTP/2 request to complete. Guards against unexpected hangs during connection establishment or unresponsive servers. Set to `0` to disable. Only applies when `enabled` is `true`. | Number  | `60000` |
+| `requestTimeout`   | Deprecated alias of the top-level `requestTimeout`, used only when neither `requestTimeout` nor `axios.timeout` is set. Despite its path it applies to every request, whether or not `enabled` is `true`. | Number  | `60000` |
 
+### Request timeout
+Every request the client makes is bounded by a timeout so that a stalled connection (for example a half-open TCP
+flow whose far end has gone without sending a reset) fails the request instead of leaving it, and any request queued
+behind it, pending forever. The effective value is the first of these that is set (`undefined` and `null` count as
+unset):
+
+1. a `timeout` in the request's own config (per call),
+2. `requestTimeout`,
+3. `axios.timeout`,
+4. `http2.requestTimeout` (deprecated alias),
+5. the default, `60000` ms.
+
+`0` disables the timeout. Each value must be a finite number of milliseconds `>= 0` (a numeric string such as
+`"5000"` is accepted, as axios accepts it); an invalid option makes the constructor throw a `TypeError`, and an
+invalid per-call `timeout` rejects that call with a `TypeError` before anything is sent.
+
+What the timeout bounds depends on the transport:
+
+| Transport                        | Meaning                                                                                                                                                                                                                                                                     |
+|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Node, HTTP/1.1                   | **Idle timeout.** axios applies it to the socket, so it fires only once the connection has sent and received nothing for that long. A large response that keeps streaming (for example a big `hisRead`) is not cut off, but a request still waiting for its first byte is. axios then closes the stalled connection. |
+| Node, HTTP/2 (`http2.enabled`)   | **Total timeout.** The client races the whole request, session setup included, against its own timer, since axios's timeout does not cover HTTP/2 session setup.                                                                                                              |
+| Browser (XHR)                    | **Total timeout.** The browser aborts the request once it has taken that long overall.                                                                                                                                                                                      |
+
+On a timeout the request fails with an error whose message is `Request to <path> timed out after <ms>ms` (with
+` (HTTP/2 mode)` appended over HTTP/2). The HTTP/1.1 error keeps its axios `code` (`ECONNABORTED`, or `ETIMEDOUT`
+with `transitional.clarifyTimeoutError`); the HTTP/2 error has `code` `ETIMEDOUT`. Batch operations with `retries`
+therefore retry a timed-out request on either transport; a retried `create` can create its entities twice if the
+first attempt reached the server.
+
+The value in force is available read-only as `client.requestTimeout` (`0` when disabled). A request that legitimately
+takes longer than the timeout (for example a server that needs more than 60 s to start answering a heavy query, or,
+over HTTP/2 or in the browser, a very large `hisRead` over a slow link) needs a larger `requestTimeout`.
+
+**Upgrading from 3.6 with HTTP/2 enabled.** Before, the HTTP/2 race used `http2.requestTimeout` (default `60000`)
+whatever `axios.timeout` was. Now `axios.timeout`, when set, wins over `http2.requestTimeout`, so a config that set
+both races on `axios.timeout`: for example `{http2: {enabled: true, requestTimeout: 120000}, axios: {timeout: 30000}}`
+now caps each request at 30 s instead of 120 s, and `{http2: {enabled: true, requestTimeout: 0}, axios: {timeout:
+30000}}` now caps it at 30 s instead of leaving it unbounded. Set `requestTimeout` to state the value explicitly.

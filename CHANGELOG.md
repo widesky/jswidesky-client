@@ -4,6 +4,29 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-11-20
+
+### Added
+- [BAU-1758](https://widesky.atlassian.net/browse/BAU-1758): `graphql.chooseInterval` picks a history `groupBy` bucket from a time range, an equivalent of Grafana's `$__interval`.
+  - `graphql.bucketsIn` counts the buckets an interval cuts a range into, aligned as the server cuts them.
+  - `exprParser.parseDt` takes an optional `now`, so both ends of a range can share one clock read.
+  - `graphql.replace.intervalVars` fills `$__intervalDuration` / `$__intervalNum` in a query template, so one template serves Grafana and apps.
+
+### Changed
+- [BAU-1694](https://widesky.atlassian.net/browse/BAU-1694): Request timeout settings are checked and combined differently.
+  - An invalid timeout (e.g. `http2.requestTimeout: -1`, which used to disable it) now throws when the client is created.
+  - An invalid per-call `timeout` now fails that call; a `null` one falls back to the client's timeout.
+  - `axios.timeout` now wins over `http2.requestTimeout`, so with HTTP/2 a config setting both uses `axios.timeout`.
+
+### Fixed
+- [BAU-1694](https://widesky.atlassian.net/browse/BAU-1694): Requests now time out over HTTP/1.1 as well as HTTP/2 (new `requestTimeout` option, default 60 seconds).
+  - On Node over HTTP/1.1 it is an idle timeout; over HTTP/2 and in the browser it caps the whole request.
+  - The 60-second default is new on HTTP/1.1: a call waiting over 60 s for its first byte now fails unless `requestTimeout` is raised.
+  - In the browser every request is now capped at 60 seconds in total by default.
+  - HTTP/2 timeouts now carry code `ETIMEDOUT` and are retried with `retries` like HTTP/1.1 ones (a retried create can duplicate).
+  - The OAuth token request is bounded too, so a stalled login or refresh no longer blocks every later request.
+  - `http2.requestTimeout` still works as an alias; `client.requestTimeout` reports the timeout in force (0 when disabled).
+
 ## [3.6.0] - 2026-10-14
 
 ### Added
@@ -531,38 +554,40 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/master...3.4.1
-[3.6.0]: https://github.com/widesky/jswidesky-client/compare/3.6.0...3.5.0
-[3.5.0]: https://github.com/widesky/jswidesky-client/compare/3.5.0...3.4.1
-[3.4.1]: https://github.com/widesky/jswidesky-client/compare/3.4.1...3.4.0
-[3.4.0]: https://github.com/widesky/jswidesky-client/compare/3.4.0...3.3.1
-[3.3.1]: https://github.com/widesky/jswidesky-client/compare/3.3.1...3.3.0
-[3.3.0]: https://github.com/widesky/jswidesky-client/compare/3.3.0...3.2.1
-[1.0.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.0.0
-[1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.0.0
-[1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.0
-[1.1.2]: https://github.com/widesky/jswidesky-client/compare/1.1.2...1.1.1
-[1.2.0]: https://github.com/widesky/jswidesky-client/compare/1.2.0...1.1.2
-[1.2.1]: https://github.com/widesky/jswidesky-client/compare/1.2.1...1.2.0
-[1.2.2]: https://github.com/widesky/jswidesky-client/compare/1.2.2...1.2.1
-[2.0.0]: https://github.com/widesky/jswidesky-client/compare/2.0.0...1.2.2
-[2.0.1]: https://github.com/widesky/jswidesky-client/compare/2.0.1...2.0.0
-[2.0.2]: https://github.com/widesky/jswidesky-client/compare/2.0.2...2.0.1
-[2.0.3]: https://github.com/widesky/jswidesky-client/compare/2.0.3...2.0.2
-[2.0.4]: https://github.com/widesky/jswidesky-client/compare/2.0.4...2.0.3
-[2.0.5]: https://github.com/widesky/jswidesky-client/compare/2.0.5...2.0.4
-[2.0.6]: https://github.com/widesky/jswidesky-client/compare/2.0.6...2.0.5
-[2.1.0]: https://github.com/widesky/jswidesky-client/compare/2.1.0...2.0.6
-[2.1.1]: https://github.com/widesky/jswidesky-client/compare/2.1.1...2.1.0
-[2.1.2]: https://github.com/widesky/jswidesky-client/compare/2.1.2...2.1.1
-[2.1.3]: https://github.com/widesky/jswidesky-client/compare/2.1.3...2.1.2
-[2.1.4]: https://github.com/widesky/jswidesky-client/compare/2.1.4...2.1.3
-[2.1.5]: https://github.com/widesky/jswidesky-client/compare/2.1.5...2.1.4
-[3.0.0]: https://github.com/widesky/jswidesky-client/compare/3.0.0...2.1.5
-[3.0.1]: https://github.com/widesky/jswidesky-client/compare/3.0.1...3.0.0
-[3.1.0]: https://github.com/widesky/jswidesky-client/compare/3.1.0...3.0.1
-[3.1.1]: https://github.com/widesky/jswidesky-client/compare/3.1.1...3.1.0
-[3.1.2]: https://github.com/widesky/jswidesky-client/compare/3.1.2...3.1.1
-[3.1.3]: https://github.com/widesky/jswidesky-client/compare/3.1.3...3.1.2
-[3.2.0]: https://github.com/widesky/jswidesky-client/compare/3.2.0...3.1.3
-[3.2.1]: https://github.com/widesky/jswidesky-client/compare/3.2.1...3.2.0
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/3.7.0...HEAD
+[3.7.0]: https://github.com/widesky/jswidesky-client/compare/3.6.0...3.7.0
+[3.6.0]: https://github.com/widesky/jswidesky-client/compare/3.5.0...3.6.0
+[3.5.0]: https://github.com/widesky/jswidesky-client/compare/3.4.1...3.5.0
+[3.4.1]: https://github.com/widesky/jswidesky-client/compare/3.4.0...3.4.1
+[3.4.0]: https://github.com/widesky/jswidesky-client/compare/3.3.1...3.4.0
+[3.3.1]: https://github.com/widesky/jswidesky-client/compare/3.3.0...3.3.1
+[3.3.0]: https://github.com/widesky/jswidesky-client/compare/3.2.1...3.3.0
+[1.0.0]: https://github.com/widesky/jswidesky-client/compare/0.1.1...1.0.0
+[0.1.1]: https://github.com/widesky/jswidesky-client/releases/tag/0.1.1
+[1.1.0]: https://github.com/widesky/jswidesky-client/compare/1.0.0...1.1.0
+[1.1.1]: https://github.com/widesky/jswidesky-client/compare/1.1.0...1.1.1
+[1.1.2]: https://github.com/widesky/jswidesky-client/compare/1.1.1...1.1.2
+[1.2.0]: https://github.com/widesky/jswidesky-client/compare/1.1.2...1.2.0
+[1.2.1]: https://github.com/widesky/jswidesky-client/compare/1.2.0...1.2.1
+[1.2.2]: https://github.com/widesky/jswidesky-client/compare/1.2.1...1.2.2
+[2.0.0]: https://github.com/widesky/jswidesky-client/compare/1.2.2...2.0.0
+[2.0.1]: https://github.com/widesky/jswidesky-client/compare/2.0.0...2.0.1
+[2.0.2]: https://github.com/widesky/jswidesky-client/compare/2.0.1...2.0.2
+[2.0.3]: https://github.com/widesky/jswidesky-client/compare/2.0.2...2.0.3
+[2.0.4]: https://github.com/widesky/jswidesky-client/compare/2.0.3...2.0.4
+[2.0.5]: https://github.com/widesky/jswidesky-client/compare/2.0.4...2.0.5
+[2.0.6]: https://github.com/widesky/jswidesky-client/compare/2.0.5...2.0.6
+[2.1.0]: https://github.com/widesky/jswidesky-client/compare/2.0.6...2.1.0
+[2.1.1]: https://github.com/widesky/jswidesky-client/compare/2.1.0...2.1.1
+[2.1.2]: https://github.com/widesky/jswidesky-client/compare/2.1.1...2.1.2
+[2.1.3]: https://github.com/widesky/jswidesky-client/compare/2.1.2...2.1.3
+[2.1.4]: https://github.com/widesky/jswidesky-client/compare/2.1.3...2.1.4
+[2.1.5]: https://github.com/widesky/jswidesky-client/compare/2.1.4...2.1.5
+[3.0.0]: https://github.com/widesky/jswidesky-client/compare/2.1.5...3.0.0
+[3.0.1]: https://github.com/widesky/jswidesky-client/compare/3.0.0...3.0.1
+[3.1.0]: https://github.com/widesky/jswidesky-client/compare/3.0.1...3.1.0
+[3.1.1]: https://github.com/widesky/jswidesky-client/compare/3.1.0...3.1.1
+[3.1.2]: https://github.com/widesky/jswidesky-client/compare/3.1.1...3.1.2
+[3.1.3]: https://github.com/widesky/jswidesky-client/compare/3.1.2...3.1.3
+[3.2.0]: https://github.com/widesky/jswidesky-client/compare/3.1.3...3.2.0
+[3.2.1]: https://github.com/widesky/jswidesky-client/compare/3.2.0...3.2.1
