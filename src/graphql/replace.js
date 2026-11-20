@@ -6,8 +6,15 @@
 'use strict';
 
 const _ = require('lodash');
+const {chooseInterval} = require('./interval');
 const FIND_HISTORY_INPUT = /history(.*){/g;
 const FIND_FILTER_INPUT = /filter:\s?"(.*)"/g;
+/* The WideSky Grafana datasource's names come first so one template serves
+ * both Grafana and apps; $__intervalUnits / $__intervalSize are aliases. Like
+ * the datasource, matched case-insensitively. The lookahead stops a longer
+ * variable name matching. */
+const INTERVAL_UNITS_VAR = /\$__interval(?:Duration|Units)(?![A-Za-z0-9_])/gi;
+const INTERVAL_SIZE_VAR = /\$__interval(?:Num|Size)(?![A-Za-z0-9_])/gi;
 
 /**
  * An utility for replacing placeholder
@@ -70,6 +77,41 @@ class Replace {
 
                 return histInput;
             });
+    }
+
+    /**
+     * Substitute the history groupBy interval variables (BAU-1758):
+     * `$__intervalDuration` / `$__intervalUnits` become the units and
+     * `$__intervalNum` / `$__intervalSize` the size, e.g.
+     * `groupBy: {groupByUnits: $__intervalDuration, groupBySize: $__intervalNum}`.
+     * Other variables, including a bare `$__interval`, are left alone.
+     *
+     * @param {string} query the query template.
+     * @param {import('./interval').GroupByInterval | {units: string, size: number}
+     *     | import('./interval').TimeRange | null} intervalOrRange
+     *     an interval from `chooseInterval` (or in the `{units, size}` shape
+     *     callers migrate from), or a time range to choose one for (with the
+     *     default target). A missing or unusable range gets the finest step.
+     * @returns {string}
+     **/
+    static intervalVars(query, intervalOrRange) {
+        let interval;
+        if (intervalOrRange && intervalOrRange.groupByUnits !== undefined) {
+            interval = intervalOrRange;
+        }
+        else if (intervalOrRange && intervalOrRange.units !== undefined) {
+            interval = {
+                groupByUnits: intervalOrRange.units,
+                groupBySize: intervalOrRange.size,
+            };
+        }
+        else {
+            interval = chooseInterval(intervalOrRange);
+        }
+
+        return query
+            .replace(INTERVAL_UNITS_VAR, String(interval.groupByUnits))
+            .replace(INTERVAL_SIZE_VAR, String(interval.groupBySize));
     }
 
 }
