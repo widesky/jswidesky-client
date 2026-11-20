@@ -87,15 +87,27 @@ class Replace {
      * Other variables, including a bare `$__interval`, are left alone.
      *
      * @param {string} query the query template.
-     * @param {import('./interval').GroupByInterval | import('./interval').TimeRange} intervalOrRange
-     *     an interval from `chooseInterval`, or a time range to choose one for
-     *     (with the default target).
+     * @param {import('./interval').GroupByInterval | {units: string, size: number}
+     *     | import('./interval').TimeRange | null} intervalOrRange
+     *     an interval from `chooseInterval` (or in the `{units, size}` shape
+     *     callers migrate from), or a time range to choose one for (with the
+     *     default target). A missing or unusable range gets the finest step.
      * @returns {string}
      **/
     static intervalVars(query, intervalOrRange) {
-        const interval = intervalOrRange && intervalOrRange.groupByUnits !== undefined
-            ? intervalOrRange
-            : chooseInterval(intervalOrRange);
+        let interval;
+        if (intervalOrRange && intervalOrRange.groupByUnits !== undefined) {
+            interval = intervalOrRange;
+        }
+        else if (intervalOrRange && intervalOrRange.units !== undefined) {
+            interval = {
+                groupByUnits: intervalOrRange.units,
+                groupBySize: intervalOrRange.size,
+            };
+        }
+        else {
+            interval = chooseInterval(intervalOrRange);
+        }
 
         return query
             .replace(INTERVAL_UNITS_VAR, String(interval.groupByUnits))

@@ -7,8 +7,10 @@
  */
 const Interval = require('../../src/graphql/interval');
 const Replace = require('../../src/graphql/replace');
+const ExprParser = require('../../src/graphql/exprParser');
 const jsWideSky = require('../../index');
 const chai = require('chai');
+const sinon = require('sinon');
 const expect = chai.expect;
 
 const {chooseInterval, bucketsIn, TARGET_POINTS} = Interval;
@@ -99,6 +101,20 @@ describe('graphql.interval (BAU-1758)', () => {
             });
         });
 
+        it('asks for at most one bucket over the target when the range is off a boundary', () => {
+            /* Buckets align to the epoch, so a range of exactly target × step
+             * that starts 1 ms after a boundary straddles one extra bucket. */
+            LADDER.forEach(([units, size, ms]) => {
+                const start = END + 1;
+                const range = {start, end: start + TARGET_POINTS * ms};
+                const chosen = chooseInterval(range);
+                expect(chosen, `${size} ${units}`)
+                    .to.deep.equal({groupByUnits: units, groupBySize: size});
+                expect(bucketsIn(range, chosen), `${size} ${units}`)
+                    .to.equal(TARGET_POINTS + 1);
+            });
+        });
+
         it('only offers round steps, and never a unit past WEEK', () => {
             const allowed = {
                 MINUTE: [1, 5, 15, 30], HOUR: [1, 3, 6, 12], DAY: [1, 2], WEEK: [1, 2, 4],
@@ -142,6 +158,18 @@ describe('graphql.interval (BAU-1758)', () => {
                 expect(() => chooseInterval(days(30), {minimum: 'MONTH'}))
                     .to.throw(TypeError, /MONTH/);
             });
+
+            it('rejects a floor coarser than the top step, rather than lowering it', () => {
+                expect(() => chooseInterval(days(30),
+                    {minimum: {groupByUnits: 'WEEK', groupBySize: 8}}))
+                    .to.throw(TypeError, /4 WEEK/);
+            });
+
+            it('accepts the top step itself as the floor', () => {
+                expect(chooseInterval(days(30),
+                    {minimum: {groupByUnits: 'WEEK', groupBySize: 4}}))
+                    .to.deep.equal({groupByUnits: 'WEEK', groupBySize: 4});
+            });
         });
 
         describe('degenerate ranges still name a bucket', () => {
@@ -166,6 +194,11 @@ describe('graphql.interval (BAU-1758)', () => {
                 expect(chooseInterval({}))
                     .to.deep.equal({groupByUnits: 'MINUTE', groupBySize: 1});
                 expect(chooseInterval())
+                    .to.deep.equal({groupByUnits: 'MINUTE', groupBySize: 1});
+            });
+
+            it('null', () => {
+                expect(chooseInterval(null))
                     .to.deep.equal({groupByUnits: 'MINUTE', groupBySize: 1});
             });
         });
@@ -204,6 +237,46 @@ describe('graphql.interval (BAU-1758)', () => {
                 expect(chooseInterval({from: start, to: end}))
                     .to.deep.equal(chooseInterval(days(90)));
             });
+
+            it('accepts epoch ms given as a string', () => {
+                expect(chooseInterval({
+                    start: String(END - 365 * DAY), end: String(END),
+                })).to.deep.equal({groupByUnits: 'DAY', groupBySize: 1});
+            });
+
+            describe('relative expressions read the clock once', () => {
+                let clock;
+                beforeEach(() => {
+                    /* Every clock read moves time on 5 ms, as a slow machine
+                     * would between parsing the start and the end. */
+                    let t = END;
+                    clock = sinon.stub(Date, 'now').callsFake(() => (t += 5));
+                });
+                afterEach(() => clock.restore());
+
+                it('chooses as if both ends were read at the same instant', () => {
+                    /* 400 days is exactly 400 × 1 day: a second clock read
+                     * makes it 5 ms longer and tips it onto 2 days. */
+                    expect(chooseInterval({start: 'now-400d', end: 'now'}))
+                        .to.deep.equal({groupByUnits: 'DAY', groupBySize: 1});
+                });
+            });
+        });
+
+        describe('exprParser.parseDt with a fixed now', () => {
+            it('resolves a relative expression against the given instant', () => {
+                const now = Date.UTC(2026, 5, 15, 12);
+                expect(ExprParser.toMsEpoch(ExprParser.parseDt('now-1h', 'UTC', now)))
+                    .to.equal(now - HOUR);
+                expect(ExprParser.toMsEpoch(ExprParser.parseDt('now', 'UTC', now)))
+                    .to.equal(now);
+            });
+
+            it('leaves absolute times alone', () => {
+                const iso = '2026-01-01T00:00:00.000Z';
+                expect(ExprParser.parseDt(iso, 'UTC', Date.UTC(2030, 0, 1)))
+                    .to.equal(iso);
+            });
         });
 
         it('rejects a non-positive targetPoints', () => {
@@ -220,6 +293,24 @@ describe('graphql.interval (BAU-1758)', () => {
                 .to.equal(24);
             expect(bucketsIn(span(90 * MINUTE),
                 {groupByUnits: 'HOUR', groupBySize: 1})).to.equal(2);
+        });
+
+        it('counts epoch-aligned buckets, as the server cuts them', () => {
+            const hourly = {groupByUnits: 'HOUR', groupBySize: 1};
+            /* 400 h starting 1 ms past the hour touches 401 hour buckets. */
+            const start = END + 1;
+            expect(bucketsIn({start, end: start + 400 * HOUR}, hourly))
+                .to.equal(401);
+            /* Two minutes either side of a boundary: two buckets, not one. */
+            expect(bucketsIn({start: END - 2 * MINUTE, end: END + 2 * MINUTE}, hourly))
+                .to.equal(2);
+            /* A range ending exactly on a boundary does not count the next one. */
+            expect(bucketsIn({start: END - HOUR, end: END}, hourly)).to.equal(1);
+        });
+
+        it('is 0 for a null range', () => {
+            expect(bucketsIn(null, {groupByUnits: 'HOUR', groupBySize: 1}))
+                .to.equal(0);
         });
 
         it('is 0 for empty, reversed or unparseable ranges and odd intervals', () => {
@@ -263,6 +354,29 @@ describe('graphql.interval (BAU-1758)', () => {
             expect(Replace.intervalVars(TEMPLATE, days(365)))
                 .to.equal('aggregate(function: MEAN, groupBy: {groupByUnits: ' +
                     'DAY, groupBySize: 1, fill: NONE})');
+        });
+
+        it('accepts the {units, size} interval shape callers migrate from', () => {
+            expect(Replace.intervalVars(TEMPLATE, {units: 'DAY', size: 1}))
+                .to.equal('aggregate(function: MEAN, groupBy: {groupByUnits: ' +
+                    'DAY, groupBySize: 1, fill: NONE})');
+        });
+
+        it('falls back to the finest step for a null argument', () => {
+            expect(Replace.intervalVars(TEMPLATE, null))
+                .to.equal('aggregate(function: MEAN, groupBy: {groupByUnits: ' +
+                    'MINUTE, groupBySize: 1, fill: NONE})');
+        });
+
+        it('matches placeholders case-insensitively', () => {
+            expect(Replace.intervalVars('$__INTERVALDURATION $__IntervalNum',
+                {groupByUnits: 'HOUR', groupBySize: 3})).to.equal('HOUR 3');
+        });
+
+        it('leaves longer names that only start with a placeholder alone', () => {
+            const q = '$__intervalNumber $__intervalDurationX $__intervalSizes $__intervalMs';
+            expect(Replace.intervalVars(q, {groupByUnits: 'HOUR', groupBySize: 3}))
+                .to.equal(q);
         });
     });
 });

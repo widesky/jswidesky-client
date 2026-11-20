@@ -6,7 +6,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 - [BAU-1758](https://widesky.atlassian.net/browse/BAU-1758): `graphql.chooseInterval` picks a history `groupBy` bucket from a time range, an equivalent of Grafana's `$__interval`.
-  - `graphql.bucketsIn` counts the buckets an interval cuts a range into.
+  - `graphql.bucketsIn` counts the buckets an interval cuts a range into, aligned as the server cuts them.
+  - `exprParser.parseDt` takes an optional `now`, so both ends of a range can share one clock read.
   - `graphql.replace.intervalVars` fills `$__intervalDuration` / `$__intervalNum` in a query template, so one template serves Grafana and apps.
 
 ## [3.6.0] - 2026-10-14

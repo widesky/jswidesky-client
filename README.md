@@ -406,7 +406,8 @@ target point count (default 400) and takes the first round step that fits from
 ```javascript
 const {chooseInterval, bucketsIn, replace, exprParser} = lib.graphql;
 
-// ISO strings, epoch ms, Dates or now-… expressions
+// ISO strings, epoch ms (number or digit string), Dates or now-… expressions.
+// An ISO string without a Z or an offset is read in the host's local zone.
 const range = {start: 'now-30d', end: 'now'};
 const interval = chooseInterval(range);  // {groupByUnits: 'HOUR', groupBySize: 3}
 console.log(`${bucketsIn(range, interval)} buckets`);  // about 240
@@ -434,8 +435,10 @@ const template = `{
   }
 }`;
 
-const from = exprParser.parseDt(range.start, 'UTC');
-const to = exprParser.parseDt(range.end, 'UTC');
+// Pass one `now` to both ends so they share a single clock read.
+const now = Date.now();
+const from = exprParser.parseDt(range.start, 'UTC', now);
+const to = exprParser.parseDt(range.end, 'UTC', now);
 const query = replace.intervalVars(replace.timeVars(template, from, to), interval);
 const resp = await myClient.graphql(query);
 ```
@@ -446,9 +449,13 @@ Notes:
   sets the finest bucket, for callers that roll buckets up further themselves.
   For a monthly view, ask for `minimum: 'DAY'` and sum the days into months:
   the server's `duration` enum stops at `WEEK`, so this never returns a month.
-- `options.targetPoints` changes the 400-point target.
-- An empty, reversed or unparseable range still returns a bucket (the finest
-  allowed), because the server rejects a `groupBy` without one. Past
+  A `minimum` coarser than 4 weeks throws a `TypeError`.
+- `options.targetPoints` changes the 400-point target. Buckets align to the
+  epoch, so a range that doesn't start on a bucket boundary can come back with
+  one bucket over the target. `bucketsIn` counts them the way the server cuts
+  them.
+- An empty, reversed, unparseable or `null` range still returns a bucket (the
+  finest allowed), because the server rejects a `groupBy` without one. Past
   4 weeks × the target (about 30 years at 400 points), the result stays at
   4 weeks and the response has more points.
 - With `fill: NONE`, a bucket finer than the data costs nothing: empty buckets
