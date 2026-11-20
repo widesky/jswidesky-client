@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-11-20
+
 ### Added
 - [BAU-1758](https://widesky.atlassian.net/browse/BAU-1758): `graphql.chooseInterval` picks a history `groupBy` bucket from a time range, an equivalent of Grafana's `$__interval`.
   - `graphql.bucketsIn` counts the buckets an interval cuts a range into, aligned as the server cuts them.
@@ -552,7 +554,8 @@ duplicated, even in the case where a package's version was unpublished. This is 
 ### ADDED
 - Alpha release
 
-[Unreleased]: https://github.com/widesky/jswidesky-client/compare/3.6.0...HEAD
+[Unreleased]: https://github.com/widesky/jswidesky-client/compare/3.7.0...HEAD
+[3.7.0]: https://github.com/widesky/jswidesky-client/compare/3.6.0...3.7.0
 [3.6.0]: https://github.com/widesky/jswidesky-client/compare/3.5.0...3.6.0
 [3.5.0]: https://github.com/widesky/jswidesky-client/compare/3.4.1...3.5.0
 [3.4.1]: https://github.com/widesky/jswidesky-client/compare/3.4.0...3.4.1
