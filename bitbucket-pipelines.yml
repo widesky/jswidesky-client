@@ -9,6 +9,9 @@ definitions:
           - npm install
           - npm test          # mocha + mocha-jenkins-reporter -> report.xml (JUnit)
           - npm run coverage  # nyc -> coverage/
+          # The release builds the package (webpack bundles + bundled .d.ts) from the tag
+          # before publishing; build here too so a publish-breaking error fails the PR.
+          - npm run build
         after-script:
           # mocha-jenkins-reporter writes report.xml at the repo root; Bitbucket only
           # scans test-results/ (etc.), so surface it there. Runs even on failure.
