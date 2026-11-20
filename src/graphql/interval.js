@@ -285,3 +285,8 @@ module.exports = {
     chooseInterval,
     bucketsIn,
 };
+
+/* Without this, tsc declares this object-literal module with named exports only,
+ * and index.d.ts's `import interval = require(...)` then has no default export to
+ * bind: rollup-plugin-dts fails the type build (as src/utils/haystack.js avoids). */
+module.exports.default = module.exports;
