@@ -21,6 +21,7 @@ documentation for the available functions.
 - [Running tests](#running-tests)
   - [Without coverage](#without-coverage)
   - [With coverage](#with-coverage)
+- [Releasing](#releasing)
 
 <!-- tocstop -->
 
@@ -517,3 +518,22 @@ $ npm run test
 ```shell
 $ npm run coverage
 ```
+
+## Releasing
+
+Releases are cut with the shared `release.sh` from the `widesky-scripts` repository, configured by this repository's
+`.release.json`. From a clean `develop` checkout:
+
+```shell
+$ /path/to/widesky-scripts/scripts/grafana/release.sh --dry-run   # preview every step
+$ /path/to/widesky-scripts/scripts/grafana/release.sh
+```
+
+One run proposes the version from `CHANGELOG.md`, finishes the Git Flow release, and pushes it. It then mirrors
+`develop`, `master` and the new tag to the `github` remote. It builds the package in a clean clone of the tag,
+publishes `dist/` to npmjs.org and GitHub Packages (npm asks for a one-time password for each), and creates the
+GitHub release from the version's CHANGELOG section.
+
+Prerequisites: `git-flow`, a `github` remote (`git remote add github git@github.com:widesky/jswidesky-client.git`),
+`gh auth login`, and publish rights in the `@widesky` npm and GitHub organisations. See the `widesky-scripts`
+README for every option and for how to finish a release that stops partway.

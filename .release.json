@@ -1,0 +1,10 @@
+{
+  "publish": {
+    "enabled": true,
+    "dir": "dist",
+    "access": "public",
+    "registries": ["https://registry.npmjs.org", "https://npm.pkg.github.com"]
+  },
+  "mirror": { "remote": "github", "githubRelease": true },
+  "changelog": { "linkBase": "https://github.com/widesky/jswidesky-client" }
+}
