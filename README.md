@@ -531,9 +531,9 @@ $ /path/to/widesky-scripts/scripts/grafana/release.sh
 
 One run proposes the version from `CHANGELOG.md`, finishes the Git Flow release, and pushes it. It then mirrors
 `develop`, `master` and the new tag to the `github` remote. It builds the package in a clean clone of the tag,
-publishes `dist/` to npmjs.org and GitHub Packages (npm asks for a one-time password for each), and creates the
-GitHub release from the version's CHANGELOG section.
+publishes `dist/` to npmjs.org (npm asks for a one-time password), and creates the GitHub release from the
+version's CHANGELOG section.
 
 Prerequisites: `git-flow`, a `github` remote (`git remote add github git@github.com:widesky/jswidesky-client.git`),
-`gh auth login`, and publish rights in the `@widesky` npm and GitHub organisations. See the `widesky-scripts`
+`gh auth login`, `npm login`, and publish rights in the `@widesky` npm and GitHub organisations. See the `widesky-scripts`
 README for every option and for how to finish a release that stops partway.
