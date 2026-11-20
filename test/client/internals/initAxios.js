@@ -56,8 +56,8 @@ describe("client", () => {
             ws.options = {};
             ws.initAxios();
 
-            console.log(passedAxiosOptions);
-            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            // BAU-1694: the request timeout default reaches axios.
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
 
             expect(passedAxiosOptions.httpAgent instanceof http.Agent).to.be.true;
@@ -82,7 +82,7 @@ describe("client", () => {
                 }
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
             expect(passedAxiosOptions.test).to.equal(123);
 
@@ -105,7 +105,7 @@ describe("client", () => {
                 }
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.baseURL).to.equal(stubs.WS_URI);
             expect(passedAxiosOptions.test).to.equal(123);
 
@@ -125,7 +125,7 @@ describe("client", () => {
                 },
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.adapter).to.be.undefined;
         });
 
@@ -134,7 +134,7 @@ describe("client", () => {
                 http2: {},
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(3);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.adapter).to.be.undefined;
         });
 
@@ -145,8 +145,23 @@ describe("client", () => {
                 },
             };
             ws.initAxios();
-            expect(Object.keys(passedAxiosOptions).length).to.equal(4);
+            expect(passedAxiosOptions.timeout).to.equal(60000);
             expect(passedAxiosOptions.adapter).to.not.equal(null);
+        });
+
+        it("should pass the resolved request timeout to axios, not a raw axios.timeout", () => {
+            ws.options = { requestTimeout: 500, axios: { timeout: 30000 } };
+            ws.initAxios();
+            expect(passedAxiosOptions.timeout).to.equal(500);
+
+            // axios.timeout beats the http2.requestTimeout alias (BAU-1694 review).
+            ws.options = { http2: { requestTimeout: 0 }, axios: { timeout: 30000 } };
+            ws.initAxios();
+            expect(passedAxiosOptions.timeout).to.equal(30000);
+
+            ws.options = { requestTimeout: 0 };
+            ws.initAxios();
+            expect(passedAxiosOptions.timeout).to.equal(0);
         });
     });
 });
