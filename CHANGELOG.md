@@ -4,6 +4,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- [BAU-1694](https://widesky.atlassian.net/browse/BAU-1694): Request timeout settings are checked and combined differently.
+  - An invalid timeout (e.g. `http2.requestTimeout: -1`, which used to disable it) now throws when the client is created.
+  - An invalid per-call `timeout` now fails that call; a `null` one falls back to the client's timeout.
+  - `axios.timeout` now wins over `http2.requestTimeout`, so with HTTP/2 a config setting both uses `axios.timeout`.
+
+### Fixed
+- [BAU-1694](https://widesky.atlassian.net/browse/BAU-1694): Requests now time out over HTTP/1.1 as well as HTTP/2 (new `requestTimeout` option, default 60 seconds).
+  - On Node over HTTP/1.1 it is an idle timeout; over HTTP/2 and in the browser it caps the whole request.
+  - The 60-second default is new on HTTP/1.1: a call waiting over 60 s for its first byte now fails unless `requestTimeout` is raised.
+  - In the browser every request is now capped at 60 seconds in total by default.
+  - HTTP/2 timeouts now carry code `ETIMEDOUT` and are retried with `retries` like HTTP/1.1 ones (a retried create can duplicate).
+  - The OAuth token request is bounded too, so a stalled login or refresh no longer blocks every later request.
+  - `http2.requestTimeout` still works as an alias; `client.requestTimeout` reports the timeout in force (0 when disabled).
+
 ## [3.6.0] - 2026-10-14
 
 ### Added

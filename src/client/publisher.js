@@ -41,13 +41,14 @@ const RECOVER_MAX_BACKOFF_MS = 5 * 60 * 1000;
  * recovery ladder itself issues (watchPub inside _maybeReregister /
  * _recover). A half-open TCP flow (the far end is gone but never sends a
  * RST, common on cellular) otherwise leaves the await hanging forever,
- * wedging the whole recovery loop behind one stuck request. Deliberately NOT
- * the client's global _requestTimeoutMs (client.js, HTTP/2-only, opt-in):
- * that default's blast radius is every request on the client, far broader
- * than this ladder needs. 45 s is generous for a slow-but-alive cellular
- * round trip on a small watchPub payload, yet short enough that a genuinely
- * dead flow does not block a retry-with-backoff loop for an unreasonable
- * stretch.
+ * wedging the whole recovery loop behind one stuck request. Passed per call,
+ * so it overrides the client's global request timeout (client.js
+ * `requestTimeout`, 60 s by default on every transport since BAU-1694; it was
+ * HTTP/2-only before): the ladder wants its own, tighter bound whatever the
+ * client-wide value is, including when that is disabled (0). 45 s is
+ * generous for a slow-but-alive cellular round trip on a small watchPub
+ * payload, yet short enough that a genuinely dead flow does not block a
+ * retry-with-backoff loop for an unreasonable stretch.
  */
 const RECOVERY_REQUEST_TIMEOUT_MS = 45000;
 
